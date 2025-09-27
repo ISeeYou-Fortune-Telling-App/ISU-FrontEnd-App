@@ -1,0 +1,37 @@
+name: CI + SonarCloud
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test-and-sonar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'yarn'
+
+      - name: Install deps
+        run: yarn install --frozen-lockfile
+
+      - name: Lint (fast, gives quick feedback)
+        run: yarn lint || true
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=iseeyou-fortune-telling-appISeeYou-Fortune-Telling-App_ISU-FrontEnd-App
+            -Dsonar.organization=iseeyou-fortune-telling-app
+            -Dsonar.sources=app
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
