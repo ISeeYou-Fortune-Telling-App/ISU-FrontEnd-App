@@ -18,13 +18,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'yarn'
 
       - name: Install deps
-        run: yarn install --frozen-lockfile
+        run: npm install
 
       - name: Lint (fast, gives quick feedback)
-        run: yarn lint || true
+        run: npm run lint || true
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@v2
