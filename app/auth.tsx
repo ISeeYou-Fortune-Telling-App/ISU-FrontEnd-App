@@ -1,11 +1,14 @@
+import { theme } from "@/theme/theme";
 import { useFonts } from "expo-font";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, StyleSheet, View } from "react-native";
-import { Button, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Button, Checkbox, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import Colors from "../constants/colors";
 
 export default function AuthScreen() {
     const [isSignUp, setIsSignUp] = useState<boolean>(false);
+    const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -20,6 +23,38 @@ export default function AuthScreen() {
     const [fontsLoaded] = useFonts({
         "inter": require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
     });
+    const router = useRouter();
+
+    const handleAuth = async () => {
+        if(!isSignUp) {
+            if(!email || !password) {
+                setError("Điền hết các trường.");
+                return
+            }
+            
+            if(password.length < 8) {
+                setError("Mật khẩu phải dài ít nhất 8 ký tự.");
+                return
+            }
+
+            setError(null);
+
+
+        } else {
+            if(!fullName || !email || !password || !confirmPassword || !phone || !DOB || !gender) {
+                setError("Điền hết các trường.");
+                return
+            }
+            
+            if(password.length < 8) {
+                setError("Mật khẩu phải dài ít nhất 8 ký tự.");
+                return
+            }
+
+            setError(null);
+
+        }
+    }
 
     return (
         <KeyboardAvoidingView style={styles.container}>
@@ -36,7 +71,7 @@ export default function AuthScreen() {
             />
 
             {option === "login" ? (
-                <View>
+                <View key={"login"}>
                     <TextInput
                         label="Email"
                         autoCapitalize="none"
@@ -64,12 +99,33 @@ export default function AuthScreen() {
                         onChangeText={setPassword}
                     />
 
-                    <Button mode="contained" style={styles.btnLogin}>
+                    {error && <Text style={{color: theme.colors.error}}>{error}</Text>}
+
+                    <View style={styles.checkBoxAndPassword}>
+                        <View style={styles.checkBox}>
+                            <Checkbox
+                                status={rememberMe ? "checked" : "unchecked"}
+                                onPress={() => setRememberMe((prev) => !prev)}
+                            />
+                            <Text style={styles.text}>Ghi nhớ tôi</Text>
+                        </View>
+
+                        <TouchableOpacity onPress={() => router.replace("/password-recovery")}>
+                            <Text style={styles.link}>Quên mật khẩu?</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Button mode="contained" style={styles.btnLogin} onPress={() => {
+                        if(isSignUp) {
+                            setIsSignUp((prev) => !prev)
+                        }
+                        handleAuth();
+                    }}>
                         Đăng nhập
                     </Button>
                 </View>
             ) : (
-                <View>
+                <View key={"register"}>
                     <TextInput
                         label="Họ và tên"
                         placeholder="Nhập họ và tên"
@@ -149,7 +205,16 @@ export default function AuthScreen() {
                         onChangeText={setConfirmPassword}
                     />
 
-                    <Button mode="contained" style={styles.btnLogin}>
+                    {error && <Text style={{color: theme.colors.error}}>{error}</Text>}
+
+                    <Text style={styles.text}>Bằng cách đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.</Text>
+
+                    <Button mode="contained" style={styles.btnLogin} onPress={() => {
+                        if(!isSignUp) {
+                            setIsSignUp((prev) => !prev)
+                        }
+                        handleAuth();
+                    }}>
                         Đăng ký
                     </Button>
                 </View>
@@ -176,11 +241,30 @@ const styles = StyleSheet.create({
         marginBottom: 20
     },
     TextInput: {
-        marginTop: 5,
+        margin: 5,
     },
     btnLogin: {
         marginTop: 20,
         backgroundColor: Colors.primary,
         borderRadius: 10
+    },
+    checkBoxAndPassword: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 12
+    },
+    checkBox: { 
+        flexDirection: "row", 
+        alignItems: "center" 
+    },
+    text: { 
+        fontSize: 16, 
+        fontFamily: "inter"
+    },
+    link: { 
+        fontSize: 16, 
+        fontFamily: "inter",
+        color: Colors.primary
     }
 })
