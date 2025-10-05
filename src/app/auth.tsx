@@ -1,13 +1,11 @@
-import { theme } from "@/theme/theme";
-import { useFonts } from "expo-font";
+import { theme } from "@/src/constants/theme";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Checkbox, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import Colors from "../constants/colors";
-import { loginUser, registerUser } from '../lib/api';
-import "./global.css";
+import { loginUser, registerUser } from '../services/api';
 
 const isValidMonthDay = (month: number, day: number): boolean => {
     if (month < 1 || month > 12 || day < 1) {
@@ -121,9 +119,6 @@ export default function AuthScreen() {
     const [option, setOption] = useState("login");
     const [secure, setSecure] = useState(true);
     const [secure2, setSecure2] = useState(true);
-    const [fontsLoaded] = useFonts({
-        "inter": require("../assets/fonts/Inter-VariableFont.ttf")
-    });
     const router = useRouter();
 
     const handleDOBChange = (value: string) => {
@@ -194,7 +189,7 @@ export default function AuthScreen() {
 
 
     return (
-        <KeyboardAvoidingView className="justify-center flex-1 mx-4">
+        <KeyboardAvoidingView style={styles.keyboardAvoidingView}>
             <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
             <Text style={styles.header2} variant="titleSmall">Kết nối với các thầy bói uy tín nhất</Text>
 
@@ -238,8 +233,8 @@ export default function AuthScreen() {
 
                     {error && <Text style={{ color: theme.colors.error }}>{error}</Text>}
 
-                    <View className="flex-row justify-between items-center mt-2">
-                        <View className="flex-row items-center">
+                    <View style={styles.flexRowJustifyBetweenItemsCenterMt2}>
+                        <View style={styles.flexRowItemsCenter}>
                             <Checkbox
                                 status={rememberMe ? "checked" : "unchecked"}
                                 onPress={() => setRememberMe((prev) => !prev)}
@@ -371,6 +366,7 @@ export default function AuthScreen() {
     );
 }
 
+
 const styles = StyleSheet.create({
     header: {
         textAlign: "center",
@@ -402,7 +398,22 @@ const styles = StyleSheet.create({
     },
     btnFortuneTeller: {
         marginTop: 10,
-        backgroundColor: "#7C3AED", // Purple color for the fortune teller button
+        backgroundColor: Colors.purple,
         borderRadius: 10
+    },
+    keyboardAvoidingView: {
+        justifyContent: "center", // justify-center
+        flex: 1,                  // flex-1
+        marginHorizontal: 16      // mx-4
+    },
+    flexRowJustifyBetweenItemsCenterMt2: {
+        flexDirection: "row",     // flex-row
+        justifyContent: "space-between", // justify-between
+        alignItems: "center",     // items-center
+        marginTop: 8              // mt-2
+    },
+    flexRowItemsCenter: {
+        flexDirection: "row",     // flex-row
+        alignItems: "center"      // items-center
     }
 })

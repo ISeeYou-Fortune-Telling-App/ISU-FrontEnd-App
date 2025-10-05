@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { theme } from '../theme/theme';
+import { theme } from '../constants/theme';
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();

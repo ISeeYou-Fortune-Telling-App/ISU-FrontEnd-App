@@ -6,7 +6,8 @@ const Colors = {
   error: "#B00020",
   white: "#ffffff",
   gray: "#777777",
-  black: "#000000"
+  black: "#000000",
+  purple: "#7C3AED"
 };
 
 export default Colors;

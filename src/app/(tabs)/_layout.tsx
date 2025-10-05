@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import Colors from "@/src/constants/colors";
 import { Tabs } from "expo-router";
 import { BookOpen, Calendar, House, MessageCircle, UserRound } from 'lucide-react-native';
 
