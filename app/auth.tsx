@@ -5,9 +5,9 @@ import { useState } from "react";
 import { KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Checkbox, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import Colors from "../constants/colors";
+import "./global.css";
 
 export default function AuthScreen() {
-    const [isSignUp, setIsSignUp] = useState<boolean>(false);
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
@@ -21,43 +21,66 @@ export default function AuthScreen() {
     const [secure, setSecure] = useState(true);
     const [secure2, setSecure2] = useState(true);
     const [fontsLoaded] = useFonts({
-        "inter": require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
+        "inter": require("../assets/fonts/Inter-VariableFont.ttf")
     });
     const router = useRouter();
 
-    const handleAuth = async () => {
-        if(!isSignUp) {
-            if(!email || !password) {
-                setError("Điền hết các trường.");
-                return
-            }
-            
-            if(password.length < 8) {
-                setError("Mật khẩu phải dài ít nhất 8 ký tự.");
-                return
-            }
-
-            setError(null);
-
-
-        } else {
-            if(!fullName || !email || !password || !confirmPassword || !phone || !DOB || !gender) {
-                setError("Điền hết các trường.");
-                return
-            }
-            
-            if(password.length < 8) {
-                setError("Mật khẩu phải dài ít nhất 8 ký tự.");
-                return
-            }
-
-            setError(null);
-
+    const handleLogin = async () => {
+        if (!email || !password) {
+            setError("Điền hết các trường.");
+            return;
         }
+        if (password.length < 8) {
+            setError("Mật khẩu phải dài ít nhất 8 ký tự.");
+            return;
+        }
+        setError(null);
+
+        router.replace("/(tabs)/home");
+        // try {
+        //     const res = await loginUser({ email, password });
+        //     if(res.status === 200) {
+        //         const { token, refreshToken, userId, role } = res.data;
+        //         await SecureStore.setItemAsync("authToken", token);
+        //         await SecureStore.setItemAsync("refreshToken", refreshToken);
+        //         router.replace("/(tabs)/home");
+        //     }
+        //     setError("Lỗi khi đăng nhập: " + res.status.toString());
+        // } catch (error) {
+        //     console.error(error);
+        // }
+    }
+
+    const handleRegister = async () => {
+        if (!fullName || !email || !password || !confirmPassword || !phone || !DOB || !gender) {
+            setError("Điền hết các trường.");
+            return;
+        }
+        if (password.length < 8) {
+            setError("Mật khẩu phải dài ít nhất 8 ký tự.");
+            return;
+        }
+        if(password != confirmPassword) {
+            setError("Mật khẩu phải trùng vói nhau.");
+            return;
+        }
+        
+        setError(null);
+
+        // try {
+        //     const res = await registerUser({ fullName, email, phone, DOB, gender, password, confirmPassword });
+        //     if(res.status === 200) {
+        //         const {statusCode, message} = res.data;
+        //         Alert.alert("Register", `${res.data.statusCode} - ${res.data.message}`);
+        //     }
+        //     setError("Lỗi khi đăng ký: " + res.status.toString());
+        // } catch (error) {
+        //     console.error(error);
+        // }
     }
 
     return (
-        <KeyboardAvoidingView style={styles.container}>
+        <KeyboardAvoidingView className="justify-center flex-1 mx-4">
             <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
             <Text style={styles.header2} variant="titleSmall">Kết nối với các thầy bói uy tín nhất</Text>
 
@@ -99,10 +122,10 @@ export default function AuthScreen() {
                         onChangeText={setPassword}
                     />
 
-                    {error && <Text style={{color: theme.colors.error}}>{error}</Text>}
+                    {error && <Text style={{ color: theme.colors.error }}>{error}</Text>}
 
-                    <View style={styles.checkBoxAndPassword}>
-                        <View style={styles.checkBox}>
+                    <View className="flex-row justify-between items-center mt-2">
+                        <View className="flex-row items-center">
                             <Checkbox
                                 status={rememberMe ? "checked" : "unchecked"}
                                 onPress={() => setRememberMe((prev) => !prev)}
@@ -116,10 +139,7 @@ export default function AuthScreen() {
                     </View>
 
                     <Button mode="contained" style={styles.btnLogin} onPress={() => {
-                        if(isSignUp) {
-                            setIsSignUp((prev) => !prev)
-                        }
-                        handleAuth();
+                        handleLogin();
                     }}>
                         Đăng nhập
                     </Button>
@@ -205,15 +225,12 @@ export default function AuthScreen() {
                         onChangeText={setConfirmPassword}
                     />
 
-                    {error && <Text style={{color: theme.colors.error}}>{error}</Text>}
+                    {error && <Text style={{ color: theme.colors.error }}>{error}</Text>}
 
                     <Text style={styles.text}>Bằng cách đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.</Text>
 
                     <Button mode="contained" style={styles.btnLogin} onPress={() => {
-                        if(!isSignUp) {
-                            setIsSignUp((prev) => !prev)
-                        }
-                        handleAuth();
+                        handleRegister();
                     }}>
                         Đăng ký
                     </Button>
@@ -224,11 +241,6 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        justifyContent: "center",
-        flex: 1,
-        marginHorizontal: 10
-    },
     header: {
         textAlign: "center",
         fontFamily: "inter"
@@ -248,22 +260,12 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         borderRadius: 10
     },
-    checkBoxAndPassword: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginTop: 12
-    },
-    checkBox: { 
-        flexDirection: "row", 
-        alignItems: "center" 
-    },
-    text: { 
-        fontSize: 16, 
+    text: {
+        fontSize: 16,
         fontFamily: "inter"
     },
-    link: { 
-        fontSize: 16, 
+    link: {
+        fontSize: 16,
         fontFamily: "inter",
         color: Colors.primary
     }
