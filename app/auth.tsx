@@ -6,6 +6,103 @@ import { KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-
 import { Button, Checkbox, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import Colors from "../constants/colors";
 
+const isValidMonthDay = (month: number, day: number): boolean => {
+    if (month < 1 || month > 12 || day < 1) {
+        return false;
+    }
+    const daysInMonth = new Date(2000, month, 0).getDate();
+    return day <= daysInMonth;
+};
+
+const parseMonthDay = (value: string): { month: number; day: number } | null => {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+        return null;
+    }
+
+    const parts = trimmedValue.split(/[\/\-.]/).filter(Boolean);
+    if (parts.length === 3) {
+        const numeric = parts.map((part) => Number.parseInt(part, 10));
+        if (numeric.some((num) => Number.isNaN(num))) {
+            return null;
+        }
+
+        let month = numeric[0];
+        let day = numeric[1];
+
+        if (parts[0].length === 4) {
+            month = numeric[1];
+            day = numeric[2];
+        } else if (parts[2].length === 4) {
+            day = numeric[0];
+            month = numeric[1];
+        } else if (numeric[0] > 12 && numeric[1] <= 12) {
+            day = numeric[0];
+            month = numeric[1];
+        }
+
+        if (!isValidMonthDay(month, day)) {
+            return null;
+        }
+
+        return { month, day };
+    }
+
+    const parsedDate = new Date(trimmedValue);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return null;
+    }
+
+    return {
+        month: parsedDate.getMonth() + 1,
+        day: parsedDate.getDate(),
+    };
+};
+
+const calculateZodiacSign = (value: string): string => {
+    const result = parseMonthDay(value);
+    if (!result) {
+        return "";
+    }
+
+    const { month, day } = result;
+
+    if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) {
+        return "Aquarius";
+    }
+    if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) {
+        return "Pisces";
+    }
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
+        return "Aries";
+    }
+    if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) {
+        return "Taurus";
+    }
+    if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) {
+        return "Gemini";
+    }
+    if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) {
+        return "Cancer";
+    }
+    if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) {
+        return "Leo";
+    }
+    if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) {
+        return "Virgo";
+    }
+    if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) {
+        return "Libra";
+    }
+    if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) {
+        return "Scorpio";
+    }
+    if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) {
+        return "Sagittarius";
+    }
+    return "Capricorn";
+};
+
 export default function AuthScreen() {
     const [isSignUp, setIsSignUp] = useState<boolean>(false);
     const [rememberMe, setRememberMe] = useState<boolean>(false);
@@ -15,6 +112,7 @@ export default function AuthScreen() {
     const [fullName, setFullName] = useState<string>("");
     const [phone, setPhone] = useState<string>("");
     const [DOB, setDOB] = useState<string>("");
+    const [zodiac, setZodiac] = useState<string>("");
     const [gender, setGender] = useState<string>("");
     const [error, setError] = useState<string | null>("");
     const [option, setOption] = useState("login");
@@ -24,6 +122,11 @@ export default function AuthScreen() {
         "inter": require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
     });
     const router = useRouter();
+
+    const handleDOBChange = (value: string) => {
+        setDOB(value);
+        setZodiac(calculateZodiacSign(value));
+    };
 
     const handleAuth = async () => {
         if(!isSignUp) {
@@ -51,10 +154,18 @@ export default function AuthScreen() {
                 return
             }
 
+            const computedZodiac = calculateZodiacSign(DOB);
+            if(!computedZodiac) {
+                setError("Ngày sinh không hợp lệ.");
+                return
+            }
+
+            setZodiac(computedZodiac);
             setError(null);
 
         }
     }
+
 
     return (
         <KeyboardAvoidingView style={styles.container}>
@@ -162,7 +273,17 @@ export default function AuthScreen() {
                         mode="outlined"
                         style={styles.TextInput}
                         left={<TextInput.Icon icon="calendar" />}
-                        onChangeText={setDOB}
+                        onChangeText={handleDOBChange}
+                    />
+
+                    <TextInput
+                        label="Cung hoàng đạo"
+                        mode="outlined"
+                        style={styles.TextInput}
+                        value={zodiac}
+                        placeholder="Tự động tính toán"
+                        left={<TextInput.Icon icon="star-four-points-outline" />}
+                        editable={false}
                     />
 
                     <TextInput
