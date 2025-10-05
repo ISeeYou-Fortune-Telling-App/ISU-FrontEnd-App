@@ -217,6 +217,13 @@ export default function AuthScreen() {
                     }}>
                         Đăng ký
                     </Button>
+                    <Button 
+                        mode="contained" 
+                        style={styles.btnFortuneTeller} 
+                        onPress={() => router.push("/seer-registration")}
+                    >
+                        Đăng ký Nhà tiên tri
+                    </Button>
                 </View>
             )}
         </KeyboardAvoidingView>
@@ -266,5 +273,10 @@ const styles = StyleSheet.create({
         fontSize: 16, 
         fontFamily: "inter",
         color: Colors.primary
+    },
+    btnFortuneTeller: {
+        marginTop: 10,
+        backgroundColor: "#7C3AED", // Purple color for the fortune teller button
+        borderRadius: 10
     }
 })
