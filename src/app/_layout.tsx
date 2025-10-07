@@ -1,9 +1,12 @@
-import { Stack, useRouter } from "expo-router";
+import { useFonts } from "expo-font";
+import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from '../constants/theme';
+
+SplashScreen.preventAutoHideAsync();
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -29,6 +32,21 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+     inter: require("@/assets/fonts/Inter-VariableFont.ttf"),
+     segoeui:require("@/assets/fonts/SVN-SegoeUI.ttf")
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null; // block UI until fonts are ready
+  }
+
   return (
     <PaperProvider theme={theme}>
       <SafeAreaProvider>
@@ -41,9 +59,11 @@ export default function RootLayout() {
             <Stack.Screen name="seer-registration-step2" options={{headerShown: false}}/>
             <Stack.Screen name="seer-registration-step3" options={{headerShown: false}}/>
             <Stack.Screen name="add-certificate" options={{headerShown: false}}/>
+            <Stack.Screen name="notification" options={{headerShown: false}}/>
           </Stack>
         </RouteGuard>
       </SafeAreaProvider>
     </PaperProvider>
   );
 }
+
