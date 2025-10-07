@@ -60,6 +60,7 @@ export default function RootLayout() {
             <Stack.Screen name="seer-registration-step3" options={{headerShown: false}}/>
             <Stack.Screen name="add-certificate" options={{headerShown: false}}/>
             <Stack.Screen name="notification" options={{headerShown: false}}/>
+            <Stack.Screen name="chat-detail" options={{headerShown: false}}/>
           </Stack>
         </RouteGuard>
       </SafeAreaProvider>
