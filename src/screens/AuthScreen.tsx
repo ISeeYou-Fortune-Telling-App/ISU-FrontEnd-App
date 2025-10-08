@@ -3,9 +3,8 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Button, Checkbox, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, Checkbox, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import Colors from "../constants/colors";
-import { loginUser, registerUser } from '../services/api';
 
 const isValidMonthDay = (month: number, day: number): boolean => {
     if (month < 1 || month > 12 || day < 1) {
@@ -69,40 +68,42 @@ const calculateZodiacSign = (value: string): string => {
     const { month, day } = result;
 
     if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) {
-        return "Aquarius";
+        return "Bảo Bình";
     }
     if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) {
-        return "Pisces";
+        return "Song Ngư";
     }
     if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
-        return "Aries";
+        return "Bạch Dương";
     }
     if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) {
-        return "Taurus";
+        return "Kim Ngưu";
     }
     if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) {
-        return "Gemini";
+        return "Song Tử";
     }
     if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) {
-        return "Cancer";
+        return "Cự Giải";
     }
     if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) {
-        return "Leo";
+        return "Sư Tử";
     }
     if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) {
-        return "Virgo";
+        return "Xử Nữ";
     }
     if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) {
-        return "Libra";
+        return "Thiên Bình";
     }
     if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) {
-        return "Scorpio";
+        return "Bọ Cạp";
     }
     if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) {
-        return "Sagittarius";
+        return "Nhân Mã";
     }
-    return "Capricorn";
+    return "Ma Kết";
 };
+
+type AuthOption = "login" | "signup";
 
 export default function AuthScreen() {
     const [rememberMe, setRememberMe] = useState<boolean>(false);
@@ -114,8 +115,8 @@ export default function AuthScreen() {
     const [DOB, setDOB] = useState<string>("");
     const [zodiac, setZodiac] = useState<string>("");
     const [gender, setGender] = useState<string>("");
-    const [error, setError] = useState<string | null>("");
-    const [option, setOption] = useState("login");
+    const [error, setError] = useState<string | null>(null);
+    const [option, setOption] = useState<AuthOption>("login");
     const [secure, setSecure] = useState(true);
     const [secure2, setSecure2] = useState(true);
     const router = useRouter();
@@ -127,73 +128,63 @@ export default function AuthScreen() {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            setError("Điền hết các trường.");
+            setError("Vui lòng điền đầy đủ thông tin đăng nhập.");
             return;
         }
-        if (password.length < 8) {
-            setError("Mật khẩu phải dài ít nhất 8 ký tự.");
-            return;
-        }
+
         setError(null);
 
-        router.replace("/(tabs)/home");
         try {
-            const res = await loginUser({ email, password });
-            if(res.status === 200) {
-                const { token, refreshToken, userId, role } = res.data;
-                await SecureStore.setItemAsync("authToken", token);
-                await SecureStore.setItemAsync("refreshToken", refreshToken);
-                router.replace("/(tabs)/home");
-            }
-            setError("Lỗi khi đăng nhập: " + res.status.toString());
-        } catch (error) {
-            console.error(error);
+            await SecureStore.setItemAsync("authToken", "demo-token");
+            await SecureStore.setItemAsync("refreshToken", "demo-refresh-token");
+            await SecureStore.setItemAsync("userRole", "CUSTOMER");
+            await SecureStore.setItemAsync("userId", "demo-user");
+        } catch (err) {
+            console.error("Không thể lưu thông tin phiên đăng nhập mẫu", err);
         }
-    }
+
+        router.replace("/(tabs)/home");
+    };
 
     const handleRegister = async () => {
         if (!fullName || !email || !password || !confirmPassword || !phone || !DOB || !gender) {
-            setError("Điền hết các trường.");
+            setError("Vui lòng điền đầy đủ thông tin đăng ký.");
             return;
         }
         if (password.length < 8) {
-            setError("Mật khẩu phải dài ít nhất 8 ký tự.");
+            setError("Mật khẩu phải có ít nhất 8 ký tự.");
             return;
         }
-        if(password != confirmPassword) {
-            setError("Mật khẩu phải trùng vói nhau.");
+        if (password !== confirmPassword) {
+            setError("Mật khẩu xác nhận không trùng khớp.");
             return;
         }
-        
-            const computedZodiac = calculateZodiacSign(DOB);
-            if(!computedZodiac) {
-                setError("Ngày sinh không hợp lệ.");
-                return
-            }
 
-          try {
-            const res = await registerUser({ fullName, email, phone, DOB, gender, password, confirmPassword });
-            if(res.status === 200) {
-                const {statusCode, message} = res.data;
-                Alert.alert("Register", `${res.data.statusCode} - ${res.data.message}`);
-            }
-            setError("Lỗi khi đăng ký: " + res.status.toString());
-        } catch (error) {
-            console.error(error);
-        }  
+        const computedZodiac = calculateZodiacSign(DOB);
+        if (!computedZodiac) {
+            setError("Ngày sinh không hợp lệ.");
+            return;
+        }
 
-            setZodiac(computedZodiac);
+        setZodiac(computedZodiac);
         setError(null);
-    }
 
+        Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ.", [
+            {
+                text: "Đăng nhập",
+                onPress: () => setOption("login"),
+            },
+        ]);
+    };
 
     return (
         <KeyboardAvoidingView style={styles.keyboardAvoidingView}>
             <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
-            <Text style={styles.header2} variant="titleSmall">Kết nối với các thầy bói uy tín nhất</Text>
+            <Text style={styles.header2} variant="titleSmall">Kết nối với các Nhà tiên tri uy tín nhất</Text>
 
-            <SegmentedButtons value={option}
-                onValueChange={setOption}
+            <SegmentedButtons
+                value={option}
+                onValueChange={(value) => setOption(value as AuthOption)}
                 buttons={[
                     { value: "login", label: "Đăng nhập" },
                     { value: "signup", label: "Đăng ký" },
@@ -202,16 +193,17 @@ export default function AuthScreen() {
             />
 
             {option === "login" ? (
-                <View key={"login"}>
+                <View key="login">
                     <TextInput
                         label="Email"
                         autoCapitalize="none"
                         keyboardType="email-address"
                         placeholder="Nhập email của bạn"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="email" />}
                         onChangeText={setEmail}
+                        value={email}
                     />
 
                     <TextInput
@@ -219,18 +211,20 @@ export default function AuthScreen() {
                         autoCapitalize="none"
                         placeholder="Nhập mật khẩu của bạn"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         secureTextEntry={secure}
                         left={<TextInput.Icon icon="lock" />}
                         right={
                             <TextInput.Icon
                                 icon={secure ? "eye-off" : "eye"}
-                                onPress={() => setSecure(!secure)}
-                            />}
+                                onPress={() => setSecure((prev) => !prev)}
+                            />
+                        }
                         onChangeText={setPassword}
+                        value={password}
                     />
 
-                    {error && <Text style={{ color: theme.colors.error }}>{error}</Text>}
+                    {error && <Text style={styles.errorText}>{error}</Text>}
 
                     <View style={styles.flexRowJustifyBetweenItemsCenterMt2}>
                         <View style={styles.flexRowItemsCenter}>
@@ -238,29 +232,28 @@ export default function AuthScreen() {
                                 status={rememberMe ? "checked" : "unchecked"}
                                 onPress={() => setRememberMe((prev) => !prev)}
                             />
-                            <Text style={styles.text}>Ghi nhớ tôi</Text>
+                            <Text style={styles.text}>Ghi nhớ tài khoản</Text>
                         </View>
 
-                        <TouchableOpacity onPress={() => router.replace("/password-recovery")}>
+                        <TouchableOpacity onPress={() => router.push("/password-recovery")}>
                             <Text style={styles.link}>Quên mật khẩu?</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <Button mode="contained" style={styles.btnLogin} onPress={() => {
-                        handleLogin();
-                    }}>
+                    <Button mode="contained" style={styles.btnLogin} onPress={handleLogin}>
                         Đăng nhập
                     </Button>
                 </View>
             ) : (
-                <View key={"register"}>
+                <View key="register">
                     <TextInput
                         label="Họ và tên"
                         placeholder="Nhập họ và tên"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="account" />}
                         onChangeText={setFullName}
+                        value={fullName}
                     />
 
                     <TextInput
@@ -269,34 +262,37 @@ export default function AuthScreen() {
                         keyboardType="email-address"
                         placeholder="Nhập email của bạn"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="email" />}
                         onChangeText={setEmail}
+                        value={email}
                     />
 
                     <TextInput
                         label="Số điện thoại"
-                        keyboardType="numeric"
+                        keyboardType="phone-pad"
                         placeholder="Nhập số điện thoại"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="phone" />}
                         onChangeText={setPhone}
+                        value={phone}
                     />
 
                     <TextInput
                         label="Ngày sinh"
-                        placeholder="Nhập ngày sinh của bạn"
+                        placeholder="dd/mm/yyyy"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="calendar" />}
                         onChangeText={handleDOBChange}
+                        value={DOB}
                     />
 
                     <TextInput
                         label="Cung hoàng đạo"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         value={zodiac}
                         placeholder="Tự động tính toán"
                         left={<TextInput.Icon icon="star-four-points-outline" />}
@@ -306,9 +302,10 @@ export default function AuthScreen() {
                     <TextInput
                         label="Giới tính"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         left={<TextInput.Icon icon="gender-male-female" />}
                         onChangeText={setGender}
+                        value={gender}
                     />
 
                     <TextInput
@@ -316,15 +313,17 @@ export default function AuthScreen() {
                         autoCapitalize="none"
                         placeholder="Nhập mật khẩu"
                         mode="outlined"
-                        style={styles.TextInput}
+                        style={styles.textInput}
                         secureTextEntry={secure}
                         left={<TextInput.Icon icon="lock" />}
                         right={
                             <TextInput.Icon
                                 icon={secure ? "eye-off" : "eye"}
-                                onPress={() => setSecure(!secure)}
-                            />}
+                                onPress={() => setSecure((prev) => !prev)}
+                            />
+                        }
                         onChangeText={setPassword}
+                        value={password}
                     />
 
                     <TextInput
@@ -332,29 +331,31 @@ export default function AuthScreen() {
                         autoCapitalize="none"
                         placeholder="Nhập lại mật khẩu"
                         mode="outlined"
-                        style={styles.TextInput}
-                        secureTextEntry={secure}
+                        style={styles.textInput}
+                        secureTextEntry={secure2}
                         left={<TextInput.Icon icon="lock" />}
                         right={
                             <TextInput.Icon
-                                icon={secure ? "eye-off" : "eye"}
-                                onPress={() => setSecure2(!secure2)}
-                            />}
+                                icon={secure2 ? "eye-off" : "eye"}
+                                onPress={() => setSecure2((prev) => !prev)}
+                            />
+                        }
                         onChangeText={setConfirmPassword}
+                        value={confirmPassword}
                     />
 
-                    {error && <Text style={{ color: theme.colors.error }}>{error}</Text>}
+                    {error && <Text style={styles.errorText}>{error}</Text>}
 
-                    <Text style={styles.text}>Bằng cách đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.</Text>
+                    <Text style={styles.text}>
+                        Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
+                    </Text>
 
-                    <Button mode="contained" style={styles.btnLogin} onPress={() => {
-                        handleRegister();
-                    }}>
+                    <Button mode="contained" style={styles.btnLogin} onPress={handleRegister}>
                         Đăng ký
                     </Button>
-                    <Button 
-                        mode="contained" 
-                        style={styles.btnFortuneTeller} 
+                    <Button
+                        mode="contained"
+                        style={styles.btnFortuneTeller}
                         onPress={() => router.push("/seer-registration")}
                     >
                         Đăng ký Nhà tiên tri
@@ -368,50 +369,56 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
     header: {
         textAlign: "center",
-        fontFamily: "inter"
+        fontFamily: "inter",
     },
     header2: {
         textAlign: "center",
-        fontWeight: "light",
+        fontWeight: "300",
         fontFamily: "inter",
         color: Colors.gray,
-        marginBottom: 20
+        marginBottom: 20,
     },
-    TextInput: {
+    textInput: {
         margin: 5,
     },
     btnLogin: {
         marginTop: 20,
         backgroundColor: Colors.primary,
-        borderRadius: 10
+        borderRadius: 10,
+    },
+    errorText: {
+        marginTop: 8,
+        marginBottom: 8,
+        color: theme.colors.error,
     },
     text: {
         fontSize: 16,
-        fontFamily: "inter"
+        fontFamily: "inter",
+        marginTop: 8,
     },
     link: {
         fontSize: 16,
         fontFamily: "inter",
-        color: Colors.primary
+        color: Colors.primary,
     },
     btnFortuneTeller: {
         marginTop: 10,
         backgroundColor: Colors.purple,
-        borderRadius: 10
+        borderRadius: 10,
     },
     keyboardAvoidingView: {
-        justifyContent: "center", // justify-center
-        flex: 1,                  // flex-1
-        marginHorizontal: 16      // mx-4
+        justifyContent: "center",
+        flex: 1,
+        marginHorizontal: 16,
     },
     flexRowJustifyBetweenItemsCenterMt2: {
-        flexDirection: "row",     // flex-row
-        justifyContent: "space-between", // justify-between
-        alignItems: "center",     // items-center
-        marginTop: 8              // mt-2
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 12,
     },
     flexRowItemsCenter: {
-        flexDirection: "row",     // flex-row
-        alignItems: "center"      // items-center
-    }
-})
+        flexDirection: "row",
+        alignItems: "center",
+    },
+});
