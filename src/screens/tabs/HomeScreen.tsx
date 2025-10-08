@@ -1,13 +1,13 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { CircleDollarSign, Clock, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { FlatList, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const popularServices = [
   { name: 'Cung Hoàng Đạo', Icon: Star, color: '#8A2BE2', bgColor: '#E6E6FA' },
   { name: 'Nhân Tướng Học', Icon: Eye, color: '#4169E1', bgColor: '#E0EFFF' },
-  { name: 'Ngũ Hành', Icon: CircleDollarSign, color: '#32CD32', bgColor: '#DFFFE0' },
+  { name: 'Ngũ Hành', Icon: Coins, color: '#32CD32', bgColor: '#DFFFE0' },
   { name: 'Chỉ Tay', Icon: Hand, color: '#FF69B4', bgColor: '#FFEFF5' },
   { name: 'Tarot', Icon: Sparkles, color: '#FFD700', bgColor: '#FFF8DC' },
   { name: 'Khác', Icon: MoreHorizontal, color: '#808080', bgColor: '#F0F0F0' },

@@ -16,21 +16,21 @@ export default function NotificationScreen() {
         </View>
         <View style={{ width: 28 }} />
       </View>
-        <ScrollView 
-          style={styles.content} 
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
 
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
-            <SampleNotif/>
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
+        <SampleNotif />
 
       </ScrollView>
     </SafeAreaView>
@@ -108,25 +108,24 @@ const styles = StyleSheet.create({
 });
 
 function SampleNotif() {
-    return(
-        <View style={{ flex: 1, flexDirection: "row", alignItems:"center", backgroundColor: Colors.background, padding: 10, marginBottom: 10, borderRadius: 10}}>
-            <Laugh size={50} color={Colors.black} />
-            <View style={{ width: 10 }} />
-            <View style={{width: "90%"}}>
-                <Text style={{fontWeight: "bold"}}>Đăng ký gói thành công</Text>
-                <Text style={{flexShrink: 1}}>Bạn đã đăng ký gói “Xem bói tổng quát cuộc đời 2024” của thầy bói Thầy Ông Nội.</Text>
-                <View style={{flexDirection: "row"}}>
-                    <View style={{flexDirection: "row"}}>
-                        <Calendar size={18} color={Colors.black}/>
-                        <Text> 15/04/2025</Text>
-                    </View>
-                    <View style={{ width: 28 }} />
-                    <View style={{flexDirection: "row"}}>
-                        <Clock size={18} color={Colors.black}/>
-                        <Text> 15:30</Text>
-                    </View>
-                </View>
-            </View>
+  return (
+    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: Colors.background, padding: 10, marginBottom: 10, borderRadius: 10 }}>
+      <Laugh size={50} color={Colors.black} />
+      <View style={{ width: "80%", marginLeft: 10 }}>
+        <Text style={{ fontWeight: "bold" }}>Đăng ký gói thành công</Text>
+        <Text style={{ fontFamily: "inter", fontSize: 13 }}>Bạn đã đăng ký gói “Xem bói tổng quát cuộc đời 2024” của thầy bói Thầy Ông Nội.</Text>
+        <View style={{ flexDirection: "row" }}>
+          <View style={{ flexDirection: "row" }}>
+            <Calendar size={18} color={Colors.black} />
+            <Text> 15/04/2025</Text>
+          </View>
+          <View style={{ width: 28 }} />
+          <View style={{ flexDirection: "row" }}>
+            <Clock size={18} color={Colors.black} />
+            <Text> 15:30</Text>
+          </View>
         </View>
-    );
+      </View>
+    </View>
+  );
 }

@@ -8,7 +8,8 @@ const Colors = {
   white: "#ffffff",
   gray: "#777777",
   black: "#000000",
-  purple: "#7C3AED"
+  purple: "#7C3AED",
+  borderGray: "#d1d5db"
 };
 
 export default Colors;
