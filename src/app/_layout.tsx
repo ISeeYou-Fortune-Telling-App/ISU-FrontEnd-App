@@ -1,35 +1,11 @@
 import { useFonts } from "expo-font";
-import { SplashScreen, Stack, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from '../constants/theme';
 
 SplashScreen.preventAutoHideAsync();
-
-function RouteGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = await SecureStore.getItemAsync("authToken");
-      if (token) {
-        setTimeout(() => {
-          router.replace("/(tabs)/home");
-        }, 0);
-      } 
-      else {
-        setTimeout(() => {
-          router.replace("/auth");
-        }, 0);
-      }
-    }
-
-    checkAuth();
-  }, []);
-  return <>{children}</>
-}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -50,20 +26,19 @@ export default function RootLayout() {
   return (
     <PaperProvider theme={theme}>
       <SafeAreaProvider>
-        <RouteGuard>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-            <Stack.Screen name="auth" options={{headerShown: false}}/>
-            <Stack.Screen name="password-recovery" options={{headerShown: false}}/>
-            <Stack.Screen name="seer-registration" options={{headerShown: false}}/>
-            <Stack.Screen name="seer-registration-step2" options={{headerShown: false}}/>
-            <Stack.Screen name="seer-registration-step3" options={{headerShown: false}}/>
-            <Stack.Screen name="add-certificate" options={{headerShown: false}}/>
-            <Stack.Screen name="notification" options={{headerShown: false}}/>
-            <Stack.Screen name="chat-detail" options={{headerShown: false}}/>
-            <Stack.Screen name="profile-setting" options={{headerShown: false}}/>
-          </Stack>
-        </RouteGuard>
+        <Stack initialRouteName="auth">
+          <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+          <Stack.Screen name="auth" options={{headerShown: false}}/>
+          <Stack.Screen name="password-recovery" options={{headerShown: false}}/>
+          <Stack.Screen name="seer-registration" options={{headerShown: false}}/>
+          <Stack.Screen name="seer-registration-step2" options={{headerShown: false}}/>
+          <Stack.Screen name="seer-registration-step3" options={{headerShown: false}}/>
+          <Stack.Screen name="add-certificate" options={{headerShown: false}}/>
+          <Stack.Screen name="notification" options={{headerShown: false}}/>
+          <Stack.Screen name="chat-detail" options={{headerShown: false}}/>
+          <Stack.Screen name="delete-account" options={{headerShown: false}}/>
+          <Stack.Screen name="profile-setting" options={{headerShown: false}}/>
+        </Stack>
       </SafeAreaProvider>
     </PaperProvider>
   );

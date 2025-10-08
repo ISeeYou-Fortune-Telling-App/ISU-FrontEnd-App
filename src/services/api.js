@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
 const API = axios.create({
@@ -13,8 +13,13 @@ API.interceptors.request.use(async (config) => {
   return config;
 });
 
-//export const getUser = (id) => API.get(`/users/${id}`);
 export const loginUser = (data) => API.post("/auth/login", data);
 export const registerUser = (data) => API.post("/auth/register", data);
+export const deleteAccount = (reason) => {
+  const config = reason
+    ? { data: { reason } }
+    : {};
+  return API.delete("/users/me", config);
+};
 
 export default API;

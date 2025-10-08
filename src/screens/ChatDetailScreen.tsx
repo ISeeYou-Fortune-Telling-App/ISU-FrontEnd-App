@@ -54,20 +54,20 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: "m1",
     type: "system",
-    title: "Lich hen da duoc xac nhan",
+    title: "Lịch hẹn đã được xác nhận",
     subtitle: "16:10 - 16:50",
   },
   {
     id: "m2",
     type: "outgoing",
-    content: "Chao thay! Em muon tu van ve tinh duyen va su nghiep a.",
+    content: "Chào thầy! Em muốn tư vấn về tình duyên và sự nghiệp ạ.",
     status: "read",
     timestamp: Date.now() - 1000 * 60 * 5,
   },
   {
     id: "m3",
     type: "incoming",
-    content: "Tat nhien, em hoi gi cung duoc.",
+    content: "Tất nhiên, em hỏi gì cũng được.",
     status: "read",
     timestamp: Date.now() - 1000 * 60 * 4,
   },
@@ -210,7 +210,7 @@ export default function ChatDetailScreen() {
         if (message.id === messageId && isUserMessage(message)) {
           return {
             ...message,
-            content: "Tin nhan da duoc thu hoi",
+            content: "Tin nhắn đã được thu hồi",
             attachments: undefined,
             recalled: true,
           };
@@ -224,7 +224,7 @@ export default function ChatDetailScreen() {
   const handleCopyMessage = async (message: UserMessage) => {
     if (message.content) {
       await Clipboard.setStringAsync(message.content);
-      Alert.alert("Da sao chep", "Noi dung tin nhan da duoc sao chep.");
+      Alert.alert("Đã sao chép", "Nội dung tin nhắn đã được sao chép.");
     }
     setIsActionSheetVisible(false);
   };
@@ -243,13 +243,13 @@ export default function ChatDetailScreen() {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Khong the luu", "Vui long cap quyen truy cap thu vien anh.");
+        Alert.alert("Không thể lưu", "Vui lòng cấp quyền truy cập thư viện ảnh.");
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert("Da luu anh", "Anh da duoc luu vao thu vien.");
+      Alert.alert("Đã lưu ảnh", "Ảnh đã được lưu vào thư viện.");
     } catch (error) {
-      Alert.alert("Khong the luu", "Da co loi xay ra, vui long thu lai sau.");
+      Alert.alert("Không thể lưu", "Đã có lỗi xảy ra, vui lòng thử lại sau.");
     } finally {
       setIsActionSheetVisible(false);
     }
@@ -284,13 +284,13 @@ export default function ChatDetailScreen() {
   const getStatusLabel = (status: MessageStatus) => {
     switch (status) {
       case "sending":
-        return "Dang gui...";
+        return "Đang gửi...";
       case "sent":
-        return "Da gui";
+        return "Đã gửi";
       case "delivered":
-        return "Da giao";
+        return "Đã giao";
       case "read":
-        return "Da xem";
+        return "Đã xem";
       default:
         return "";
     }
@@ -335,14 +335,14 @@ export default function ChatDetailScreen() {
     }> = [];
 
     options.push({
-      label: selectedActionMessage.liked ? "Bo tim" : "Tha tim",
+      label: selectedActionMessage.liked ? "Bỏ tim" : "Thả tim",
       onPress: () => handleToggleHeart(selectedActionMessage.id),
       icon: "heart",
     });
 
     if (selectedActionMessage.content && !selectedActionMessage.recalled) {
       options.push({
-        label: "Sao chep",
+        label: "Sao chép",
         onPress: () => handleCopyMessage(selectedActionMessage),
         icon: "copy",
       });
@@ -350,26 +350,26 @@ export default function ChatDetailScreen() {
 
     if (selectedActionMessage.attachments?.length) {
       options.push({
-        label: "Xem anh",
+        label: "Xem ảnh",
         onPress: () => handleViewImage(selectedActionMessage.attachments![0].uri),
         icon: "image",
       });
       options.push({
-        label: "Luu anh",
+        label: "Lưu ảnh",
         onPress: () => handleSaveImage(selectedActionMessage.attachments![0].uri),
         icon: "download",
       });
     }
 
     options.push({
-      label: "Tra loi",
+      label: "Trả lời",
       onPress: () => handleReplyToMessage(selectedActionMessage.id),
       icon: "return-up-back",
       disabled: selectedActionMessage.recalled,
     });
 
     options.push({
-      label: "Chia se...",
+      label: "Chia sẻ...",
       onPress: () => handleShareMessage(selectedActionMessage),
       icon: "share-outline",
       disabled: selectedActionMessage.recalled,
@@ -377,7 +377,7 @@ export default function ChatDetailScreen() {
 
     if (selectedActionMessage.type === "outgoing" && !selectedActionMessage.recalled) {
       options.push({
-        label: "Thu hoi",
+        label: "Thu hồi",
         onPress: () => handleRecallMessage(selectedActionMessage.id),
         icon: "trash",
       });
@@ -432,7 +432,7 @@ export default function ChatDetailScreen() {
               <View style={[styles.statusDot, isActive ? styles.dotOnline : styles.dotOffline]} />
             </View>
             <Text style={styles.headerSubtitle}>
-              {isActive ? "Dang hoat dong" : "Ngoai tuyen"}
+              {isActive ? "Đang hoạt động" : "Ngoại tuyến"}
             </Text>
           </View>
         </View>
@@ -551,7 +551,7 @@ export default function ChatDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.replyComposerLabel}>Dang tra loi</Text>
               <Text numberOfLines={2} style={styles.replyComposerText}>
-                {replyTarget.content ?? "Anh duoc gui"}
+                {replyTarget.content ?? "Ảnh được gửi"}
               </Text>
             </View>
             <TouchableOpacity onPress={() => setReplyToId(null)}>
@@ -578,7 +578,7 @@ export default function ChatDetailScreen() {
 
         <View style={styles.inputContainer}>
           <TextInput
-            placeholder="Nhap tin nhan..."
+            placeholder="Nhập tin nhắn..."
             placeholderTextColor="#a0aec0"
             style={styles.messageInput}
             value={messageText}
