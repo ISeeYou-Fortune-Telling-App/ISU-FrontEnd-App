@@ -17,6 +17,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.17",
     "axios": "^1.12.2",
+    "dayjs": "^1.11.18",
     "expo": "~54.0.10",
     "expo-clipboard": "~6.0.2",
     "expo-constants": "~18.0.9",

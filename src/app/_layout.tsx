@@ -38,6 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="chat-detail" options={{headerShown: false}}/>
           <Stack.Screen name="delete-account" options={{headerShown: false}}/>
           <Stack.Screen name="profile-setting" options={{headerShown: false}}/>
+          <Stack.Screen name="edit-profile" options={{headerShown: false}}/>
         </Stack>
       </SafeAreaProvider>
     </PaperProvider>
