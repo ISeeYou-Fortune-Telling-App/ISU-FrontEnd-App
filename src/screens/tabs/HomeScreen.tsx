@@ -1,7 +1,9 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { router } from "expo-router";
+import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { FlatList, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const popularServices = [
@@ -110,7 +112,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeAreaView}>
       <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri"/>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.servicesContainer}>
           <Text style={styles.servicesTitle}>Dịch vụ phổ biến</Text>
           <View style={styles.servicesGrid}>
@@ -124,6 +126,18 @@ export default function HomeScreen() {
             ))}
           </View>
         </View>
+
+        <View style={styles.servicesContainer}>
+          <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng</Text>
+          <Button 
+            mode="contained" 
+            style={styles.btn} 
+            icon={() => <Package size={18} color="white" />}
+            onPress={() => router.push("/create-package")}>
+              Tạo gói dịch vụ mới
+          </Button>
+        </View>
+        
         <FlatList
           data={posts}
           renderItem={({ item }) => <PostCard post={item} />}
@@ -319,5 +333,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Inter',
+  },
+  text: {
+    fontSize: 16,
+    fontFamily: 'inter',
+  },
+  btn: {
+    marginTop: 10,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
   }
 });

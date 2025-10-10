@@ -1,134 +1,181 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { ActivityIndicator, Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
+import { updateProfile } from "../services/api";
 
 export default function EditProfileScreen() {
-    const handlePress = () => {
-        Alert.alert(
-            "Cập nhật",
-            "Bạn có chắc chắn muốn thay đổi thông tin?",
-            [
-                { text: "Huỷ", style: "cancel" },
-                {
-                    text: "Lưu",
-                    style: "default",
-                    onPress: async () => {
-                        Alert.alert("Đã lưu thông tin", "Thông tin của bạn đã được lưu thành công.", [
-                            {
-                            text: "Đồng ý",
-                            onPress: () => router.back(),
-                            },
-                        ]);
-                    },
-                },
-            ],
-        );
+    const [loading, setLoading] = useState(false); // change later to 'true'
+    const [showDatePicker, setShowDatePicker] = useState(false);
+
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [gender, setGender] = useState("");
+    const [fullName, setFullName] = useState("");
+    const [dob, setDob] = useState("");
+    const [description, setDescription] = useState("");
+
+    // đừng có xoá
+    //   useEffect(() => {
+    //     const fetchProfile = async () => {
+    //       try {
+    //         const res = await getProfile();
+    //         const data = res.data;
+
+    //         setEmail(data.email || "");
+    //         setPhone(data.phone || "");
+    //         setGender(data.gender || "");
+    //         setFullName(data.fullName || "");
+    //         setDob(data.birthDate ? data.birthDate.split("T")[0] : "");
+    //         setDescription(data.profileDescription || "");
+    //       } catch (err: any) {
+    //         console.error("Error fetching profile:", err);
+    //         Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+    //       } finally {
+    //         setLoading(false);
+    //       }
+    //     };
+
+    //     fetchProfile();
+    //   }, []);
+
+    const formatDate = (date: Date) => {
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`; // ✅ dd/mm/yyyy
     };
 
-    const [email, setEmail] = useState<string>("");
-    const [phone, setPhone] = useState<string>("");
-    const [gender, setGender] = useState<string>("");
-    const [fullName, setFullName] = useState<string>("");
-    const [dob, setDob] = useState<string>("");
-    const [description, setDescription] = useState<string>("");
+    const handleConfirmDate = (date: Date) => {
+        setDob(formatDate(date));
+        setShowDatePicker(false);
+    };
+
+    const handleSave = () => {
+        Alert.alert("Cập nhật", "Bạn có chắc chắn muốn thay đổi thông tin?", [
+            { text: "Huỷ", style: "cancel" },
+            {
+                text: "Lưu",
+                style: "default",
+                onPress: async () => {
+                    try {
+                        const payload = {
+                            email,
+                            phone,
+                            gender,
+                            fullName,
+                            birthDate: dob ? new Date(dob).toISOString() : null,
+                            profileDescription: description,
+                        };
+
+                        const res = await updateProfile(payload);
+                        console.log("Updated user:", res.data);
+
+                        Alert.alert("Đã lưu thông tin", "Thông tin của bạn đã được lưu thành công.", [
+                            { text: "Đồng ý", onPress: () => router.back() },
+                        ]);
+                    } catch (err: any) {
+                        console.error(err);
+                        Alert.alert("Lỗi", err.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
+                    }
+                },
+            },
+        ]);
+    };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+            </SafeAreaView>
+        );
+    }
 
     return (
-        
-
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
-                <View style={styles.titleContainer}>
-                    <Text variant="titleLarge" style={styles.title}>Thay đổi thông tin</Text>
-                </View>
-                <View style={styles.headerPlaceholder} />
-            </View>
-
-            <ScrollView
-                style={styles.content}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
             >
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Tên</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setFullName}
-                        value={fullName}
-                    />
+                <View style={styles.header}>
+                    <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
+                    <View style={styles.titleContainer}>
+                        <Text variant="titleLarge" style={styles.title}>
+                            Thay đổi thông tin
+                        </Text>
+                    </View>
+                    <View style={styles.headerPlaceholder} />
                 </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Ngày sinh</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setDob}
-                        value={dob}
-                    />
-                </View>
+                <ScrollView
+                    style={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Tên</Text>
+                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} />
+                    </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Giới tính</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setGender}
-                        value={gender}
-                    />
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Ngày sinh</Text>
+                        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                            <TextInput
+                                mode="outlined"
+                                value={dob}
+                                editable={false}
+                                pointerEvents="none"
+                            />
+                        </TouchableOpacity>
+                    </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Số điện thoại</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setPhone}
-                        value={phone}
+                    <DateTimePickerModal
+                        isVisible={showDatePicker}
+                        mode="date"
+                        onConfirm={handleConfirmDate}
+                        onCancel={() => setShowDatePicker(false)}
                     />
-                </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Email</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setEmail}
-                        value={email}
-                    />
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Giới tính</Text>
+                        <TextInput mode="outlined" onChangeText={setGender} value={gender} />
+                    </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Mô tả</Text>
-                    <TextInput
-                        autoCapitalize="none"
-                        mode="outlined"
-                        onChangeText={setDescription}
-                        value={description}
-                    />
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Số điện thoại</Text>
+                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" />
+                    </View>
 
-                <TouchableOpacity activeOpacity={0.7} style={styles.card} >
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Email</Text>
+                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" />
+                    </View>
+
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Mô tả</Text>
+                        <TextInput mode="outlined" onChangeText={setDescription} value={description} />
+                    </View>
+
+                    <Button mode="contained" style={styles.btnLogin} onPress={handleSave}>
+                        Lưu
+                    </Button>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+}
+
+{/* <TouchableOpacity activeOpacity={0.7} style={styles.card} >
                     <Text style={styles.cardTitle}>Ảnh đại diện</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity activeOpacity={0.7} style={styles.card} >
                     <Text style={styles.cardTitle}>Hình nền</Text>
-                </TouchableOpacity>
-
-                <Button mode="contained" style={styles.btnLogin} onPress={() => handlePress()}>
-                    Lưu
-                </Button>
-
-            </ScrollView>
-        </SafeAreaView>
-    );
-}
+                </TouchableOpacity> */}
 
 const styles = StyleSheet.create({
     container: {
