@@ -1,8 +1,9 @@
+import StatusDropdown from "@/src/components/StatusDropdown";
 import Colors from "@/src/constants/colors";
 import { router } from "expo-router";
 import { Bell, Calendar, Mail, Mars, Phone, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
@@ -10,12 +11,14 @@ export default function ProfileScreen() {
   const [description, setDescription] = useState<string>("");
   const [dob, setDob] = useState<number>(Date.now);
   const [gender, setGender] = useState<string>("");
-  const [phone, setPhone] = useState<number>(0);
-  const [email, setEmail] = useState<number>(0);
+  const [phone, setPhone] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
   const [zodiac, setZodiac] = useState<string>("");
   const [likeCount, setLikeCount] = useState<number>(0);
   const [bookingCount, setBookingCount] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
+  const [status, setStatus] = useState<string>("ACTIVE");
+
   return (
     <SafeAreaView style={styles.safeAreaView}>
 
@@ -24,21 +27,28 @@ export default function ProfileScreen() {
         <Settings size={32} color={Colors.black} onPress={() => router.push("/profile-setting")} />
       </View>
 
+
       <View style={{ height: 150 }} />
 
       <View style={{ flexShrink: 1, backgroundColor: Colors.white, paddingBottom: 20 }}>
         <View style={styles.container}>
           <View style={styles.avatar} />
           <Text style={styles.name}>Nguyễn Thị Mai</Text>
-          <Text style={{fontFamily: "inter", marginTop: 10}}>Thầy Minh Tuệ với hơn 15 năm kinh nghiệm trong lĩnh vực tử vi, cung hoàng đạo. Đã tư vấn cho hơn 5000 khách hàng với độ chính xác cao. Chuyên về dự đoán vận mệnh, tình duyên và sự nghiệp.</Text>
+          <StatusDropdown value={status} onChange={setStatus} />
+          <Text style={{ fontFamily: "inter", marginTop: 10 }}>Thầy Minh Tuệ với hơn 15 năm kinh nghiệm trong lĩnh vực tử vi, cung hoàng đạo. Đã tư vấn cho hơn 5000 khách hàng với độ chính xác cao. Chuyên về dự đoán vận mệnh, tình duyên và sự nghiệp.</Text>
         </View>
       </View>
 
-      <View style={{marginHorizontal: 10}}>
-        <ZodiacCard zodiac="Cự Giải"/>
-        <StatsRow likeCount={likeCount} bookingCount={bookingCount} reviewCount={reviewCount}/> 
-        <PersonalInfoCard dob="22/07/1980" gender="Nữ" phone={991234567} email="nguyentmai@gmail.com"/>
-      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}>
+
+        <View style={{ marginHorizontal: 10 }}>
+          <ZodiacCard zodiac="Cự Giải" />
+          <StatsRow likeCount={likeCount} bookingCount={bookingCount} reviewCount={reviewCount} />
+          <PersonalInfoCard dob="22/07/1980" gender="Nữ" phone="0991234567" email="nguyentmai@gmail.com" />
+        </View>
+
+      </ScrollView>
 
     </SafeAreaView>
   );
@@ -48,7 +58,7 @@ export default function ProfileScreen() {
 export function ZodiacCard({ zodiac }: { zodiac: string }) {
   return (
     <View style={styles.ZodiacCard}>
-      <Star size={24} color="#7C3AED" /> 
+      <Star size={24} color="#7C3AED" />
       <Text style={styles.zodiacText}>Cung hoàng đạo: {zodiac}</Text>
     </View>
   );
@@ -69,7 +79,7 @@ type StatProps = {
 type InfoProps = {
   dob: string;
   gender: string;
-  phone: number;
+  phone: string;
   email: string
 };
 
@@ -82,7 +92,7 @@ function StatCard({ value, label, color }: StatCardProps) {
   );
 }
 
-export function StatsRow({likeCount, bookingCount, reviewCount}: StatProps ) {
+export function StatsRow({ likeCount, bookingCount, reviewCount }: StatProps) {
   return (
     <View style={styles.statRow}>
       <StatCard value={likeCount} label="Lượt thích" color="#3B82F6" />
@@ -92,7 +102,7 @@ export function StatsRow({likeCount, bookingCount, reviewCount}: StatProps ) {
   );
 }
 
-export function PersonalInfoCard({dob, gender, phone, email} : InfoProps) {
+export function PersonalInfoCard({ dob, gender, phone, email }: InfoProps) {
   return (
     <View style={styles.infoContainer}>
       <View style={styles.header}>
@@ -106,13 +116,13 @@ export function PersonalInfoCard({dob, gender, phone, email} : InfoProps) {
       </View>
 
       <View style={styles.infoRow}>
-        {gender.toLowerCase() === "nữ" ? ( <Venus size={20} color={Colors.gray}/> ) : gender.toLowerCase() === "nam" ? (<Mars size={20} color={Colors.gray}/>) : (<VenusAndMars size={20} color={Colors.gray}/>) }
+        {gender.toLowerCase() === "nữ" ? (<Venus size={20} color={Colors.gray} />) : gender.toLowerCase() === "nam" ? (<Mars size={20} color={Colors.gray} />) : (<VenusAndMars size={20} color={Colors.gray} />)}
         <Text style={styles.infoText}>{gender}</Text>
       </View>
 
       <View style={styles.infoRow}>
         <Phone size={20} color={Colors.gray} />
-        <Text style={styles.infoText}>{"0" + phone}</Text>
+        <Text style={styles.infoText}>{phone}</Text>
       </View>
 
       <View style={styles.infoRow}>
@@ -155,20 +165,21 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   name: {
-    marginTop: 12,
+    marginVertical: 12,
     fontSize: 18,
     fontFamily: "inter",
     fontWeight: "600",
     color: "#000",
   },
 
-    ZodiacCard: {
+
+  ZodiacCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "white",
     borderRadius: 10,
     padding: 10,
-    borderWidth: 1,  
+    borderWidth: 1,
     borderColor: "#d1d5db",
     marginVertical: 10,
   },
@@ -179,7 +190,8 @@ const styles = StyleSheet.create({
     color: "#111",
   },
 
-    statRow: {
+
+  statRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
@@ -203,6 +215,7 @@ const styles = StyleSheet.create({
     color: "#555",
     marginTop: 4,
   },
+
 
   infoContainer: {
     backgroundColor: "white",

@@ -6,14 +6,11 @@ import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
 
-type SettingAction = "PROFILE" | "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT";
+type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT";
 
 export default function SettingScreen() {
     const handlePress = (action: SettingAction) => {
         switch (action) {
-            case "PROFILE":
-                Alert.alert("Sắp ra mắt", "Tính năng cập nhật thông tin cá nhân sẽ sớm khả dụng.");
-                break;
             case "PASSWORD":
                 Alert.alert("Sắp ra mắt", "Tính năng đổi mật khẩu sẽ sớm khả dụng.");
                 break;
@@ -60,7 +57,7 @@ export default function SettingScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("PROFILE")}>
+                <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => router.push("/edit-profile")}>
                     <Text style={styles.cardTitle}>Thay đổi thông tin cá nhân</Text>
                     <Text style={styles.cardSubtitle}>Tên, ngày sinh, ảnh đại diện, v.v.</Text>
                 </TouchableOpacity>

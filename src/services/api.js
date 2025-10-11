@@ -2,7 +2,7 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
 const API = axios.create({
-  baseURL: "https://localhost:8080",
+  baseURL: "https://192.168.100.175:8080",
 });
 
 API.interceptors.request.use(async (config) => {
@@ -21,5 +21,7 @@ export const deleteAccount = (reason) => {
     : {};
   return API.delete("/users/me", config);
 };
+export const getProfile = () => API.get("/account/me");
+export const updateProfile = (data) => API.patch("/account/me", data);
 
 export default API;
