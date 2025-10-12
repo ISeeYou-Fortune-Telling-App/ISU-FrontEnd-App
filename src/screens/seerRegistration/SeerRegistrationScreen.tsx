@@ -2,7 +2,8 @@ import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,9 +18,23 @@ export default function SeerRegistrationScreen() {
   const [securePassword, setSecurePassword] = useState<boolean>(true);
   const [secureConfirmPassword, setSecureConfirmPassword] = useState<boolean>(true);
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
-  
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
+
+  const formatDate = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleConfirmDate = (date: Date) => {
+    setDob(formatDate(date));
+    setShowDatePicker(false);
+  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -32,124 +47,131 @@ export default function SeerRegistrationScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
       >
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 50 }}
           showsVerticalScrollIndicator={false}
         >
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <MaterialIcons name="person-outline" size={40} color={Colors.primary} />
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <MaterialIcons name="person-outline" size={40} color={Colors.primary} />
+            </View>
           </View>
-        </View>
 
-        <Text variant="headlineSmall" style={styles.sectionTitle}>Thông tin cá nhân</Text>
-        <Text variant="bodyMedium" style={styles.sectionSubtitle}>Hãy cho chúng tôi biết về bạn</Text>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>Thông tin cá nhân</Text>
+          <Text variant="bodyMedium" style={styles.sectionSubtitle}>Hãy cho chúng tôi biết về bạn</Text>
 
-        <TextInput
-          label="Họ và tên"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Nhập họ và tên"
-          value={fullName}
-          onChangeText={setFullName}
-          left={<TextInput.Icon icon="account" />}
-        />
+          <TextInput
+            label="Họ và tên"
+            mode="outlined"
+            style={styles.input}
+            placeholder="Nhập họ và tên"
+            value={fullName}
+            onChangeText={setFullName}
+            left={<TextInput.Icon icon="account" />}
+          />
 
-        <TextInput
-          label="Email"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Nhập email của bạn"
-          value={email}
-          onChangeText={setEmail}
-          left={<TextInput.Icon icon="email" />}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+          <TextInput
+            label="Email"
+            mode="outlined"
+            style={styles.input}
+            placeholder="Nhập email của bạn"
+            value={email}
+            onChangeText={setEmail}
+            left={<TextInput.Icon icon="email" />}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
 
-        <TextInput
-          label="Số điện thoại"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Nhập số điện thoại của bạn"
-          value={phone}
-          onChangeText={setPhone}
-          left={<TextInput.Icon icon="phone" />}
-          keyboardType="phone-pad"
-        />
+          <TextInput
+            label="Số điện thoại"
+            mode="outlined"
+            style={styles.input}
+            placeholder="Nhập số điện thoại của bạn"
+            value={phone}
+            onChangeText={setPhone}
+            left={<TextInput.Icon icon="phone" />}
+            keyboardType="phone-pad"
+          />
 
-        <TextInput
-          label="Ngày sinh"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Nhập ngày sinh của bạn"
-          value={dob}
-          onChangeText={setDob}
-          left={<TextInput.Icon icon="calendar" />}
-        />
-
-        <Menu
-          visible={menuVisible}
-          onDismiss={closeMenu}
-          anchor={
+          <TouchableOpacity onPress={() => setShowDatePicker(true)}>
             <TextInput
-              label="Giới tính"
+              label="Ngày sinh"
               mode="outlined"
-              style={styles.input}
-              value={gender}
-              left={<TextInput.Icon icon="gender-male-female" />}
-              right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-              onTouchStart={openMenu}
+              value={dob}
               editable={false}
+              pointerEvents="none"
+              style={styles.input}
+              left={<TextInput.Icon icon="calendar" />}
             />
-          }
-        >
-          <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
-          <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
-          <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
-        </Menu>
+          </TouchableOpacity>
+          <DateTimePickerModal
+            isVisible={showDatePicker}
+            mode="date"
+            onConfirm={handleConfirmDate}
+            onCancel={() => setShowDatePicker(false)}
+          />
+          <Menu
+            visible={menuVisible}
+            onDismiss={closeMenu}
+            anchor={
+              <TextInput
+                label="Giới tính"
+                mode="outlined"
+                style={styles.input}
+                value={gender}
+                left={<TextInput.Icon icon="gender-male-female" />}
+                right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+                onTouchStart={openMenu}
+                editable={false}
+              />
+            }
+          >
+            <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
+            <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
+            <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
+          </Menu>
 
-        <TextInput
-          label="Mật khẩu"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Tạo mật khẩu"
-          value={password}
-          onChangeText={setPassword}
-          left={<TextInput.Icon icon="lock" />}
-          right={
-            <TextInput.Icon 
-              icon={securePassword ? "eye-off" : "eye"} 
-              onPress={() => setSecurePassword(!securePassword)}
-            />
-          }
-          secureTextEntry={securePassword}
-        />
+          <TextInput
+            label="Mật khẩu"
+            mode="outlined"
+            style={styles.input}
+            placeholder="Tạo mật khẩu"
+            value={password}
+            onChangeText={setPassword}
+            left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={securePassword ? "eye-off" : "eye"}
+                onPress={() => setSecurePassword(!securePassword)}
+              />
+            }
+            secureTextEntry={securePassword}
+          />
 
-        <TextInput
-          label="Xác nhận mật khẩu"
-          mode="outlined"
-          style={styles.input}
-          placeholder="Nhập lại mật khẩu"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          left={<TextInput.Icon icon="lock" />}
-          right={
-            <TextInput.Icon 
-              icon={secureConfirmPassword ? "eye-off" : "eye"} 
-              onPress={() => setSecureConfirmPassword(!secureConfirmPassword)}
-            />
-          }
-          secureTextEntry={secureConfirmPassword}
-        />
-      </ScrollView>
+          <TextInput
+            label="Xác nhận mật khẩu"
+            mode="outlined"
+            style={styles.input}
+            placeholder="Nhập lại mật khẩu"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={secureConfirmPassword ? "eye-off" : "eye"}
+                onPress={() => setSecureConfirmPassword(!secureConfirmPassword)}
+              />
+            }
+            secureTextEntry={secureConfirmPassword}
+          />
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>

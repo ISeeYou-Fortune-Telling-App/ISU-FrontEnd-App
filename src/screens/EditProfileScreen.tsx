@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { ActivityIndicator, Button, Text, TextInput } from "react-native-paper";
+import { ActivityIndicator, Button, Menu, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
 import { updateProfile } from "../services/api";
@@ -18,6 +18,10 @@ export default function EditProfileScreen() {
     const [fullName, setFullName] = useState("");
     const [dob, setDob] = useState("");
     const [description, setDescription] = useState("");
+    const [menuVisible, setMenuVisible] = useState<boolean>(false);
+
+    const openMenu = () => setMenuVisible(true);
+    const closeMenu = () => setMenuVisible(false);
 
     // đừng có xoá
     //   useEffect(() => {
@@ -47,7 +51,7 @@ export default function EditProfileScreen() {
         const day = date.getDate().toString().padStart(2, "0");
         const month = (date.getMonth() + 1).toString().padStart(2, "0");
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`; // ✅ dd/mm/yyyy
+        return `${day}/${month}/${year}`;
     };
 
     const handleConfirmDate = (date: Date) => {
@@ -118,7 +122,7 @@ export default function EditProfileScreen() {
                 >
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Tên</Text>
-                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} left={<TextInput.Icon icon="account"/>}/>
+                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} left={<TextInput.Icon icon="account" />} />
                     </View>
 
                     <View style={styles.card}>
@@ -129,7 +133,7 @@ export default function EditProfileScreen() {
                                 value={dob}
                                 editable={false}
                                 pointerEvents="none"
-                                left={<TextInput.Icon icon="calendar"/>}
+                                left={<TextInput.Icon icon="calendar" />}
                             />
                         </TouchableOpacity>
                     </View>
@@ -143,22 +147,39 @@ export default function EditProfileScreen() {
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Giới tính</Text>
-                        <TextInput mode="outlined" onChangeText={setGender} value={gender} left={<TextInput.Icon icon="gender-male-female"/>}/>
+                        <Menu
+                            visible={menuVisible}
+                            onDismiss={closeMenu}
+                            anchor={
+                                <TextInput
+                                    mode="outlined"
+                                    value={gender}
+                                    left={<TextInput.Icon icon="gender-male-female" />}
+                                    right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+                                    onTouchStart={openMenu}
+                                    editable={false}
+                                />
+                            }
+                        >
+                            <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
+                            <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
+                            <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
+                        </Menu>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Số điện thoại</Text>
-                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" left={<TextInput.Icon icon="phone"/>}/>
+                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" left={<TextInput.Icon icon="phone" />} />
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Email</Text>
-                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" left={<TextInput.Icon icon="email"/>}/>
+                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" left={<TextInput.Icon icon="email" />} />
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Mô tả</Text>
-                        <TextInput mode="outlined" onChangeText={setDescription} value={description} left={<TextInput.Icon icon="file"/>}/>
+                        <TextInput mode="outlined" onChangeText={setDescription} value={description} multiline numberOfLines={5} left={<TextInput.Icon icon="file-document-edit" />} />
                     </View>
 
                     <Button mode="contained" style={styles.btnLogin} onPress={handleSave}>
