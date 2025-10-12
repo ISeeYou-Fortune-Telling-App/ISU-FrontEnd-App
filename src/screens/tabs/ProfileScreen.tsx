@@ -1,9 +1,10 @@
 import StatusDropdown from "@/src/components/StatusDropdown";
 import Colors from "@/src/constants/colors";
+import { updateUserStatus } from "@/src/services/api";
 import { router } from "expo-router";
 import { Bell, Calendar, Mail, Mars, Phone, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
@@ -18,6 +19,17 @@ export default function ProfileScreen() {
   const [bookingCount, setBookingCount] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [status, setStatus] = useState<string>("ACTIVE");
+  const userId = "c4a2b9f1-8e34-4b89-b2a7-3e6f9d5a12f0";
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      setStatus(newStatus);
+      const res = await updateUserStatus(userId, newStatus);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Lỗi", "Không thể cập nhật trạng thái");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeAreaView}>
@@ -34,7 +46,7 @@ export default function ProfileScreen() {
         <View style={styles.container}>
           <View style={styles.avatar} />
           <Text style={styles.name}>Nguyễn Thị Mai</Text>
-          <StatusDropdown value={status} onChange={setStatus} />
+          <StatusDropdown value={status} onChange={handleStatusChange} />
           <Text style={{ fontFamily: "inter", marginTop: 10 }}>Thầy Minh Tuệ với hơn 15 năm kinh nghiệm trong lĩnh vực tử vi, cung hoàng đạo. Đã tư vấn cho hơn 5000 khách hàng với độ chính xác cao. Chuyên về dự đoán vận mệnh, tình duyên và sự nghiệp.</Text>
         </View>
       </View>

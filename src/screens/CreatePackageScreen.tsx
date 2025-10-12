@@ -1,11 +1,66 @@
 import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { useState } from "react";
+import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { createServicePackage } from "../services/api";
 
 export default function CreatePackageScreen() {
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [tags, setTags] = useState("");
+  const [price, setPrice] = useState("");
+  const [content, setContent] = useState("");
+  const [status, setStatus] = useState("draft");
+  const [durationMinutes, setDurationMinutes] = useState<string>("");
+  const [image, setImage] = useState<any>(null);
+
+  const seerId = "da237dc0-584b-4a03-b343-efeaa0c3e867";
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setImage(result.assets[0]);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!title || !content || !price || !durationMinutes) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("seerId", seerId);
+    formData.append("packageTitle", title);
+    formData.append("packageContent", content);
+    formData.append("durationMinutes", durationMinutes.toString());
+    formData.append("price", price);
+
+    if (image) {
+      formData.append("image", {
+        uri: image.uri,
+        type: "image/jpeg",
+        name: "upload.jpg",
+      } as any);
+    }
+
+    try {
+      await createServicePackage(seerId, formData);
+      Alert.alert("Thành công", "Tạo gói dịch vụ thành công!");
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Lỗi", "Không thể tạo gói dịch vụ. Hãy thử lại sau.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -20,7 +75,101 @@ export default function CreatePackageScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Thông tin gói</Text>
+          <TextInput
+            placeholder="Tên gói"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="certificate" />}
+            onChangeText={setTitle}
+            value={title}
+          />
 
+          <TextInput
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="cash" />}
+            placeholder="Giá gói (VND)"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="numeric"
+          />
+
+          <TextInput
+            mode="outlined"
+            left={<TextInput.Icon icon="file-document-edit" />}
+            onChangeText={setContent}
+            value={content}
+            style={[styles.input]}
+            label="Mô tả ngắn"
+            multiline
+            numberOfLines={5}
+          />
+
+          <TouchableOpacity style={styles.imageUpload} onPress={pickImage}>
+            {image ? (
+              <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+            ) : (
+              <Text style={styles.uploadText}>+ Ảnh minh hoạ</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Thời lượng (phút)</Text>
+          <View style={styles.durationContainer}>
+            {[15, 30, 45, 60].map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.durationBtn, durationMinutes === d.toString() && styles.durationSelected]}
+                onPress={() => setDurationMinutes(d.toString())}
+              >
+                <Text style={styles.durationText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="clock" />}
+            placeholder="Hay tự chọn thời lượng..."
+            value={durationMinutes}
+            onChangeText={setDurationMinutes}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Chính sách & hiển thị</Text>
+          {["draft", "public", "unlisted"].map((opt) => (
+            <TouchableOpacity
+              key={opt}
+              onPress={() => setStatus(opt)}
+              style={styles.radioRow}
+            >
+              <View
+                style={[
+                  styles.radioOuter,
+                  status === opt && styles.radioOuterActive,
+                ]}
+              >
+                {status === opt && <View style={styles.radioInner} />}
+              </View>
+              <Text style={styles.radioLabel}>
+                {opt === "draft"
+                  ? "Lưu nháp"
+                  : opt === "public"
+                    ? "Công khai"
+                    : "Không niêm yết"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View> */}
+
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitText}>Tạo gói dịch vụ</Text>
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
@@ -56,43 +205,113 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 16,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#e6f2ff",
-    justifyContent: "center",
-    alignItems: "center",
+
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sectionTitle: {
-    fontWeight: "bold",
-    textAlign: "center",
-    marginTop: 8,
-  },
-  sectionSubtitle: {
-    textAlign: "center",
-    color: Colors.gray,
-    marginBottom: 24,
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "inter",
+    marginBottom: 12,
   },
   input: {
-    marginBottom: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    fontSize: 14,
   },
-  footer: {
+  textArea: {
+    height: 80,
+    textAlignVertical: "top",
+  },
+  addOnButton: {
+    backgroundColor: "#2563eb",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addOnText: {
+    color: "#fff",
+    fontWeight: "500",
+  },
+  switchRow: {
     flexDirection: "row",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  backButton: {
-    flex: 1,
+  switchLabel: {
+    fontSize: 14,
+  },
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#999",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 8,
-    borderColor: Colors.primary,
-    borderRadius: 10,
   },
-  nextButton: {
-    flex: 1,
-    marginLeft: 8,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
+  radioOuterActive: {
+    borderColor: "#2563eb",
   },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#2563eb",
+  },
+  radioLabel: {
+    fontSize: 14,
+  },
+  submitButton: {
+    backgroundColor: "#16a34a",
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 32,
+    alignItems: "center",
+  },
+  submitText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+
+
+  durationContainer: { flexDirection: "row", marginVertical: 10 },
+  durationBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  durationSelected: { backgroundColor: "#1877F2", borderColor: "#1877F2" },
+  durationText: { color: "#000" },
+  imageUpload: {
+    height: 150,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  uploadText: { color: "#666" },
+  imagePreview: { width: "100%", height: "100%", borderRadius: 6 },
 });

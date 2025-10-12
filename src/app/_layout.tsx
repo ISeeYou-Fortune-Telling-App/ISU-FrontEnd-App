@@ -40,6 +40,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile-setting" options={{headerShown: false}}/>
           <Stack.Screen name="edit-profile" options={{headerShown: false}}/>
           <Stack.Screen name="create-package" options={{headerShown: false}}/>
+          <Stack.Screen name="update-package" options={{headerShown: false}}/>
         </Stack>
       </SafeAreaProvider>
     </PaperProvider>

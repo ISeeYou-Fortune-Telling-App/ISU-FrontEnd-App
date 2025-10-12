@@ -1,4 +1,3 @@
-import Colors from "../constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -6,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Checkbox, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Colors from "../constants/colors";
 import { deleteAccount } from "../services/api";
 
 type RoleKey = "CUSTOMER" | "SEER";
@@ -103,7 +103,10 @@ export default function DeleteAccountScreen() {
       Alert.alert("Đã xoá tài khoản", "Tài khoản của bạn đã được xoá thành công.", [
         {
           text: "Đồng ý",
-          onPress: () => router.replace("/auth"),
+          onPress: () => {
+            router.dismissAll();
+            router.replace("/auth")
+          },
         },
       ]);
     } catch (err: any) {

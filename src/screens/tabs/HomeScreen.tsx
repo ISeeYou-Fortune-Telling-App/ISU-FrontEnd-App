@@ -2,6 +2,7 @@ import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
 import { router } from "expo-router";
 import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { useState } from "react";
 import { FlatList, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -109,6 +110,7 @@ const PostCard = ({ post }: { post: any }) => (
 
 
 export default function HomeScreen() {
+  const [activePage, setActivePage] = useState<"home" | "search">("home");
   return (
     <SafeAreaView style={styles.safeAreaView}>
       <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri"/>

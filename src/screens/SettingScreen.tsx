@@ -31,6 +31,7 @@ export default function SettingScreen() {
                                 await SecureStore.deleteItemAsync("refreshToken");
                                 await SecureStore.deleteItemAsync("userRole");
                                 await SecureStore.deleteItemAsync("userId");
+                                router.dismissAll();
                                 router.replace("/auth");
                             },
                         },

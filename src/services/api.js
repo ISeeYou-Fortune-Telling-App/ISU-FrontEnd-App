@@ -24,4 +24,17 @@ export const deleteAccount = (reason) => {
 export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
 
+export const updateUserStatus = (id, status) =>
+  API.patch(`/account/${id}/status`, { id, status });
+
+export const createServicePackage = (seerId, data) =>
+  API.post(`/service-packages?seerId=${seerId}`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const updateServicePackage = (id, seerId, data) =>
+  API.put(`/service-packages?id=${id}&seerId=${seerId}`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
 export default API;

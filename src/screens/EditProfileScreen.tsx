@@ -118,7 +118,7 @@ export default function EditProfileScreen() {
                 >
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Tên</Text>
-                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} />
+                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} left={<TextInput.Icon icon="account"/>}/>
                     </View>
 
                     <View style={styles.card}>
@@ -129,6 +129,7 @@ export default function EditProfileScreen() {
                                 value={dob}
                                 editable={false}
                                 pointerEvents="none"
+                                left={<TextInput.Icon icon="calendar"/>}
                             />
                         </TouchableOpacity>
                     </View>
@@ -142,22 +143,22 @@ export default function EditProfileScreen() {
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Giới tính</Text>
-                        <TextInput mode="outlined" onChangeText={setGender} value={gender} />
+                        <TextInput mode="outlined" onChangeText={setGender} value={gender} left={<TextInput.Icon icon="gender-male-female"/>}/>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Số điện thoại</Text>
-                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" />
+                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" left={<TextInput.Icon icon="phone"/>}/>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Email</Text>
-                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" />
+                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" left={<TextInput.Icon icon="email"/>}/>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Mô tả</Text>
-                        <TextInput mode="outlined" onChangeText={setDescription} value={description} />
+                        <TextInput mode="outlined" onChangeText={setDescription} value={description} left={<TextInput.Icon icon="file"/>}/>
                     </View>
 
                     <Button mode="contained" style={styles.btnLogin} onPress={handleSave}>
