@@ -1,14 +1,15 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
+import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,12 +19,12 @@ import Colors from "../constants/colors";
 const CategoryIcon = ({ icon, color }: { icon: string; color: string }) => {
   return (
     <View style={[styles.categoryIcon, { backgroundColor: `${color}20` }]}>
-      {icon === "star" && <MaterialIcons name="star" size={20} color={color} />}
-      {icon === "visibility" && <MaterialIcons name="visibility" size={20} color={color} />}
-      {icon === "link" && <MaterialIcons name="link" size={20} color={color} />}
-      {icon === "spa" && <MaterialIcons name="spa" size={20} color={color} />}
-      {icon === "casino" && <MaterialIcons name="casino" size={20} color={color} />}
-      {icon === "more-horiz" && <MaterialIcons name="more-horiz" size={20} color={color} />}
+      {icon === "star" && <LucideStar size={24} color={color} />}
+      {icon === "eye" && <LucideEye size={24} color={color} />}
+      {icon === "coins" && <LucideCoins size={24} color={color} />}
+      {icon === "hand" && <LucideHand size={24} color={color} />}
+      {icon === "sparkles" && <LucideSparkles size={24} color={color} />}
+      {icon === "moreHorizontal" && <LucideMoreHorizontal size={24} color={color} />}
     </View>
   );
 };
@@ -83,11 +84,11 @@ export default function AddCertificateScreen() {
   // Categories
   const categories = [
     { id: "zodiac", name: "Cung Hoàng Đạo", color: "#5E51DC", icon: "star" as any },
-    { id: "physiognomy", name: "Nhân Tướng Học", color: "#2D87FB", icon: "visibility" as any },
-    { id: "elements", name: "Ngũ Hành", color: "#31C452", icon: "link" as any },
-    { id: "palmistry", name: "Chỉ Tay", color: "#F04E99", icon: "spa" as any },
-    { id: "tarot", name: "Tarot", color: "#F8B940", icon: "casino" as any },
-    { id: "other", name: "Khác", color: "#777777", icon: "more-horiz" as any }
+    { id: "physiognomy", name: "Nhân Tướng Học", color: "#2D87FB", icon: "eye" as any },
+    { id: "elements", name: "Ngũ Hành", color: "#31C452", icon: "coins" as any },
+    { id: "palmistry", name: "Chỉ Tay", color: "#F04E99", icon: "hand" as any },
+    { id: "tarot", name: "Tarot", color: "#F8B940", icon: "sparkles" as any },
+    { id: "other", name: "Khác", color: "#777777", icon: "moreHorizontal" as any }
   ];
 
   // Toggle category selection

@@ -1,6 +1,7 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
 import { getKnowledgeItems } from "@/src/services/api";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye } from "lucide-react-native";
@@ -145,6 +146,7 @@ export default function KnowledgeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const tabBarHeight = useBottomTabBarHeight();
 
   const fetchKnowledge = useCallback(async () => {
     setLoading(true);
@@ -179,7 +181,7 @@ export default function KnowledgeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeAreaView, styles.centerContent]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, styles.centerContent]}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </SafeAreaView>
     );
@@ -187,7 +189,7 @@ export default function KnowledgeScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeAreaView, styles.centerContent]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, styles.centerContent]}>
         <Text style={styles.errorText}>{error}</Text>
         <Button mode="contained" style={styles.retryButton} onPress={fetchKnowledge}>
           Thử lại
@@ -197,7 +199,7 @@ export default function KnowledgeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeAreaView}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <TopBar placeholder="Tìm kiếm bài viết..." />
       <FlatList
         data={items}
@@ -212,7 +214,7 @@ export default function KnowledgeScreen() {
           />
         )}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+  contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         ListHeaderComponent={
           <View style={styles.headerCard}>
             <View style={styles.headerIconWrapper}>

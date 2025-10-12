@@ -1,6 +1,7 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
 import { getServicePackageDetail, getServicePackages } from "@/src/services/api";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
@@ -87,6 +88,7 @@ export default function HomeScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
+  const tabBarHeight = useBottomTabBarHeight();
 
   const fetchServicePackages = useCallback(async () => {
     setLoading(true);
@@ -191,7 +193,7 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </SafeAreaView>
     );
@@ -199,7 +201,7 @@ export default function HomeScreen() {
   
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={styles.errorText}>{error}</Text>
         <Button 
           mode="contained" 
@@ -212,7 +214,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeAreaView}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri"/>
       <FlatList
         data={servicePackages}
@@ -230,7 +232,7 @@ export default function HomeScreen() {
         )}
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         ListHeaderComponent={
           <>
             <View style={styles.servicesContainer}>

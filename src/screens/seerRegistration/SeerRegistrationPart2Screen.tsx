@@ -1,6 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
@@ -10,12 +11,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const SpecialtyIcon = ({ icon, color }: { icon: string; color: string }) => {
   return (
     <View style={[styles.specialtyIcon, { backgroundColor: `${color}20` }]}>
-      {icon === "star" && <MaterialIcons name="star" size={24} color={color} />}
-      {icon === "visibility" && <MaterialIcons name="visibility" size={24} color={color} />}
-      {icon === "link" && <MaterialIcons name="link" size={24} color={color} />}
-      {icon === "spa" && <MaterialIcons name="spa" size={24} color={color} />}
-      {icon === "casino" && <MaterialIcons name="casino" size={24} color={color} />}
-      {icon === "more-horiz" && <MaterialIcons name="more-horiz" size={24} color={color} />}
+      {icon === "star" && <LucideStar size={24} color={color} />}
+      {icon === "eye" && <LucideEye size={24} color={color} />}
+      {icon === "coins" && <LucideCoins size={24} color={color} />}
+      {icon === "hand" && <LucideHand size={24} color={color} />}
+      {icon === "sparkles" && <LucideSparkles size={24} color={color} />}
+      {icon === "moreHorizontal" && <LucideMoreHorizontal size={24} color={color} />}
     </View>
   );
 };
@@ -128,7 +129,7 @@ export default function SeerRegistrationStep2Screen() {
           
           <SpecialtyCheckbox 
             label="Nhân Tướng Học" 
-            icon="visibility" 
+            icon="eye" 
             color="#2D87FB"
             selected={selectedSpecialties.includes("physiognomy")}
             onPress={() => toggleSpecialty("physiognomy")}
@@ -136,7 +137,7 @@ export default function SeerRegistrationStep2Screen() {
 
           <SpecialtyCheckbox 
             label="Ngũ Hành" 
-            icon="link" 
+            icon="coins" 
             color="#31C452"
             selected={selectedSpecialties.includes("elements")}
             onPress={() => toggleSpecialty("elements")}
@@ -144,7 +145,7 @@ export default function SeerRegistrationStep2Screen() {
           
           <SpecialtyCheckbox 
             label="Chỉ Tay" 
-            icon="spa" 
+            icon="hand" 
             color="#F04E99"
             selected={selectedSpecialties.includes("palmistry")}
             onPress={() => toggleSpecialty("palmistry")}
@@ -152,7 +153,7 @@ export default function SeerRegistrationStep2Screen() {
 
           <SpecialtyCheckbox 
             label="Tarot" 
-            icon="casino" 
+            icon="sparkles" 
             color="#F8B940"
             selected={selectedSpecialties.includes("tarot")}
             onPress={() => toggleSpecialty("tarot")}
@@ -160,7 +161,7 @@ export default function SeerRegistrationStep2Screen() {
 
           <SpecialtyCheckbox 
             label="Khác" 
-            icon="more-horiz" 
+            icon="moreHorizontal" 
             color="#777777"
             selected={selectedSpecialties.includes("other")}
             onPress={() => toggleSpecialty("other")}

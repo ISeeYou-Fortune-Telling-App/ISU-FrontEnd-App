@@ -1,6 +1,7 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ChevronRight } from "lucide-react-native";
 import { useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -113,11 +114,12 @@ const mockData: Booking[] = [
 
 export default function BookingScreen() {
   const [selectedTab, setSelectedTab] = useState<BookingStatus>("upcoming");
+  const tabBarHeight = useBottomTabBarHeight();
 
   const filteredData = mockData.filter((item) => item.status === selectedTab);
 
   return (
-    <SafeAreaView style={styles.safeAreaView}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
 
       <TopBarNoSearch/>
 
@@ -170,7 +172,7 @@ export default function BookingScreen() {
           data={filteredData}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <BookingCard booking={item} />}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}
         />
 
     </SafeAreaView>

@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -238,36 +238,44 @@ export default function AuthScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.SafeAreaView}>
+        <SafeAreaView edges={['top', 'left', 'right']} style={styles.SafeAreaView}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.keyboardAvoidingView}>
-                <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
-                <Text style={styles.header2} variant="titleSmall">Kết nối với các Nhà tiên tri uy tín nhất</Text>
+                style={styles.keyboardAvoidingView}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        option === "login" ? styles.scrollContentCentered : null,
+                    ]}>
+                    <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
+                    <Text style={styles.header2} variant="titleSmall">Kết nối với các Nhà tiên tri uy tín nhất</Text>
 
-                <SegmentedButtons
-                    value={option}
-                    onValueChange={(value) => {
-                        setOption(value);
-                        setError(null);
-                        setEmail("");
-                        setPassword("");
-                        setConfirmPassword("");
-                        setFullName("");
-                        setPhone("");
-                        setDOB("");
-                        setZodiac("");
-                        setGender("");
-                    }}
-                    buttons={[
-                        { value: "login", label: "Đăng nhập" },
-                        { value: "signup", label: "Đăng ký" },
-                    ]}
-                    style={{ marginBottom: 20 }}
-                />
+                    <SegmentedButtons
+                        value={option}
+                        onValueChange={(value) => {
+                            setOption(value);
+                            setError(null);
+                            setEmail("");
+                            setPassword("");
+                            setConfirmPassword("");
+                            setFullName("");
+                            setPhone("");
+                            setDOB("");
+                            setZodiac("");
+                            setGender("");
+                        }}
+                        buttons={[
+                            { value: "login", label: "Đăng nhập" },
+                            { value: "signup", label: "Đăng ký" },
+                        ]}
+                        style={{ marginBottom: 20 }}
+                    />
 
-                {option === "login" ? (
-                    <View key="login">
+                    {option === "login" ? (
+                        <View key="login">
                         <TextInput
                             label="Email"
                             autoCapitalize="none"
@@ -458,7 +466,8 @@ export default function AuthScreen() {
                             Đăng ký Nhà tiên tri
                         </Button>
                     </View>
-                )}
+                    )}
+                </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -509,11 +518,17 @@ const styles = StyleSheet.create({
     },
     keyboardAvoidingView: {
         flex: 1,
-        justifyContent: "center",
     },
     SafeAreaView: {
         flex: 1,
         marginHorizontal: 16,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingBottom: 40,
+    },
+    scrollContentCentered: {
+        justifyContent: "center",
     },
     flexRowJustifyBetweenItemsCenterMt2: {
         flexDirection: "row",

@@ -1,15 +1,16 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -65,6 +66,7 @@ const CONVERSATIONS: Conversation[] = [
 export default function MessageScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const tabBarHeight = useBottomTabBarHeight();
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -87,7 +89,7 @@ export default function MessageScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeAreaView}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <TopBarNoSearch />
 
       <View style={styles.header}>
@@ -112,7 +114,7 @@ export default function MessageScreen() {
       <FlatList
         data={filteredConversations}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <TouchableOpacity

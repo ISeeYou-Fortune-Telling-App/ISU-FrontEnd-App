@@ -1,3 +1,5 @@
+# .env
+Make a .env file in the base folder with EXPO_PUBLIC_API_BASE_URL=your-ip-address:8080
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

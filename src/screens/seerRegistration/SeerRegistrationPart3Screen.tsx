@@ -1,6 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { LucideEye, LucideFileText, LucideX } from "lucide-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -188,7 +189,7 @@ const CertificateItem = ({
   return (
     <View style={styles.certificateItem}>
       <View style={styles.certificateIcon}>
-        <MaterialIcons name="description" size={24} color="#E53935" />
+        <LucideFileText size={24} color="#E53935" />
       </View>
       <Text style={styles.certificateName} numberOfLines={1}>
         {name}
@@ -196,13 +197,8 @@ const CertificateItem = ({
       <View style={styles.certificateActions}>
         <TouchableOpacity
           style={styles.certificateActionButton}
-          onPress={onToggleVisibility}
-          accessibilityLabel={
-            visible ? "Ẩn chứng chỉ" : "Hiển thị chứng chỉ"
-          }
         >
-          <MaterialIcons
-            name={visible ? "visibility" : "visibility-off"}
+          <LucideEye
             size={22}
             color="#555"
           />
@@ -212,7 +208,7 @@ const CertificateItem = ({
           onPress={onRemove}
           accessibilityLabel="Xóa chứng chỉ"
         >
-          <MaterialIcons name="close" size={22} color="#E53935" />
+          <LucideX size={22} color="#E53935" />
         </TouchableOpacity>
       </View>
     </View>

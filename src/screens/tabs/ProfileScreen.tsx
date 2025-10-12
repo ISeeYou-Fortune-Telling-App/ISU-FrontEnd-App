@@ -1,6 +1,7 @@
 import StatusDropdown from "@/src/components/StatusDropdown";
 import Colors from "@/src/constants/colors";
 import { updateUserStatus } from "@/src/services/api";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router } from "expo-router";
 import { Bell, Calendar, Mail, Mars, Phone, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useState } from "react";
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [status, setStatus] = useState<string>("ACTIVE");
   const userId = "c4a2b9f1-8e34-4b89-b2a7-3e6f9d5a12f0";
+  const tabBarHeight = useBottomTabBarHeight();
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -32,7 +34,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeAreaView}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
 
       <View style={styles.topBar}>
         <Bell size={32} color={Colors.black} onPress={() => router.push("/notification")} />
@@ -52,7 +54,8 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}>
 
         <View style={{ marginHorizontal: 10 }}>
           <ZodiacCard zodiac="Cự Giải" />
