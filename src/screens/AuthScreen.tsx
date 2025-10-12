@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, KeyboardAvoidingView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Checkbox, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import Colors from "../constants/colors";
+import { loginUser } from "../services/api";
 
 const isValidMonthDay = (month: number, day: number): boolean => {
     if (month < 1 || month > 12 || day < 1) {
@@ -119,6 +120,7 @@ export default function AuthScreen() {
     const [option, setOption] = useState<AuthOption>("login");
     const [secure, setSecure] = useState(true);
     const [secure2, setSecure2] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
 
     const handleDOBChange = (value: string) => {
@@ -135,15 +137,52 @@ export default function AuthScreen() {
         setError(null);
 
         try {
+            setSubmitting(true);
+            const response = await loginUser({ email, password });
+            const payload = response?.data?.data;
+
+            if (!payload?.token) {
+                setError("Không nhận được token đăng nhập.");
+                return;
+            }
+
+            await SecureStore.setItemAsync("authToken", payload.token);
+
+            if (payload.refreshToken) {
+                await SecureStore.setItemAsync("refreshToken", payload.refreshToken);
+            }
+            if (payload.role) {
+                await SecureStore.setItemAsync("userRole", payload.role);
+            }
+            if (payload.userId) {
+                await SecureStore.setItemAsync("userId", payload.userId);
+            }
+
+            router.replace("/(tabs)/home");
+        } catch (err: any) {
+            console.error("Đăng nhập thất bại", err);
+            const message =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Không thể đăng nhập. Vui lòng thử lại.";
+            setError(message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSkipLogin = async () => {
+        try {
+            setError(null);
             await SecureStore.setItemAsync("authToken", "demo-token");
             await SecureStore.setItemAsync("refreshToken", "demo-refresh-token");
             await SecureStore.setItemAsync("userRole", "CUSTOMER");
             await SecureStore.setItemAsync("userId", "demo-user");
+            router.replace("/(tabs)/home");
         } catch (err) {
-            console.error("Không thể lưu thông tin phiên đăng nhập mẫu", err);
+            console.error("Không thể bỏ qua đăng nhập", err);
+            setError("Không thể bỏ qua đăng nhập. Vui lòng thử lại.");
         }
-
-        router.replace("/(tabs)/home");
     };
 
     const handleRegister = async () => {
@@ -240,8 +279,11 @@ export default function AuthScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    <Button mode="contained" style={styles.btnLogin} onPress={handleLogin}>
+                    <Button mode="contained" style={styles.btnLogin} onPress={handleLogin} loading={submitting} disabled={submitting}>
                         Đăng nhập
+                    </Button>
+                    <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
+                        Bỏ qua (demo)
                     </Button>
                 </View>
             ) : (
@@ -385,6 +427,9 @@ const styles = StyleSheet.create({
         marginTop: 20,
         backgroundColor: Colors.primary,
         borderRadius: 10,
+    },
+    skipButton: {
+        marginTop: 8,
     },
     errorText: {
         marginTop: 8,

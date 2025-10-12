@@ -2,7 +2,7 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
 const API = axios.create({
-  baseURL: "https://192.168.100.175:8080",
+  baseURL: "http://192.168.1.50:8080" ?? "http://localhost:8080",
 });
 
 API.interceptors.request.use(async (config) => {
@@ -23,6 +23,10 @@ export const deleteAccount = (reason) => {
 };
 export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
+export const getServicePackages = (params) => API.get("/service-packages", { params });
+export const getServicePackageDetail = (id) =>
+  API.get("/service-packages/detail-with-seer", { params: { id } });
+export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
 
 export const updateUserStatus = (id, status) =>
   API.patch(`/account/${id}/status`, { id, status });
