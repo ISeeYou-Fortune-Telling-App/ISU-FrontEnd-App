@@ -11,12 +11,12 @@ import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const popularServices = [
-  { name: 'Cung Hoàng Đạo', Icon: Star, color: '#8A2BE2', bgColor: '#E6E6FA' },
-  { name: 'Nhân Tướng Học', Icon: Eye, color: '#4169E1', bgColor: '#E0EFFF' },
-  { name: 'Ngũ Hành', Icon: Coins, color: '#32CD32', bgColor: '#DFFFE0' },
-  { name: 'Chỉ Tay', Icon: Hand, color: '#FF69B4', bgColor: '#FFEFF5' },
-  { name: 'Tarot', Icon: Sparkles, color: '#FFD700', bgColor: '#FFF8DC' },
-  { name: 'Khác', Icon: MoreHorizontal, color: '#808080', bgColor: '#F0F0F0' },
+  { name: 'Cung Hoàng Đạo', Icon: Star, color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip },
+  { name: 'Nhân Tướng Học', Icon: Eye, color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip },
+  { name: 'Ngũ Hành', Icon: Coins, color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip },
+  { name: 'Chỉ Tay', Icon: Hand, color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip },
+  { name: 'Tarot', Icon: Sparkles, color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip },
+  { name: 'Khác', Icon: MoreHorizontal, color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip },
 ];
 
 type ServicePackageCardProps = {
