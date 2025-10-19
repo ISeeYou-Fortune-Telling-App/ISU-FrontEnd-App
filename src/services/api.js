@@ -15,11 +15,16 @@ API.interceptors.request.use(async (config) => {
 
 export const loginUser = (data) => API.post("/auth/login", data);
 export const registerUser = (data) => API.post("/auth/register", data);
-export const deleteAccount = (reason) => {
+export const deleteAccount = (userId, reason) => {
+  if (!userId) {
+    return Promise.reject(new Error("Missing userId"));
+  }
+
   const config = reason
     ? { data: { reason } }
-    : {};
-  return API.delete("/users/me", config);
+    : undefined;
+
+  return API.delete(`/account/${userId}`, config);
 };
 export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
@@ -27,6 +32,23 @@ export const getServicePackages = (params) => API.get("/service-packages", { par
 export const getServicePackageDetail = (id) =>
   API.get("/service-packages/detail-with-seer", { params: { id } });
 export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
+
+export const getChatConversations = (params) =>
+  API.get("/chat/conversations", { params });
+
+export const getChatMessages = (conversationId, params) =>
+  API.get(`/chat/conversations/${conversationId}/messages`, { params });
+
+export const sendChatMessage = (conversationId, payload) => {
+  const config =
+    typeof FormData !== "undefined" && payload instanceof FormData
+      ? { headers: { "Content-Type": "multipart/form-data" } }
+      : undefined;
+
+  return API.post(`/chat/conversations/${conversationId}/messages`, payload, config);
+};
+
+export const chatWithAI = (payload) => API.post("/ai-chat/query", payload);
 
 export const updateUserStatus = (id, status) =>
   API.patch(`/account/${id}/status`, { id, status });
