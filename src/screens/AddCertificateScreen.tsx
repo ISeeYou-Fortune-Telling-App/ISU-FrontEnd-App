@@ -4,21 +4,21 @@ import { router, useLocalSearchParams } from "expo-router";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
 
 // Category Icon component
-const CategoryIcon = ({ icon, color }: { icon: string; color: string }) => {
+const CategoryIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
   return (
-    <View style={[styles.categoryIcon, { backgroundColor: `${color}20` }]}>
+    <View style={[styles.categoryIcon, { backgroundColor: bgColor }]}>
       {icon === "star" && <LucideStar size={24} color={color} />}
       {icon === "eye" && <LucideEye size={24} color={color} />}
       {icon === "coins" && <LucideCoins size={24} color={color} />}
@@ -34,12 +34,14 @@ const CategoryCheckbox = ({
   label, 
   icon, 
   color, 
+  bgColor,
   selected, 
   onPress 
 }: { 
   label: string; 
   icon: string; 
   color: string;
+  bgColor: string;
   selected: boolean;
   onPress: () => void;
 }) => {
@@ -49,7 +51,7 @@ const CategoryCheckbox = ({
         onPress={onPress}
         style={[
           styles.categoryButton,
-          selected ? { backgroundColor: `${color}15`, borderColor: color } : { backgroundColor: 'white', borderColor: "#eee" }
+          selected ? { backgroundColor: bgColor, borderColor: color } : { backgroundColor: 'white', borderColor: "#eee" }
         ]}
       >
         <MaterialIcons 
@@ -59,7 +61,7 @@ const CategoryCheckbox = ({
           style={styles.checkboxIcon}
         />
         <View style={styles.categoryContent}>
-          <CategoryIcon icon={icon} color={color} />
+          <CategoryIcon icon={icon} color={color} bgColor={bgColor} />
           <Text numberOfLines={2} style={styles.categoryLabel}>{label}</Text>
         </View>
       </TouchableOpacity>
@@ -83,12 +85,12 @@ export default function AddCertificateScreen() {
   
   // Categories
   const categories = [
-    { id: "zodiac", name: "Cung Hoàng Đạo", color: "#5E51DC", icon: "star" as any },
-    { id: "physiognomy", name: "Nhân Tướng Học", color: "#2D87FB", icon: "eye" as any },
-    { id: "elements", name: "Ngũ Hành", color: "#31C452", icon: "coins" as any },
-    { id: "palmistry", name: "Chỉ Tay", color: "#F04E99", icon: "hand" as any },
-    { id: "tarot", name: "Tarot", color: "#F8B940", icon: "sparkles" as any },
-    { id: "other", name: "Khác", color: "#777777", icon: "moreHorizontal" as any }
+    { id: "zodiac", name: "Cung Hoàng Đạo", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip, icon: "star" as any },
+    { id: "physiognomy", name: "Nhân Tướng Học", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip, icon: "eye" as any },
+    { id: "elements", name: "Ngũ Hành", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip, icon: "coins" as any },
+    { id: "palmistry", name: "Chỉ Tay", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip, icon: "hand" as any },
+    { id: "tarot", name: "Tarot", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip, icon: "sparkles" as any },
+    { id: "other", name: "Khác", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip, icon: "moreHorizontal" as any }
   ];
 
   // Toggle category selection
@@ -196,6 +198,7 @@ export default function AddCertificateScreen() {
                 label={category.name}
                 icon={category.icon}
                 color={category.color}
+                bgColor={category.bgColor}
                 selected={selectedCategories.includes(category.id)}
                 onPress={() => toggleCategory(category.id)}
               />

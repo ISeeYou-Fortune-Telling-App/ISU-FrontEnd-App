@@ -1,6 +1,7 @@
+import KnowledgeSearchModal from "@/src/components/KnowledgeSearchModal";
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { getKnowledgeItems } from "@/src/services/api";
+import { getKnowledgeItems, searchKnowledgeItems } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
@@ -21,12 +22,12 @@ type KnowledgeItem = {
 };
 
 const categoryPalette: Record<string, { background: string; text: string }> = {
-  "Cung Hoàng Đạo": { background: "#EAE6FF", text: "#5B4BFF" },
-  "Ngũ Hành": { background: "#E0F9E8", text: "#1D8348" },
-  "Nhân Tướng Học": { background: "#E0EDFF", text: "#1B4F72" },
-  "Chỉ Tay": { background: "#FFE7F0", text: "#C2185B" },
-  Tarot: { background: "#FFF3CD", text: "#AA6E00" },
-  Khác: { background: "#F2F2F2", text: "#4F4F4F" },
+  "Cung Hoàng Đạo": { background: Colors.categoryColors.zodiac.chip, text: Colors.categoryColors.zodiac.icon },
+  "Ngũ Hành": { background: Colors.categoryColors.elements.chip, text: Colors.categoryColors.elements.icon },
+  "Nhân Tướng Học": { background: Colors.categoryColors.physiognomy.chip, text: Colors.categoryColors.physiognomy.icon },
+  "Chỉ Tay": { background: Colors.categoryColors.palmistry.chip, text: Colors.categoryColors.palmistry.icon },
+  Tarot: { background: Colors.categoryColors.tarot.chip, text: Colors.categoryColors.tarot.icon },
+  Khác: { background: Colors.categoryColors.other.chip, text: Colors.categoryColors.other.icon },
 };
 
 const getCategoryStyle = (category: string) =>
@@ -142,6 +143,7 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
 };
 
 export default function KnowledgeScreen() {
+  const [searchVisible, setSearchVisible] = useState(false);
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +202,44 @@ export default function KnowledgeScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-      <TopBar placeholder="Tìm kiếm bài viết..." />
+      <>
+        <TopBar showSearchIcon onSearchPress={() => setSearchVisible(true)} />
+        <KnowledgeSearchModal
+          visible={searchVisible}
+          onClose={() => setSearchVisible(false)}
+          onApply={async (params) => {
+        try {
+          setLoading(true);
+          const response = await searchKnowledgeItems({
+            page: 1,
+            limit: 15,
+            sortType: params.sortType ?? 'desc',
+            sortBy: params.sortBy ?? 'createdAt',
+            title: params.title,
+            categoryId: params.categoryId,
+            status: params.status,
+          });
+          const root = response?.data ?? response;
+          let dataArray: any[] = [];
+          if (Array.isArray(root)) {
+            dataArray = root;
+          } else if (Array.isArray(root?.data)) {
+            dataArray = root.data;
+          } else if (Array.isArray(root?.items)) {
+            dataArray = root.items;
+          } else if (Array.isArray(root?.results)) {
+            dataArray = root.results;
+          }
+
+          setItems(dataArray as KnowledgeItem[]);
+        } catch (err: any) {
+          console.error('Search failed', err);
+        } finally {
+          setLoading(false);
+        }
+          }}
+        />
+      </>
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}

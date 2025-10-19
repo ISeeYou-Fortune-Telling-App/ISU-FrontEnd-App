@@ -30,8 +30,10 @@ export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
 export const getServicePackages = (params) => API.get("/service-packages", { params });
 export const getServicePackageDetail = (id) =>
-  API.get("/service-packages/detail-with-seer", { params: { id } });
+  API.get("/service-packages/detail", { params: { id } });
 export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
+export const searchKnowledgeItems = (params) => API.get("/knowledge-items/search", { params });
+export const getKnowledgeCategories = (params) => API.get("/knowledge-categories", { params });
 
 export const getChatConversations = (params) =>
   API.get("/chat/conversations", { params });

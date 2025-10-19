@@ -8,9 +8,9 @@ import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Specialty Icons component
-const SpecialtyIcon = ({ icon, color }: { icon: string; color: string }) => {
+const SpecialtyIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
   return (
-    <View style={[styles.specialtyIcon, { backgroundColor: `${color}20` }]}>
+    <View style={[styles.specialtyIcon, { backgroundColor: bgColor }]}>
       {icon === "star" && <LucideStar size={24} color={color} />}
       {icon === "eye" && <LucideEye size={24} color={color} />}
       {icon === "coins" && <LucideCoins size={24} color={color} />}
@@ -26,12 +26,14 @@ const SpecialtyCheckbox = ({
   label, 
   icon, 
   color, 
+  bgColor,
   selected, 
   onPress 
 }: { 
   label: string; 
   icon: string; 
   color: string;
+  bgColor: string;
   selected: boolean;
   onPress: () => void;
 }) => {
@@ -41,7 +43,7 @@ const SpecialtyCheckbox = ({
         onPress={onPress}
         style={[
           styles.specialtyButton,
-          selected ? { backgroundColor: `${color}15`, borderColor: color } : { backgroundColor: 'white', borderColor: "#eee" }
+          selected ? { backgroundColor: bgColor, borderColor: color } : { backgroundColor: 'white', borderColor: "#eee" }
         ]}
       >
         <MaterialIcons 
@@ -51,7 +53,7 @@ const SpecialtyCheckbox = ({
           style={styles.checkboxIcon}
         />
         <View style={styles.specialtyContent}>
-          <SpecialtyIcon icon={icon} color={color} />
+          <SpecialtyIcon icon={icon} color={color} bgColor={bgColor} />
           <Text numberOfLines={2} style={styles.specialtyLabel}>{label}</Text>
         </View>
       </TouchableOpacity>
@@ -122,7 +124,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Cung Hoàng Đạo" 
             icon="star" 
-            color="#5E51DC"
+            color={Colors.categoryColors.zodiac.icon}
+            bgColor={Colors.categoryColors.zodiac.chip}
             selected={selectedSpecialties.includes("zodiac")}
             onPress={() => toggleSpecialty("zodiac")}
           />
@@ -130,7 +133,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Nhân Tướng Học" 
             icon="eye" 
-            color="#2D87FB"
+            color={Colors.categoryColors.physiognomy.icon}
+            bgColor={Colors.categoryColors.physiognomy.chip}
             selected={selectedSpecialties.includes("physiognomy")}
             onPress={() => toggleSpecialty("physiognomy")}
           />
@@ -138,7 +142,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Ngũ Hành" 
             icon="coins" 
-            color="#31C452"
+            color={Colors.categoryColors.elements.icon}
+            bgColor={Colors.categoryColors.elements.chip}
             selected={selectedSpecialties.includes("elements")}
             onPress={() => toggleSpecialty("elements")}
           />
@@ -146,7 +151,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Chỉ Tay" 
             icon="hand" 
-            color="#F04E99"
+            color={Colors.categoryColors.palmistry.icon}
+            bgColor={Colors.categoryColors.palmistry.chip}
             selected={selectedSpecialties.includes("palmistry")}
             onPress={() => toggleSpecialty("palmistry")}
           />
@@ -154,7 +160,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Tarot" 
             icon="sparkles" 
-            color="#F8B940"
+            color={Colors.categoryColors.tarot.icon}
+            bgColor={Colors.categoryColors.tarot.chip}
             selected={selectedSpecialties.includes("tarot")}
             onPress={() => toggleSpecialty("tarot")}
           />
@@ -162,7 +169,8 @@ export default function SeerRegistrationStep2Screen() {
           <SpecialtyCheckbox 
             label="Khác" 
             icon="moreHorizontal" 
-            color="#777777"
+            color={Colors.categoryColors.other.icon}
+            bgColor={Colors.categoryColors.other.chip}
             selected={selectedSpecialties.includes("other")}
             onPress={() => toggleSpecialty("other")}
           />
