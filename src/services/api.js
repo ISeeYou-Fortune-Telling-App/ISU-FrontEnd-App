@@ -41,4 +41,13 @@ export const updateServicePackage = (id, seerId, data) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
+export const forgotPassword = (email) =>
+  API.post("/auth/forgot-password", { email });
+
+export const resendOTP = (email) =>
+  API.post("/auth/resend-otp", { email });
+
+export const verifyForgotPassword = (data) =>
+  API.post("/auth/forgot-password/verify", data);
+
 export default API;

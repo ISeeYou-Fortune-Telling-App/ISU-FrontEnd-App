@@ -317,7 +317,7 @@ export default function AuthScreen() {
                                 <Text style={styles.text}>Ghi nhớ tài khoản</Text>
                             </View>
 
-                            <TouchableOpacity onPress={() => router.push("/password-recovery")}>
+                            <TouchableOpacity onPress={() => router.push("/forgot-password")}>
                                 <Text style={styles.link}>Quên mật khẩu?</Text>
                             </TouchableOpacity>
                         </View>

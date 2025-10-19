@@ -29,6 +29,7 @@ export default function RootLayout() {
         <Stack initialRouteName="auth">
           <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
           <Stack.Screen name="auth" options={{headerShown: false}}/>
+          <Stack.Screen name="forgot-password" options={{headerShown: false}}/>
           <Stack.Screen name="password-recovery" options={{headerShown: false}}/>
           <Stack.Screen name="seer-registration" options={{headerShown: false}}/>
           <Stack.Screen name="seer-registration-step2" options={{headerShown: false}}/>

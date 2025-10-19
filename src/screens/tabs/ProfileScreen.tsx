@@ -3,7 +3,7 @@ import Colors from "@/src/constants/colors";
 import { updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router } from "expo-router";
-import { Bell, Calendar, Mail, Mars, Phone, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, Mail, Mars, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [zodiac, setZodiac] = useState<string>("");
-  const [likeCount, setLikeCount] = useState<number>(0);
+  const [cashCount, setCashCount] = useState<number>(0);
   const [bookingCount, setBookingCount] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [status, setStatus] = useState<string>("ACTIVE");
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
 
       <View style={{ height: 150 }} />
 
-      <View style={{ flexShrink: 1, backgroundColor: Colors.white, paddingBottom: 20 }}>
+      <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
         <View style={styles.container}>
           <View style={styles.avatar} />
           <Text style={styles.name}>Nguyễn Thị Mai</Text>
@@ -54,14 +54,11 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}>
+        showsVerticalScrollIndicator={false}>
 
-        <View style={{ marginHorizontal: 10 }}>
-          <ZodiacCard zodiac="Cự Giải" />
-          <StatsRow likeCount={likeCount} bookingCount={bookingCount} reviewCount={reviewCount} />
-          <PersonalInfoCard dob="22/07/1980" gender="Nữ" phone="0991234567" email="nguyentmai@gmail.com" />
-        </View>
+        <ZodiacCard zodiac="Cự Giải" animal="Thân" />
+        <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />
+        <PersonalInfoCard dob="22/07/1980" gender="Nữ" phone="0991234567" email="nguyentmai@gmail.com" />
 
       </ScrollView>
 
@@ -70,11 +67,17 @@ export default function ProfileScreen() {
 }
 
 
-export function ZodiacCard({ zodiac }: { zodiac: string }) {
+export function ZodiacCard({ zodiac, animal }: { zodiac: string, animal: string }) {
   return (
     <View style={styles.ZodiacCard}>
-      <Star size={24} color="#7C3AED" />
-      <Text style={styles.zodiacText}>Cung hoàng đạo: {zodiac}</Text>
+      <View style={{flexDirection: "row", alignItems: "center", marginBottom: 5}}>
+        <Star size={24} color="#7C3AED" />
+        <Text style={styles.zodiacText}>Cung hoàng đạo: {zodiac}</Text>
+      </View>
+      <View style={{flexDirection: "row", alignItems: "center"}}>
+        <Rat size={24} color="#693d00ff" />
+        <Text style={styles.zodiacText}>Con giáp: {animal}</Text>
+      </View>
     </View>
   );
 }
@@ -86,9 +89,9 @@ type StatCardProps = {
 };
 
 type StatProps = {
-  likeCount: number;
   bookingCount: number;
   reviewCount: number;
+  cashCount: number;
 };
 
 type InfoProps = {
@@ -107,13 +110,16 @@ function StatCard({ value, label, color }: StatCardProps) {
   );
 }
 
-export function StatsRow({ likeCount, bookingCount, reviewCount }: StatProps) {
+export function StatsRow({ bookingCount, reviewCount, cashCount }: StatProps) {
   return (
-    <View style={styles.statRow}>
-      <StatCard value={likeCount} label="Lượt thích" color="#3B82F6" />
-      <StatCard value={bookingCount} label="Cuộc hẹn" color="#22C55E" />
-      <StatCard value={reviewCount} label="Bình luận" color="#F59E0B" />
-    </View>
+    <>
+      <View style={styles.statRow}>
+        <StatCard value={bookingCount} label="Cuộc hẹn" color={Colors.primary} />
+        <StatCard value={reviewCount} label="Bình luận" color="#F59E0B" />
+      </View>
+      <StatCard value={cashCount} label="Tổng chi tiêu (VNĐ)" color="#00ce00ff" />
+      <View style={{ height: 10 }} />
+    </>
   );
 }
 
@@ -189,13 +195,12 @@ const styles = StyleSheet.create({
 
 
   ZodiacCard: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "white",
     borderRadius: 10,
     padding: 10,
+    marginHorizontal: 10,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: Colors.primary,
     marginVertical: 10,
   },
   zodiacText: {
@@ -217,9 +222,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 10,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: Colors.primary,
   },
   statValue: {
     fontSize: 20,
@@ -235,9 +240,10 @@ const styles = StyleSheet.create({
   infoContainer: {
     backgroundColor: "white",
     borderRadius: 10,
+    marginHorizontal: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: Colors.primary,
   },
   header: {
     flexDirection: "row",

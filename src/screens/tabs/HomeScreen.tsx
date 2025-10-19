@@ -236,7 +236,7 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.servicesContainer}>
-              <Text style={styles.servicesTitle}>Dịch vụ phổ biến</Text>
+              <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
               <View style={styles.servicesGrid}>
                 {popularServices.map((service, index) => (
                   <View key={index} style={styles.serviceItem}>
@@ -250,7 +250,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.servicesContainer}>
-              <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng</Text>
+              <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
               <Button 
                 mode="contained" 
                 style={styles.btn} 
@@ -281,8 +281,10 @@ const styles = StyleSheet.create({
   servicesContainer: {
     backgroundColor: Colors.white,
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderRadius: 10,
+    margin: 5
   },
   servicesTitle: {
     fontSize: 18,
@@ -463,7 +465,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    fontFamily: 'inter',
+    fontWeight: "bold",
   },
   btn: {
     marginTop: 10,

@@ -5,12 +5,12 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.white,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginVertical: 12,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,

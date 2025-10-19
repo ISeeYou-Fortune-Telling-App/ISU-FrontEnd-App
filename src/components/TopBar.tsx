@@ -1,5 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { Search } from "lucide-react-native";
+import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "react-native-paper";
 
@@ -7,7 +8,8 @@ type TopBarProps = {
   placeholder?: string;
 };
 
-export default function TopBar({ placeholder = "Tìm kiếm..."}: TopBarProps) {
+export default function TopBar({ placeholder = "Tìm kiếm..." }: TopBarProps) {
+  const [isFocused, setIsFocused] = useState(false)
   return (
     <View style={styles.topBar}>
       <View style={styles.topBarLeft}>
@@ -20,10 +22,12 @@ export default function TopBar({ placeholder = "Tìm kiếm..."}: TopBarProps) {
       </View>
 
       <View style={styles.searchBar}>
-        <Search size={18} color="#666" />
+        <Search size={22} color={isFocused ? Colors.primary : "#666"} />
         <TextInput
           placeholder={placeholder}
           placeholderTextColor="#666"
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           mode="flat"
           style={styles.textInput}
         />
@@ -63,6 +67,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     width: 280,
+    borderWidth: 2,
+    borderColor: Colors.primary
   },
   textInput: {
     backgroundColor: Colors.background,

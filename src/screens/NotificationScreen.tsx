@@ -105,6 +105,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 10,
   },
+  timeText: {
+    fontSize: 11,
+    fontFamily: "inter",
+    color: Colors.gray,
+    marginLeft: 5
+  }
 });
 
 function SampleNotif() {
@@ -114,15 +120,15 @@ function SampleNotif() {
       <View style={{ width: "80%", marginLeft: 10 }}>
         <Text style={{ fontWeight: "bold" }}>Đăng ký gói thành công</Text>
         <Text style={{ fontFamily: "inter", fontSize: 13 }}>Bạn đã đăng ký gói “Xem bói tổng quát cuộc đời 2024” của thầy bói Thầy Ông Nội.</Text>
-        <View style={{ flexDirection: "row" }}>
+        <View style={{ flexDirection: "row", marginTop: 5 }}>
           <View style={{ flexDirection: "row" }}>
-            <Calendar size={18} color={Colors.black} />
-            <Text> 15/04/2025</Text>
+            <Calendar size={15} color={Colors.gray} />
+            <Text style={styles.timeText}>15/04/2025</Text>
           </View>
           <View style={{ width: 28 }} />
           <View style={{ flexDirection: "row" }}>
-            <Clock size={18} color={Colors.black} />
-            <Text> 15:30</Text>
+            <Clock size={15} color={Colors.gray} />
+            <Text style={styles.timeText}>15:30</Text>
           </View>
         </View>
       </View>
