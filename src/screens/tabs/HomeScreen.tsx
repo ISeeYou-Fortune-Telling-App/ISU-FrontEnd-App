@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   servicesContainer: {
     backgroundColor: Colors.white,
     padding: 16,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: Colors.primary,
     borderRadius: 10,
     margin: 5

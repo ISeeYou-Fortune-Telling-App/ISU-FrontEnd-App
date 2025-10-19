@@ -1,32 +1,94 @@
 import StatusDropdown from "@/src/components/StatusDropdown";
 import Colors from "@/src/constants/colors";
-import { updateUserStatus } from "@/src/services/api";
+import { getProfile, updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { Bell, Calendar, Mail, Mars, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
-import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
   const [fullName, setFullName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [dob, setDob] = useState<number>(Date.now);
+  const [dob, setDob] = useState<string>("");
   const [gender, setGender] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [zodiac, setZodiac] = useState<string>("");
+  const [chineseZodiac, setChineseZodiac] = useState<string>("");
   const [cashCount, setCashCount] = useState<number>(0);
   const [bookingCount, setBookingCount] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
-  const [status, setStatus] = useState<string>("ACTIVE");
-  const userId = "c4a2b9f1-8e34-4b89-b2a7-3e6f9d5a12f0";
+  const [status, setStatus] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [coverUrl, setCoverUrl] = useState<string>("");
   const tabBarHeight = useBottomTabBarHeight();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      return () => {};
+    }, [])
+  );
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await getProfile();
+      const payload = res?.data?.data ?? res?.data ?? null;
+      if (payload) {
+        setFullName(payload.fullName);
+        setDescription(payload.profileDescription);
+        // birthDate example: "1988-11-25T00:00:00" -> format as dd/mm/yyyy
+        if (payload.birthDate) {
+          const d = new Date(payload.birthDate);
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const year = d.getFullYear();
+          setDob(`${day}/${month}/${year}`);
+        }
+        setGender(payload.gender);
+        setPhone(payload.phone);
+        setEmail(payload.email);
+
+        setZodiac(payload.profile?.zodiacSign ?? "");
+        setChineseZodiac(payload.profile?.chineseZodiac ?? "");
+        setAvatarUrl(payload.avatarUrl ?? "");
+        setCoverUrl(payload.coverUrl ?? "");
+        // persist user id for other screens
+        if (payload.id) {
+          await SecureStore.setItemAsync("userId", payload.id);
+        }
+        setStatus(payload.status ?? status);
+        // If the API returns counts, set them. Keep defaults otherwise.
+        if (typeof payload.cashCount === "number") setCashCount(payload.cashCount);
+        if (typeof payload.bookingCount === "number") setBookingCount(payload.bookingCount);
+        if (typeof payload.reviewCount === "number") setReviewCount(payload.reviewCount);
+      }
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+      Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleStatusChange = async (newStatus: string) => {
     try {
       setStatus(newStatus);
-      const res = await updateUserStatus(userId, newStatus);
+      const id = await SecureStore.getItemAsync("userId");
+      if (!id) {
+        Alert.alert("Lỗi", "Không tìm thấy userId");
+        return;
+      }
+      const res = await updateUserStatus(id, newStatus);
     } catch (err) {
       console.error(err);
       Alert.alert("Lỗi", "Không thể cập nhật trạng thái");
@@ -42,23 +104,39 @@ export default function ProfileScreen() {
       </View>
 
 
-      <View style={{ height: 150 }} />
+      <View style={styles.coverWrapper}>
+        {coverUrl ? (
+          <Image source={{ uri: coverUrl }} style={styles.cover} />
+        ) : (
+          <View style={styles.coverPlaceholder} />
+        )}
+      </View>
 
       <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
-        <View style={styles.container}>
-          <View style={styles.avatar} />
-          <Text style={styles.name}>Nguyễn Thị Mai</Text>
+        <View style={[styles.container, styles.headerContainer]}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar} />
+          )}
+          <Text style={styles.name}>{fullName}</Text>
           <StatusDropdown value={status} onChange={handleStatusChange} />
-          <Text style={{ fontFamily: "inter", marginTop: 10 }}>Thầy Minh Tuệ với hơn 15 năm kinh nghiệm trong lĩnh vực tử vi, cung hoàng đạo. Đã tư vấn cho hơn 5000 khách hàng với độ chính xác cao. Chuyên về dự đoán vận mệnh, tình duyên và sự nghiệp.</Text>
+          <Text style={{ fontFamily: "inter", marginTop: 10 }}>{description}</Text>
         </View>
       </View>
+
+      {loading && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}>
 
-        <ZodiacCard zodiac="Cự Giải" animal="Thân" />
+        <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />
         <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />
-        <PersonalInfoCard dob="22/07/1980" gender="Nữ" phone="0991234567" email="nguyentmai@gmail.com" />
+        <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 
       </ScrollView>
 
@@ -70,11 +148,11 @@ export default function ProfileScreen() {
 export function ZodiacCard({ zodiac, animal }: { zodiac: string, animal: string }) {
   return (
     <View style={styles.ZodiacCard}>
-      <View style={{flexDirection: "row", alignItems: "center", marginBottom: 5}}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 5 }}>
         <Star size={24} color="#7C3AED" />
         <Text style={styles.zodiacText}>Cung hoàng đạo: {zodiac}</Text>
       </View>
-      <View style={{flexDirection: "row", alignItems: "center"}}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         <Rat size={24} color="#693d00ff" />
         <Text style={styles.zodiacText}>Con giáp: {animal}</Text>
       </View>
@@ -183,7 +261,7 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     backgroundColor: "#d1d5db",
     borderWidth: 4,
-    borderColor: "#fff",
+    borderColor: Colors.grayBackground,
   },
   name: {
     marginVertical: 12,
@@ -269,5 +347,33 @@ const styles = StyleSheet.create({
   icon: {
     fontSize: 16,
     color: "#555",
+  },
+  coverWrapper: {
+    height: 150,
+    backgroundColor: Colors.grayBackground,
+  },
+  cover: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  coverPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: Colors.grayBackground,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.6)",
+  },
+  headerContainer: {
+    marginTop: -64,
+    alignItems: "center",
   },
 })

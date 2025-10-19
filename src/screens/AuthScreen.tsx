@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -238,238 +238,245 @@ export default function AuthScreen() {
     };
 
     return (
-        <SafeAreaView edges={['top', 'left', 'right']} style={styles.SafeAreaView}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.keyboardAvoidingView}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={[
-                        styles.scrollContent,
-                        option === "login" ? styles.scrollContentCentered : null,
-                    ]}>
-                    <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
-                    <Text style={styles.header2} variant="titleSmall">Kết nối với các Nhà tiên tri uy tín nhất</Text>
+        <ImageBackground
+            source={require("@/assets/images/authBackground.png")}
+            resizeMode="cover"
+            style={{ flex: 1}}>
 
-                    <SegmentedButtons
-                        value={option}
-                        onValueChange={(value) => {
-                            setOption(value);
-                            setError(null);
-                            setEmail("");
-                            setPassword("");
-                            setConfirmPassword("");
-                            setFullName("");
-                            setPhone("");
-                            setDOB("");
-                            setZodiac("");
-                            setGender("");
-                        }}
-                        buttons={[
-                            { value: "login", label: "Đăng nhập" },
-                            { value: "signup", label: "Đăng ký" },
-                        ]}
-                        style={{ marginBottom: 20 }}
-                    />
 
-                    {option === "login" ? (
-                        <View key="login">
-                        <TextInput
-                            label="Email"
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            placeholder="Nhập email của bạn"
-                            mode="outlined"
-                            style={styles.textInput}
-                            left={<TextInput.Icon icon="email" />}
-                            onChangeText={setEmail}
-                            value={email}
+            <SafeAreaView edges={['top', 'left', 'right']} style={styles.SafeAreaView}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.keyboardAvoidingView}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={[
+                            styles.scrollContent,
+                            option === "login" ? styles.scrollContentCentered : null,
+                        ]}>
+                        <Text style={styles.header} variant="headlineSmall">Chào mừng đến với I See You</Text>
+                        <Text style={styles.header2} variant="titleSmall">Kết nối với các Nhà tiên tri uy tín nhất</Text>
+
+                        <SegmentedButtons
+                            value={option}
+                            onValueChange={(value) => {
+                                setOption(value);
+                                setError(null);
+                                setEmail("");
+                                setPassword("");
+                                setConfirmPassword("");
+                                setFullName("");
+                                setPhone("");
+                                setDOB("");
+                                setZodiac("");
+                                setGender("");
+                            }}
+                            buttons={[
+                                { value: "login", label: "Đăng nhập" },
+                                { value: "signup", label: "Đăng ký" },
+                            ]}
+                            style={{ marginBottom: 20 }}
                         />
 
-                        <TextInput
-                            label="Mật khẩu"
-                            autoCapitalize="none"
-                            placeholder="Nhập mật khẩu của bạn"
-                            mode="outlined"
-                            style={styles.textInput}
-                            secureTextEntry={secure}
-                            left={<TextInput.Icon icon="lock" />}
-                            right={
-                                <TextInput.Icon
-                                    icon={secure ? "eye-off" : "eye"}
-                                    onPress={() => setSecure((prev) => !prev)}
-                                />
-                            }
-                            onChangeText={setPassword}
-                            value={password}
-                        />
-
-                        {error && <Text style={styles.errorText}>{error}</Text>}
-
-                        <View style={styles.flexRowJustifyBetweenItemsCenterMt2}>
-                            <View style={styles.flexRowItemsCenter}>
-                                <Checkbox
-                                    status={rememberMe ? "checked" : "unchecked"}
-                                    onPress={() => setRememberMe((prev) => !prev)}
-                                />
-                                <Text style={styles.text}>Ghi nhớ tài khoản</Text>
-                            </View>
-
-                            <TouchableOpacity onPress={() => router.push("/forgot-password")}>
-                                <Text style={styles.link}>Quên mật khẩu?</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                    <Button mode="contained" style={styles.btnLogin} onPress={handleLogin} loading={submitting} disabled={submitting}>
-                        Đăng nhập
-                    </Button>
-                    <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
-                        Bỏ qua (demo)
-                    </Button>
-                </View>
-            ) : (
-                <View key="register">
-                    <TextInput
-                        label="Họ và tên"
-                        placeholder="Nhập họ và tên"
-                        mode="outlined"
-                        style={styles.textInput}
-                        left={<TextInput.Icon icon="account" />}
-                        onChangeText={setFullName}
-                        value={fullName}
-                    />
-
-                        <TextInput
-                            label="Email"
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            placeholder="Nhập email của bạn"
-                            mode="outlined"
-                            style={styles.textInput}
-                            left={<TextInput.Icon icon="email" />}
-                            onChangeText={setEmail}
-                            value={email}
-                        />
-
-                        <TextInput
-                            label="Số điện thoại"
-                            keyboardType="phone-pad"
-                            placeholder="Nhập số điện thoại"
-                            mode="outlined"
-                            style={styles.textInput}
-                            left={<TextInput.Icon icon="phone" />}
-                            onChangeText={setPhone}
-                            value={phone}
-                        />
-
-                        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                            <TextInput
-                                label="Ngày sinh"
-                                mode="outlined"
-                                value={DOB}
-                                editable={false}
-                                pointerEvents="none"
-                                style={styles.textInput}
-                                left={<TextInput.Icon icon="calendar" />}
-                            />
-                        </TouchableOpacity>
-                        <DateTimePickerModal
-                            isVisible={showDatePicker}
-                            mode="date"
-                            onConfirm={handleConfirmDate}
-                            onCancel={() => setShowDatePicker(false)}
-                        />
-
-                        <TextInput
-                            label="Cung hoàng đạo"
-                            mode="outlined"
-                            style={styles.textInput}
-                            value={zodiac}
-                            placeholder="Tự động tính toán"
-                            left={<TextInput.Icon icon="star-four-points-outline" />}
-                            editable={false}
-                        />
-
-                        <Menu
-                            visible={menuVisible}
-                            onDismiss={closeMenu}
-                            anchor={
+                        {option === "login" ? (
+                            <View key="login">
                                 <TextInput
-                                    label="Giới tính"
+                                    label="Email"
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                    placeholder="Nhập email của bạn"
                                     mode="outlined"
                                     style={styles.textInput}
-                                    value={gender}
-                                    left={<TextInput.Icon icon="gender-male-female" />}
-                                    right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                                    onTouchStart={openMenu}
+                                    left={<TextInput.Icon icon="email" />}
+                                    onChangeText={setEmail}
+                                    value={email}
+                                />
+
+                                <TextInput
+                                    label="Mật khẩu"
+                                    autoCapitalize="none"
+                                    placeholder="Nhập mật khẩu của bạn"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    secureTextEntry={secure}
+                                    left={<TextInput.Icon icon="lock" />}
+                                    right={
+                                        <TextInput.Icon
+                                            icon={secure ? "eye-off" : "eye"}
+                                            onPress={() => setSecure((prev) => !prev)}
+                                        />
+                                    }
+                                    onChangeText={setPassword}
+                                    value={password}
+                                />
+
+                                {error && <Text style={styles.errorText}>{error}</Text>}
+
+                                <View style={styles.flexRowJustifyBetweenItemsCenterMt2}>
+                                    <View style={styles.flexRowItemsCenter}>
+                                        <Checkbox
+                                            status={rememberMe ? "checked" : "unchecked"}
+                                            onPress={() => setRememberMe((prev) => !prev)}
+                                        />
+                                        <Text style={styles.text}>Ghi nhớ tài khoản</Text>
+                                    </View>
+
+                                    <TouchableOpacity onPress={() => router.push("/forgot-password")}>
+                                        <Text style={styles.link}>Quên mật khẩu?</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <Button mode="contained" style={styles.btnLogin} onPress={handleLogin} loading={submitting} disabled={submitting}>
+                                    Đăng nhập
+                                </Button>
+                                <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
+                                    Bỏ qua (demo)
+                                </Button>
+                            </View>
+                        ) : (
+                            <View key="register">
+                                <TextInput
+                                    label="Họ và tên"
+                                    placeholder="Nhập họ và tên"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    left={<TextInput.Icon icon="account" />}
+                                    onChangeText={setFullName}
+                                    value={fullName}
+                                />
+
+                                <TextInput
+                                    label="Email"
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                    placeholder="Nhập email của bạn"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    left={<TextInput.Icon icon="email" />}
+                                    onChangeText={setEmail}
+                                    value={email}
+                                />
+
+                                <TextInput
+                                    label="Số điện thoại"
+                                    keyboardType="phone-pad"
+                                    placeholder="Nhập số điện thoại"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    left={<TextInput.Icon icon="phone" />}
+                                    onChangeText={setPhone}
+                                    value={phone}
+                                />
+
+                                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                                    <TextInput
+                                        label="Ngày sinh"
+                                        mode="outlined"
+                                        value={DOB}
+                                        editable={false}
+                                        pointerEvents="none"
+                                        style={styles.textInput}
+                                        left={<TextInput.Icon icon="calendar" />}
+                                    />
+                                </TouchableOpacity>
+                                <DateTimePickerModal
+                                    isVisible={showDatePicker}
+                                    mode="date"
+                                    onConfirm={handleConfirmDate}
+                                    onCancel={() => setShowDatePicker(false)}
+                                />
+
+                                <TextInput
+                                    label="Cung hoàng đạo"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    value={zodiac}
+                                    placeholder="Tự động tính toán"
+                                    left={<TextInput.Icon icon="star-four-points-outline" />}
                                     editable={false}
                                 />
-                            }>
-                            <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
-                            <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
-                            <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
-                        </Menu>
 
-                        <TextInput
-                            label="Mật khẩu"
-                            autoCapitalize="none"
-                            placeholder="Nhập mật khẩu"
-                            mode="outlined"
-                            style={styles.textInput}
-                            secureTextEntry={secure}
-                            left={<TextInput.Icon icon="lock" />}
-                            right={
-                                <TextInput.Icon
-                                    icon={secure ? "eye-off" : "eye"}
-                                    onPress={() => setSecure((prev) => !prev)}
+                                <Menu
+                                    visible={menuVisible}
+                                    onDismiss={closeMenu}
+                                    anchor={
+                                        <TextInput
+                                            label="Giới tính"
+                                            mode="outlined"
+                                            style={styles.textInput}
+                                            value={gender}
+                                            left={<TextInput.Icon icon="gender-male-female" />}
+                                            right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+                                            onTouchStart={openMenu}
+                                            editable={false}
+                                        />
+                                    }>
+                                    <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
+                                    <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
+                                    <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
+                                </Menu>
+
+                                <TextInput
+                                    label="Mật khẩu"
+                                    autoCapitalize="none"
+                                    placeholder="Nhập mật khẩu"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    secureTextEntry={secure}
+                                    left={<TextInput.Icon icon="lock" />}
+                                    right={
+                                        <TextInput.Icon
+                                            icon={secure ? "eye-off" : "eye"}
+                                            onPress={() => setSecure((prev) => !prev)}
+                                        />
+                                    }
+                                    onChangeText={setPassword}
+                                    value={password}
                                 />
-                            }
-                            onChangeText={setPassword}
-                            value={password}
-                        />
 
-                        <TextInput
-                            label="Xác nhận mật khẩu"
-                            autoCapitalize="none"
-                            placeholder="Nhập lại mật khẩu"
-                            mode="outlined"
-                            style={styles.textInput}
-                            secureTextEntry={secure2}
-                            left={<TextInput.Icon icon="lock" />}
-                            right={
-                                <TextInput.Icon
-                                    icon={secure2 ? "eye-off" : "eye"}
-                                    onPress={() => setSecure2((prev) => !prev)}
+                                <TextInput
+                                    label="Xác nhận mật khẩu"
+                                    autoCapitalize="none"
+                                    placeholder="Nhập lại mật khẩu"
+                                    mode="outlined"
+                                    style={styles.textInput}
+                                    secureTextEntry={secure2}
+                                    left={<TextInput.Icon icon="lock" />}
+                                    right={
+                                        <TextInput.Icon
+                                            icon={secure2 ? "eye-off" : "eye"}
+                                            onPress={() => setSecure2((prev) => !prev)}
+                                        />
+                                    }
+                                    onChangeText={setConfirmPassword}
+                                    value={confirmPassword}
                                 />
-                            }
-                            onChangeText={setConfirmPassword}
-                            value={confirmPassword}
-                        />
 
-                        {error && <Text style={styles.errorText}>{error}</Text>}
+                                {error && <Text style={styles.errorText}>{error}</Text>}
 
-                        <Text style={styles.text}>
-                            Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
-                        </Text>
+                                <Text style={styles.text}>
+                                    Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
+                                </Text>
 
-                        <Button mode="contained" style={styles.btnLogin} onPress={handleRegister}>
-                            Đăng ký
-                        </Button>
-                        <Button
-                            mode="contained"
-                            style={styles.btnFortuneTeller}
-                            onPress={() => router.push("/seer-registration")}
-                            icon={() => <Eye size={18} color={Colors.white} />}
-                        >
-                            Đăng ký Nhà tiên tri
-                        </Button>
-                    </View>
-                    )}
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+                                <Button mode="contained" style={styles.btnLogin} onPress={handleRegister}>
+                                    Đăng ký
+                                </Button>
+                                <Button
+                                    mode="contained"
+                                    style={styles.btnFortuneTeller}
+                                    onPress={() => router.push("/seer-registration")}
+                                    icon={() => <Eye size={18} color={Colors.white} />}
+                                >
+                                    Đăng ký Nhà tiên tri
+                                </Button>
+                            </View>
+                        )}
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </ImageBackground>
     );
 }
 

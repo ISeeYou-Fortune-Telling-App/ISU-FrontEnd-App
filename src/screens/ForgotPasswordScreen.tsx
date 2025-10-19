@@ -1,4 +1,5 @@
 import Colors from "@/src/constants/colors";
+import { forgotPassword } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -16,7 +17,10 @@ export default function ForgotPasswordScreen() {
             return;
         }
 
-        Alert.alert("Thành công", "res.data", [
+        setLoading(true);
+        try {
+            const res = await forgotPassword(email);
+            Alert.alert("Thành công", res.data?.message, [
                 {
                     text: "OK",
                     onPress: () => {
@@ -24,23 +28,12 @@ export default function ForgotPasswordScreen() {
                     },
                 },
             ]);
-        // try {
-        //     setLoading(true);
-        //     const res = await forgotPassword(email);
-        //     Alert.alert("Thành công", res.data, [
-        //         {
-        //             text: "OK",
-        //             onPress: () => {
-        //                 router.push({ pathname: "/password-recovery", params: { email } });
-        //             },
-        //         },
-        //     ]);
-        // } catch (error) {
-        //     console.error(error);
-        //     Alert.alert("Lỗi", "Không thể gửi OTP. Vui lòng thử lại.");
-        // } finally {
-        //     setLoading(false);
-        // }
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Lỗi", "Không thể gửi OTP. Vui lòng thử lại.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

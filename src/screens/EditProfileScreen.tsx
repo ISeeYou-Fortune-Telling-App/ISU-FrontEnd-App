@@ -1,15 +1,16 @@
+import Colors from "@/src/constants/colors";
+import { getProfile, updateProfile } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { ActivityIndicator, Button, Menu, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
-import { updateProfile } from "../services/api";
 
 export default function EditProfileScreen() {
-    const [loading, setLoading] = useState(false); // change later to 'true'
+    const [loading, setLoading] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [email, setEmail] = useState("");
@@ -17,35 +18,44 @@ export default function EditProfileScreen() {
     const [gender, setGender] = useState("");
     const [fullName, setFullName] = useState("");
     const [dob, setDob] = useState("");
+    const [realDob, setRealDob] = useState("");
     const [description, setDescription] = useState("");
     const [menuVisible, setMenuVisible] = useState<boolean>(false);
 
     const openMenu = () => setMenuVisible(true);
     const closeMenu = () => setMenuVisible(false);
 
-    // đừng có xoá
-    //   useEffect(() => {
-    //     const fetchProfile = async () => {
-    //       try {
-    //         const res = await getProfile();
-    //         const data = res.data;
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-    //         setEmail(data.email || "");
-    //         setPhone(data.phone || "");
-    //         setGender(data.gender || "");
-    //         setFullName(data.fullName || "");
-    //         setDob(data.birthDate ? data.birthDate.split("T")[0] : "");
-    //         setDescription(data.profileDescription || "");
-    //       } catch (err: any) {
-    //         console.error("Error fetching profile:", err);
-    //         Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
-    //       } finally {
-    //         setLoading(false);
-    //       }
-    //     };
-
-    //     fetchProfile();
-    //   }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const res = await getProfile();
+            const payload = res?.data?.data ?? res?.data ?? null;
+            if (payload) {
+                setFullName(payload.fullName);
+                setDescription(payload.profileDescription);
+                if (payload.birthDate) {
+                    setRealDob(payload.birthDate);
+                    const d = new Date(payload.birthDate);
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const year = d.getFullYear();
+                    setDob(`${day}/${month}/${year}`);
+                }
+                setGender(payload.gender);
+                setPhone(payload.phone);
+                setEmail(payload.email);
+            }
+        } catch (err) {
+            console.error("Failed to load profile:", err);
+            Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const formatDate = (date: Date) => {
         const day = date.getDate().toString().padStart(2, "0");
@@ -55,6 +65,7 @@ export default function EditProfileScreen() {
     };
 
     const handleConfirmDate = (date: Date) => {
+        setRealDob(date.toISOString());
         setDob(formatDate(date));
         setShowDatePicker(false);
     };
@@ -72,15 +83,19 @@ export default function EditProfileScreen() {
                             phone,
                             gender,
                             fullName,
-                            birthDate: dob ? new Date(dob).toISOString() : null,
+                            birthDate: realDob,
                             profileDescription: description,
                         };
 
                         const res = await updateProfile(payload);
-                        console.log("Updated user:", res.data);
+                        // Persist returned user id so other screens can use it
+                        const returned = res?.data?.data ?? res?.data ?? null;
+                        if (returned?.id) {
+                            await SecureStore.setItemAsync("userId", returned.id);
+                        }
 
                         Alert.alert("Đã lưu thông tin", "Thông tin của bạn đã được lưu thành công.", [
-                            { text: "Đồng ý", onPress: () => router.back() },
+                            { text: "Đồng ý", onPress: () => router.replace('/(tabs)/profile') },
                         ]);
                     } catch (err: any) {
                         console.error(err);
