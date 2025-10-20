@@ -1,4 +1,5 @@
 import Colors from "@/src/constants/colors";
+import { LinearGradient } from "expo-linear-gradient";
 import { Search } from "lucide-react-native";
 import { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -13,33 +14,43 @@ type TopBarProps = {
 export default function TopBar({ placeholder = "Tìm kiếm...", showSearchIcon = false, onSearchPress }: TopBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   return (
-    <View style={styles.topBar}>
-      <View style={styles.topBarLeft}>
-        <Image
-          source={require("@/assets/images/app_icon.png")}
-          style={styles.appIcon}
-          resizeMode="contain"
-        />
-        <Text style={styles.textIcon}>ISU</Text>
-      </View>
-
-      {showSearchIcon ? (
-        <TouchableOpacity onPress={onSearchPress} style={styles.iconButton} accessibilityRole="button">
-          <Search size={22} color={Colors.primary} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.searchBar}>
-          <Search size={22} color={isFocused ? Colors.primary : "#666"} />
-          <TextInput
-            placeholder={placeholder}
-            placeholderTextColor="#666"
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            mode="flat"
-            style={styles.textInput}
-          />
+    <View style={styles.topBarOuter}>
+      <LinearGradient
+        colors={[Colors.primary, "#7c3aed"]}
+        start={[0, 0]}
+        end={[1, 1]}
+        style={styles.bar}
+      >
+        <View style={styles.topBarLeftInner}>
+          <View style={styles.appIconWrapper}>
+            <Image
+              source={require("@/assets/images/app_icon.png")}
+              style={styles.appIcon}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.textIcon}>ISU</Text>
         </View>
-      )}
+
+        {showSearchIcon ? (
+          <TouchableOpacity onPress={onSearchPress} style={styles.iconButton} accessibilityRole="button">
+            <Search size={22} color={Colors.white} />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.searchBar, isFocused ? styles.searchBarFocused : null]}>
+            <Search size={18} color={isFocused ? Colors.white : "rgba(255,255,255,0.8)"} />
+            <TextInput
+            textColor={Colors.white}
+              placeholder={placeholder}
+              placeholderTextColor={"rgba(255,255,255,0.8)"}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              mode="flat"
+              style={styles.textInput}
+            />
+          </View>
+        )}
+      </LinearGradient>
     </View>
   );
 }
@@ -50,44 +61,64 @@ const styles = StyleSheet.create({
     height: 32,
   },
   textIcon: {
-    color: "black",
+    color: Colors.white,
     fontFamily: "inter",
-    fontSize: 24,
-    marginLeft: 5,
+    fontSize: 22,
+    marginLeft: 10,
+    fontWeight: "700",
   },
-  topBar: {
+  topBarOuter: {
+    backgroundColor: 'transparent',
+  },
+  bar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.white,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    // subtle shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  topBarLeft: {
+  topBarLeftInner: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 8,
+  },
+  appIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.background,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 20,
     paddingHorizontal: 10,
     width: 280,
-    borderWidth: 2,
-    borderColor: Colors.primary
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)'
+  },
+  searchBarFocused: {
+    borderColor: 'rgba(255,255,255,0.9)'
   },
   iconButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   textInput: {
-    backgroundColor: Colors.background,
-    height: 30,
+    backgroundColor: 'transparent',
+    height: 36,
     fontSize: 15,
-    color: Colors.black,
+    color: Colors.white,
     flex: 1,
-    marginLeft: 6,
+    marginLeft: 8,
   },
 });

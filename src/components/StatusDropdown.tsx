@@ -9,8 +9,8 @@ type StatusOption = {
 };
 
 const STATUS_OPTIONS: StatusOption[] = [
-  { status: "ACTIVE", label: "Online", color: "green" },
-  { status: "INACTIVE", label: "Offline", color: "gray" },
+  { status: "ACTIVE", label: "ACTIVE", color: "green" },
+  { status: "INACTIVE", label: "INACTIVE", color: "gray" },
   { status: "BLOCKED", label: "Bận", color: "red" },
 ];
 

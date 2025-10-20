@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  ImageBackground,
   RefreshControl,
   StyleSheet,
   Text,
@@ -219,13 +220,16 @@ export default function MessageScreen() {
     <SafeAreaView style={styles.safeAreaView} edges={["top", "left", "right"]}>
       <TopBarNoSearch />
 
-      <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="chatbubble-ellipses-outline" size={28} color={Colors.primary} />
+      <ImageBackground source={require('@/assets/images/Fortune-Teller.jpg')} style={{ width: '100%', height: 180 }} resizeMode="cover">
+        <View style={styles.headerOverlay} />
+        <View style={styles.header}>
+          <View style={styles.headerIcon}>
+            <Ionicons name="chatbubble-ellipses-outline" size={28} color={Colors.primary} />
+          </View>
+          <Text style={styles.headerTitle}>Tin nhắn</Text>
+          <Text style={styles.headerSubtitle}>Trao đổi trực tiếp với các Nhà tiên tri</Text>
         </View>
-        <Text style={styles.headerTitle}>Tin nhắn</Text>
-        <Text style={styles.headerSubtitle}>Trao đổi trực tiếp với các Nhà tiên tri</Text>
-      </View>
+      </ImageBackground>
 
       <View style={styles.searchWrapper}>
         <Ionicons name="search-outline" size={20} color={Colors.gray} />
@@ -313,8 +317,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 24,
     alignItems: "center",
-    backgroundColor: Colors.white,
     gap: 10,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 180,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   headerIcon: {
     width: 56,
@@ -322,17 +333,19 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 2,
     borderColor: Colors.primary,
+    backgroundColor: Colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: Colors.black,
+    fontWeight: "bold",
+    color: Colors.white,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: Colors.gray,
+    fontSize: 14,
+    color: Colors.text_light,
+    fontFamily: "inter",
     textAlign: "center",
   },
   searchWrapper: {

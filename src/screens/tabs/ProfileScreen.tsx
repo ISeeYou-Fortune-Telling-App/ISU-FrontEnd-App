@@ -89,6 +89,7 @@ export default function ProfileScreen() {
         return;
       }
       const res = await updateUserStatus(id, newStatus);
+      Alert.alert("Thành công", "Cập nhật trạng thái thành công");
     } catch (err) {
       console.error(err);
       Alert.alert("Lỗi", "Không thể cập nhật trạng thái");
@@ -100,6 +101,11 @@ export default function ProfileScreen() {
 
       <View style={styles.topBar}>
         <Bell size={32} color={Colors.black} onPress={() => router.push("/notification")} />
+        <View style={styles.centerIconWrapper} pointerEvents="none">
+          <View style={styles.appIconWrapper}>
+            <Image source={require('@/assets/images/app_icon.png')} style={styles.appIconSmall} resizeMode="contain" />
+          </View>
+        </View>
         <Settings size={32} color={Colors.black} onPress={() => router.push("/profile-setting")} />
       </View>
 
@@ -243,7 +249,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: Colors.white,
     paddingHorizontal: 8,
-    paddingVertical: 8
+    paddingVertical: 8,
+    height: 64,
+  },
+  centerIconWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  appIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appIconSmall: {
+    width: 40,
+    height: 40,
   },
   topBarLeft: {
     flexDirection: "row",

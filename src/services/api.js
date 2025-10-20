@@ -53,7 +53,7 @@ export const sendChatMessage = (conversationId, payload) => {
 export const chatWithAI = (payload) => API.post("/ai-chat/query", payload);
 
 export const updateUserStatus = (id, status) =>
-  API.patch(`/account/${id}/status`, { id, status });
+  API.patch(`/account/${id}/status`, null, { params: { id, status } });
 
 export const createServicePackage = (seerId, data) =>
   API.post(`/service-packages?seerId=${seerId}`, data, {

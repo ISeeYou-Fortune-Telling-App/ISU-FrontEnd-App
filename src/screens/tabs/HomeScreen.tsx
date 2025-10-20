@@ -235,7 +235,7 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         ListHeaderComponent={
           <>
-            <View style={styles.servicesContainer}>
+            <View style={[styles.servicesContainer, styles.cardShadow]}>
               <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
               <View style={styles.servicesGrid}>
                 {popularServices.map((service, index) => (
@@ -249,7 +249,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.servicesContainer}>
+            <View style={[styles.servicesContainer, styles.cardShadow]}>
               <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
               <Button 
                 mode="contained" 
@@ -281,10 +281,19 @@ const styles = StyleSheet.create({
   servicesContainer: {
     backgroundColor: Colors.white,
     padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 10,
-    margin: 5
+    // borderWidth: 1,
+    // borderColor: Colors.primary,
+    borderRadius: 15,
+    margin: 10
+  },
+  // subtle cross-platform card shadow
+  cardShadow: {
+    shadowColor: '#000',
+    // push the shadow downward
+    shadowOffset: { width: 10, height: 6 },
+    shadowOpacity: .12,
+    shadowRadius: 8,
+    elevation: 6,
   },
   servicesTitle: {
     fontSize: 18,

@@ -1,17 +1,27 @@
 import Colors from "@/src/constants/colors";
+import { LinearGradient } from "expo-linear-gradient";
 import { Image, StyleSheet, Text, View } from "react-native";
 
 export default function TopBarNoSearch() {
   return (
-    <View style={styles.topBar}>
-      <View style={styles.topBarLeft}>
-        <Image
-          source={require("@/assets/images/app_icon.png")}
-          style={styles.appIcon}
-          resizeMode="contain"
-        />
-        <Text style={styles.textIcon}>ISU</Text>
-      </View>
+    <View style={styles.topBarOuter}>
+      <LinearGradient
+        colors={[Colors.primary, "#7c3aed"]}
+        start={[0, 0]}
+        end={[1, 1]}
+        style={styles.bar}
+      >
+        <View style={styles.topBarLeftInner}>
+          <View style={styles.appIconWrapper}>
+            <Image
+              source={require("@/assets/images/app_icon.png")}
+              style={styles.appIcon}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.textIcon}>ISU</Text>
+        </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -22,22 +32,39 @@ const styles = StyleSheet.create({
     height: 32,
   },
   textIcon: {
-    color: "black",
+    color: Colors.white,
     fontFamily: "inter",
-    fontSize: 24,
-    marginLeft: 5,
+    fontSize: 22,
+    marginLeft: 10,
+    fontWeight: "700",
   },
-  topBar: {
+  topBarOuter: {
+    backgroundColor: 'transparent',
+  },
+  bar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    // subtle shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  topBarLeftInner: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  appIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.white,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  topBarLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

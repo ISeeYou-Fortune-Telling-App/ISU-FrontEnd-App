@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -208,35 +208,35 @@ export default function KnowledgeScreen() {
           visible={searchVisible}
           onClose={() => setSearchVisible(false)}
           onApply={async (params) => {
-        try {
-          setLoading(true);
-          const response = await searchKnowledgeItems({
-            page: 1,
-            limit: 15,
-            sortType: params.sortType ?? 'desc',
-            sortBy: params.sortBy ?? 'createdAt',
-            title: params.title,
-            categoryId: params.categoryId,
-            status: params.status,
-          });
-          const root = response?.data ?? response;
-          let dataArray: any[] = [];
-          if (Array.isArray(root)) {
-            dataArray = root;
-          } else if (Array.isArray(root?.data)) {
-            dataArray = root.data;
-          } else if (Array.isArray(root?.items)) {
-            dataArray = root.items;
-          } else if (Array.isArray(root?.results)) {
-            dataArray = root.results;
-          }
+            try {
+              setLoading(true);
+              const response = await searchKnowledgeItems({
+                page: 1,
+                limit: 15,
+                sortType: params.sortType ?? 'desc',
+                sortBy: params.sortBy ?? 'createdAt',
+                title: params.title,
+                categoryId: params.categoryId,
+                status: params.status,
+              });
+              const root = response?.data ?? response;
+              let dataArray: any[] = [];
+              if (Array.isArray(root)) {
+                dataArray = root;
+              } else if (Array.isArray(root?.data)) {
+                dataArray = root.data;
+              } else if (Array.isArray(root?.items)) {
+                dataArray = root.items;
+              } else if (Array.isArray(root?.results)) {
+                dataArray = root.results;
+              }
 
-          setItems(dataArray as KnowledgeItem[]);
-        } catch (err: any) {
-          console.error('Search failed', err);
-        } finally {
-          setLoading(false);
-        }
+              setItems(dataArray as KnowledgeItem[]);
+            } catch (err: any) {
+              console.error('Search failed', err);
+            } finally {
+              setLoading(false);
+            }
           }}
         />
       </>
@@ -253,17 +253,24 @@ export default function KnowledgeScreen() {
           />
         )}
         showsVerticalScrollIndicator={false}
-  contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         ListHeaderComponent={
-          <View style={styles.headerCard}>
-            <View style={styles.headerIconWrapper}>
-              <BookOpen size={24} color={Colors.primary} />
-            </View>
-            <Text style={styles.headerTitle}>Kho Tri Thức</Text>
-            <Text style={styles.headerSubtitle}>
-              Khám phá kiến thức về sự huyền bí của thế giới
-            </Text>
-          </View>
+          <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
+              style={{ flex: 1, width: '100%', height: 180, marginBottom: 8 }}
+              resizeMode="cover">
+
+              <View style={styles.headerOverlay} />
+
+              <View style={styles.headerCard}>
+                <View style={styles.headerIconWrapper}>
+                  <BookOpen size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.headerTitle}>Kho Tri Thức</Text>
+                <Text style={styles.headerSubtitle}>
+                  Khám phá kiến thức về sự huyền bí của thế giới
+                </Text>
+              </View>
+            </ImageBackground>
         }
         ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
       />
@@ -296,13 +303,20 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerCard: {
-    backgroundColor: Colors.white,
-    paddingVertical: 24,
+    paddingVertical: 32,
     paddingHorizontal: 20,
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
     marginBottom: 8,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 180,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   headerIconWrapper: {
     width: 48,
@@ -315,21 +329,23 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "Inter",
-    color: Colors.black,
+    fontWeight: "bold",
+    color: Colors.white,
   },
   headerSubtitle: {
     marginTop: 8,
     fontSize: 14,
     textAlign: "center",
-    color: "#4B5563",
-    fontFamily: "Inter",
+    color: Colors.text_light,
+    fontFamily: "inter",
   },
   cardContainer: {
     backgroundColor: Colors.white,
     paddingHorizontal: 16,
     paddingVertical: 20,
+    marginHorizontal: 10,
+    marginVertical: 5,
+    borderRadius: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
