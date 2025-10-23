@@ -10,6 +10,43 @@ import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity,
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const demoServicePackages = [
+  {
+    id: '1',
+    seer: 'Thầy Ông Nội',
+    rating: 4.8,
+    time: '2 giờ trước',
+    category: 'Cung Hoàng Đạo',
+    categoryColor: '#8A2BE2',
+    categoryBgColor: '#E6E6FA',
+    title: 'Xem bói tổng quát cuộc đời 2024',
+    content: 'Dự đoán vận mệnh, tình duyên, sự nghiệp và tài lộc trong năm 2024. Phân tích chi tiết dựa trên ngày sinh và đặc điểm cá nhân. Tôi sẽ giúp bạn hiểu rõ hơn về con đường phía trước và cách để đạt được thành công.',
+    price: '1.000.000 VNĐ',
+    duration: '90 phút',
+    imageUrl: 'https://krython.com/_astro/cover.gk93idBH_Z1HCSxk.webp',
+    likes: '1.2k',
+    dislikes: '200m',
+    comments: '143 bình luận',
+  },
+  {
+    id: '2',
+    seer: 'Thầy Nguyễn Tấn Trần Minh Khang',
+    rating: 3.5,
+    time: '2 giờ trước',
+    category: 'Chỉ tay',
+    categoryColor: '#FF69B4',
+    categoryBgColor: '#FFEFF5',
+    title: 'Xem chỉ tay - Dự đoán tương lai',
+    content: 'Đọc các đường chỉ tay ...Xem thêm',
+    price: '10.000 VNĐ',
+    duration: '40 phút',
+    imageUrl: null,
+    likes: '1.2k',
+    dislikes: '200m',
+    comments: '143 bình luận',
+  },
+];
+
 const popularServices = [
   { name: 'Cung Hoàng Đạo', Icon: Star, color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip },
   { name: 'Nhân Tướng Học', Icon: Eye, color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip },
@@ -91,6 +128,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
 
   const fetchServicePackages = useCallback(async () => {
+    setServicePackages(demoServicePackages);
     setLoading(true);
     setError(null);
     try {
@@ -327,7 +365,9 @@ const styles = StyleSheet.create({
   packageCard: {
     backgroundColor: Colors.white,
     marginTop: 8,
+    marginHorizontal: 10,
     padding: 16,
+    borderRadius: 12,
   },
   listContent: {
     paddingBottom: 20,
