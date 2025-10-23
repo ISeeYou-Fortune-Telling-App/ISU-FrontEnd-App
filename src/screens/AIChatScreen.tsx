@@ -3,7 +3,7 @@ import { chatWithAI } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MessageRole = "user" | "assistant" | "system";
 
@@ -55,6 +55,7 @@ const formatTimestamp = (timestamp: number) =>
 
 export default function AIChatScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<AIMessage>>(null);
 
   const [messages, setMessages] = useState<AIMessage[]>(INITIAL_MESSAGES);
@@ -206,7 +207,7 @@ export default function AIChatScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.black} />
@@ -217,16 +218,17 @@ export default function AIChatScreen() {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
       >
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           ListFooterComponent={
             isSending ? (
               <View style={styles.loadingIndicator}>
@@ -238,7 +240,7 @@ export default function AIChatScreen() {
         />
 
         {selectedImages.length > 0 && (
-          <View style={styles.previewRow}>
+          <View style={[styles.previewRow, { paddingBottom: Math.max(insets.bottom * 0.4, 8) }]}>
             {selectedImages.map((attachment) => (
               <View key={attachment.id} style={styles.previewItem}>
                 <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
@@ -253,7 +255,7 @@ export default function AIChatScreen() {
           </View>
         )}
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}>
           <TouchableOpacity style={styles.iconButton} onPress={handlePickImages}>
             <Ionicons name="image-outline" size={22} color={Colors.gray} />
           </TouchableOpacity>
