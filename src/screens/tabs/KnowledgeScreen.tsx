@@ -216,7 +216,7 @@ export default function KnowledgeScreen() {
                 sortType: params.sortType ?? 'desc',
                 sortBy: params.sortBy ?? 'createdAt',
                 title: params.title,
-                categoryId: params.categoryId,
+                categoryIds: params.categoryIds,
                 status: params.status,
               });
               const root = response?.data ?? response;

@@ -4,7 +4,7 @@ import { getServicePackageDetail, getServicePackages } from "@/src/services/api"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X, Flag } from 'lucide-react-native';
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button } from "react-native-paper";
@@ -75,7 +75,12 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle }: ServicePacka
               </View>
           </View>
         </View>
-        <X size={24} color="gray" />
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title }})}>
+            <Flag size={20} color="gray" style={{marginRight: 12}}/>
+          </TouchableOpacity>
+          <X size={24} color="gray" />
+        </View>
       </View>
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
   <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>

@@ -1,6 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { getKnowledgeCategories } from "@/src/services/api";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
+import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,8 +26,8 @@ const getCategoryStyle = (category: string) =>
   categoryPalette[category] ?? { background: "#F2F2F2", text: "#4F4F4F" };
 
 type SearchParams = {
-  title?: string;
-  categoryId?: string | null;
+  title: string;
+  categoryIds?: string[];
   status?: string | null;
   sortType?: "asc" | "desc";
   sortBy?: "createdAt" | "viewCount" | "title";
@@ -45,8 +45,9 @@ export default function KnowledgeSearchModal({
   initial?: Partial<SearchParams>;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
+  const [titleError, setTitleError] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [categoryId, setCategoryId] = useState<string | null>(initial?.categoryId ?? null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [selectorLayout, setSelectorLayout] = useState({ y: 0, height: 0 });
   const [status, setStatus] = useState<string | null>(initial?.status ?? null);
@@ -56,7 +57,8 @@ export default function KnowledgeSearchModal({
 
   useEffect(() => {
     setTitle(initial?.title ?? "");
-    setCategoryId(initial?.categoryId ?? null);
+    setTitleError(false);
+    setSelectedCategoryIds(initial?.categoryIds ?? []);
     setStatus(initial?.status ?? null);
     setSortType((initial?.sortType as any) ?? "desc");
     setSortBy((initial?.sortBy as any) ?? "createdAt");
@@ -87,7 +89,12 @@ export default function KnowledgeSearchModal({
   }, [visible]);
 
   const handleApply = () => {
-    onApply?.({ title: title.trim() || undefined, categoryId, status, sortType, sortBy });
+    if (!title.trim()) {
+      setTitleError(true);
+      return;
+    }
+    setTitleError(false);
+    onApply?.({ title: title.trim(), categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined, status, sortType, sortBy });
     onClose();
   };
 
@@ -95,10 +102,14 @@ export default function KnowledgeSearchModal({
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+            <X size={24} color="#6B7280" />
+          </TouchableOpacity>
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>Tìm kiếm bài viết</Text>
 
-            <TextInput label="Tiêu đề" value={title} onChangeText={setTitle} mode="outlined" style={styles.input} />
+            <TextInput label="Tiêu đề" value={title} onChangeText={(text) => { setTitle(text); if (titleError) setTitleError(false); }} mode="outlined" style={styles.input} />
+            {titleError && <Text style={styles.errorText}>Tiêu đề là bắt buộc</Text>}
 
             <Text style={styles.label}>Danh mục</Text>
             {loadingCategories ? (
@@ -114,7 +125,21 @@ export default function KnowledgeSearchModal({
                     setSelectorLayout({ y, height });
                   }}
                 >
-                  <Text style={styles.selectorText}>{categoryId ? (categories.find((c) => c.id === categoryId)?.name ?? "Tùy chọn") : "Tất cả"}</Text>
+                  <Text style={styles.selectorText}>
+                    {selectedCategoryIds.length === 0
+                      ? "Tất cả"
+                      : (() => {
+                          const selectedNames = categories
+                            .filter((c) => selectedCategoryIds.includes(c.id))
+                            .map((c) => c.name);
+                          if (selectedNames.length <= 2) {
+                            return selectedNames.join(", ");
+                          } else {
+                            return `${selectedNames.slice(0, 2).join(", ")}...`;
+                          }
+                        })()
+                    }
+                  </Text>
                   {categoryOpen ? <ChevronUp size={16} color="#6B7280" /> : <ChevronDown size={16} color="#6B7280" />}
                 </TouchableOpacity>
 
@@ -132,13 +157,13 @@ export default function KnowledgeSearchModal({
                     }
                   ]}>
                     <ScrollView nestedScrollEnabled style={{ maxHeight: 300 }}>
-                      <TouchableOpacity style={[styles.option, categoryId === null ? styles.optionActive : null]} onPress={() => { setCategoryId(null); setCategoryOpen(false); }}>
-                        <Text style={[styles.optionText, categoryId === null ? styles.optionTextActive : null]}>Tất cả</Text>
+                      <TouchableOpacity style={[styles.option, selectedCategoryIds.length === 0 ? styles.optionActive : null]} onPress={() => { setSelectedCategoryIds([]); setCategoryOpen(false); }}>
+                        <Text style={[styles.optionText, selectedCategoryIds.length === 0 ? styles.optionTextActive : null]}>Tất cả</Text>
                       </TouchableOpacity>
                       {categories.map((c) => {
                         const palette = getCategoryStyle(c.name);
                         return (
-                          <TouchableOpacity key={c.id} style={[styles.categoryOption, categoryId === c.id ? styles.categoryOptionActive : null]} onPress={() => { setCategoryId(c.id); setCategoryOpen(false); }}>
+                          <TouchableOpacity key={c.id} style={[styles.categoryOption, selectedCategoryIds.includes(c.id) ? styles.categoryOptionActive : null]} onPress={() => { setSelectedCategoryIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]); }}>
                             <View style={[styles.categoryChip, { backgroundColor: palette.background }]}>
                               <Text style={[styles.categoryChipText, { color: palette.text }]}>{c.name}</Text>
                             </View>
@@ -232,4 +257,6 @@ const styles = StyleSheet.create({
   pillText: { color: "#374151" },
   pillTextActive: { color: Colors.primary, fontWeight: "600" },
   buttonRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 12 },
+  closeButton: { position: "absolute", top: 12, right: 12, padding: 4, zIndex: 1 },
+  errorText: { color: "red", fontSize: 12, marginTop: 4, marginBottom: 8 },
 });
