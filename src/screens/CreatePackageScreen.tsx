@@ -2,23 +2,26 @@ import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Text, TextInput } from "react-native-paper";
+import { Menu, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createServicePackage } from "../services/api";
 
 export default function CreatePackageScreen() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
-  const [tags, setTags] = useState("");
   const [price, setPrice] = useState("");
   const [content, setContent] = useState("");
   const [status, setStatus] = useState("draft");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
   const [image, setImage] = useState<any>(null);
+  const [menuVisible, setMenuVisible] = useState<boolean>(false);
 
-  const seerId = "da237dc0-584b-4a03-b343-efeaa0c3e867";
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
+
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -32,32 +35,70 @@ export default function CreatePackageScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!title || !content || !price || !durationMinutes) {
+    if (!title || !content || !price || !durationMinutes || !category || !image) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
       return;
     }
 
     const formData = new FormData();
-    formData.append("seerId", seerId);
     formData.append("packageTitle", title);
     formData.append("packageContent", content);
-    formData.append("durationMinutes", durationMinutes.toString());
-    formData.append("price", price);
+    formData.append("durationMinutes", parseInt(durationMinutes).toString());
+    formData.append("price", parseFloat(price).toString());
+    formData.append("category", "TAROT");
 
     if (image) {
+      const fileName = image.fileName || image.uri.split("/").pop() || "upload.jpg";
+      const match = /\.(\w+)$/.exec(fileName);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+
       formData.append("image", {
         uri: image.uri,
-        type: "image/jpeg",
-        name: "upload.jpg",
+        type,
+        name: fileName,
       } as any);
     }
 
     try {
-      await createServicePackage(seerId, formData);
+      const seerIdValue = await SecureStore.getItemAsync("userId");
+      if (!seerIdValue) {
+        Alert.alert("Lỗi", "Không xác định được tài khoản. Vui lòng đăng nhập lại.");
+        return;
+      }
+
+      await createServicePackage(seerIdValue, formData);
       Alert.alert("Thành công", "Tạo gói dịch vụ thành công!");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Lỗi", "Không thể tạo gói dịch vụ. Hãy thử lại sau.");
+    } catch (err: any) {
+      console.error("createServicePackage error:", err, err?.response?.data);
+
+      let message = "Không thể tạo gói dịch vụ. Hãy thử lại sau.";
+      const resp = err?.response?.data;
+      if (resp) {
+        // Common patterns: { message: '...', errors: {...} } or simple string
+        if (typeof resp === 'string') {
+          message = resp;
+        } else if (resp.message) {
+          message = resp.message;
+        } else if (resp.errors) {
+          // Concatenate validation error messages
+          try {
+            const errs = resp.errors;
+            if (typeof errs === 'object') {
+              const flat = Object.keys(errs).map(k => {
+                const v = errs[k];
+                if (Array.isArray(v)) return v.join(', ');
+                if (typeof v === 'string') return v;
+                return JSON.stringify(v);
+              });
+              message = flat.join('\n');
+            }
+          } catch (e) {
+            // ignore parsing errors
+          }
+        }
+      }
+
+      Alert.alert("Lỗi", message);
     }
   };
 
@@ -85,6 +126,27 @@ export default function CreatePackageScreen() {
             onChangeText={setTitle}
             value={title}
           />
+
+          <Menu
+            visible={menuVisible}
+            onDismiss={closeMenu}
+            anchor={
+              <TextInput
+                placeholder="Thể loại (ví dụ: Tarot, Tử vi...)"
+                mode="outlined"
+                style={styles.input}
+                value={category}
+                left={<TextInput.Icon icon="bio" />}
+                right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+                onTouchStart={openMenu}
+                editable={false}
+              />
+            }>
+            <Menu.Item onPress={() => { setCategory("TAROT"); closeMenu(); }} title="Tarot" />
+            <Menu.Item onPress={() => { setCategory("PALM_READING"); closeMenu(); }} title="Chỉ tay" />
+            <Menu.Item onPress={() => { setCategory("CONSULTATION"); closeMenu(); }} title="Tư vấn" />
+            <Menu.Item onPress={() => { setCategory("PHYSIOGNOMY"); closeMenu(); }} title="Thể hình" />
+          </Menu>
 
           <TextInput
             mode="outlined"

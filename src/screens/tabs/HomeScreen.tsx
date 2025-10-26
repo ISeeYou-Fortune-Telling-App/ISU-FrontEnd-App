@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -133,18 +133,18 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
       <Text style={styles.comments}>{servicePackage.comments}</Text>
     </View>
     <View style={styles.packageActions}>
-      <View style={styles.actionButton}>
+      <TouchableOpacity style={styles.actionButton} onPress={onLike? () => onLike(servicePackage.id) : undefined}>
         <ThumbsUp size={20} color="gray" />
         <Text style={styles.actionText}>Thích</Text>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id } })}>
         <MessageCircle size={20} color="gray" />
         <Text style={styles.actionText}>Bình luận</Text>
       </TouchableOpacity>
     </View>
-    <View style={styles.bookButtonContainer}>
+    <TouchableOpacity style={styles.bookButtonContainer} onPress={() => router.push({ pathname: "/book-package", params: { id: servicePackage.id, title: servicePackage.title, content: servicePackage.content, rating: servicePackage.rating, price: servicePackage.price, duration: servicePackage.duration, seer: servicePackage.seer, avatarUrl: servicePackage.avatarUrl } }) }>
       <Text style={styles.bookButton}>Đặt lịch ngay</Text>
-    </View>
+    </TouchableOpacity>
   </TouchableOpacity>
 );
 
@@ -155,6 +155,7 @@ export default function HomeScreen() {
   const [activePage, setActivePage] = useState<"home" | "search">("home");
   const [servicePackages, setServicePackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<string>("CUSTOMER");
 
   const [error, setError] = useState<string | null>(null);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
@@ -164,6 +165,19 @@ export default function HomeScreen() {
   const [likeInFlight, setLikeInFlight] = useState<Record<string, boolean>>({});
   const tabBarHeight = useBottomTabBarHeight();
   const pageSize = 15;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const storedRole = await SecureStore.getItemAsync("userRole");
+        if (mounted && storedRole) setRole(storedRole);
+      } catch (e) {
+        console.warn("Unable to read userRole from SecureStore", e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const fetchServicePackages = useCallback(async (page: number = 1) => {
     if (page === 1) {
@@ -265,24 +279,8 @@ export default function HomeScreen() {
       }
     } catch (err: any) {
       console.error("Failed to fetch service packages:", err);
-      const token = await SecureStore.getItemAsync("authToken");
-      const isDemoMode = token === "demo-token";
-      if (isDemoMode) {
-        if (page === 1) {
-          setServicePackages(demoServicePackages);
-        }
-        setCurrentPage(page);
-        setHasMore(false);
-        if (page === 1) {
-          setLoading(false);
-        } else {
-          setLoadingMore(false);
-        }
-        return;
-      }
       if (err.response?.status === 401) {
         setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        // Redirect to login after a short delay
         setTimeout(() => {
           router.replace("/auth");
         }, 2000);
@@ -413,6 +411,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            {role === "SEER" &&
             <View style={[styles.servicesContainer, styles.cardShadow]}>
               <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
               <Button
@@ -423,6 +422,8 @@ export default function HomeScreen() {
                 Tạo gói dịch vụ mới
               </Button>
             </View>
+            }
+            
           </>
         }
         ListEmptyComponent={<Text style={styles.emptyText}>Không có gói dịch vụ nào.</Text>}

@@ -26,15 +26,24 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [coverUrl, setCoverUrl] = useState<string>("");
   const tabBarHeight = useBottomTabBarHeight();
+  const [role, setRole] = useState<string>("CUSTOMER");
 
   useEffect(() => {
     fetchData();
+    (async () => {
+      try {
+        const storedRole = await SecureStore.getItemAsync("userRole");
+        if (storedRole) setRole(storedRole);
+      } catch (e) {
+        console.warn("Unable to read userRole from SecureStore", e);
+      }
+    })();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchData();
-      return () => {};
+      return () => { };
     }, [])
   );
 
@@ -140,7 +149,8 @@ export default function ProfileScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}>
 
-        <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />
+        {role === "CUSTOMER" && <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />}
+
         <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />
         <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 
@@ -321,7 +331,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginVertical: 10,
   },
   statCard: {
     alignItems: "center",
