@@ -91,60 +91,61 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
         <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text style={styles.packageTime}>{servicePackage.time}</Text>
-              {servicePackage.displayCategory && (
-                <>
-                  <Text> • </Text>
+          {servicePackage.displayCategory && (
+            <>
+              <Text> • </Text>
               <View style={[styles.categoryTag, { backgroundColor: servicePackage.categoryBgColor }]}>
                 <Text style={[styles.categoryText, { color: servicePackage.categoryColor }]}>{servicePackage.displayCategory}</Text>
-                    </>
-              )}
-          </View>
-        </View>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title }})}>
-            <Flag size={20} color="gray" style={{marginRight: 12}}/>
-          </TouchableOpacity>
-          <X size={24} color="gray" />
-        </View>
-      </View>
-      <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-  <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
-      {servicePackage.imageUrl && <Image source={{ uri: servicePackage.imageUrl }} style={styles.packageImage} />}
-      <View style={styles.packageFooterInfo}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Wallet size={16} color="#32CD32" />
-              <Text style={styles.packagePrice}>{servicePackage.price}</Text>
-              <Clock size={16} color="gray" style={{marginLeft: 16}}/>
-              <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
-          </View>
-      </View>
-      <View style={styles.packageStats}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <View style={[styles.likeIconCircle, {backgroundColor: '#E7F3FF'}]}>
-                  <ThumbsUp size={16} color="#1877F2" />
               </View>
-              <Text style={styles.likes}>{servicePackage.likes}</Text>
-              <View style={[styles.dislikeIconCircle, {backgroundColor: '#FFF8DC'}]}>
-                  <ThumbsDown size={16} color="#FBCB0A" />
-              </View>
-              <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
-          </View>
-        <Text style={styles.comments}>{servicePackage.comments}</Text>
-      </View>
-      <View style={styles.packageActions}>
-        <View style={styles.actionButton}>
-          <ThumbsUp size={20} color="gray" />
-          <Text style={styles.actionText}>Thích</Text>
+            </>
+          )}
         </View>
-        <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id }})}>
-          <MessageCircle size={20} color="gray" />
-          <Text style={styles.actionText}>Bình luận</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title } })}>
+          <Flag size={20} color="gray" style={{ marginRight: 12 }} />
         </TouchableOpacity>
+        <X size={24} color="gray" />
       </View>
-      <View style={styles.bookButtonContainer}>
-          <Text style={styles.bookButton}>Đặt lịch ngay</Text>
+    </View>
+    <Text style={styles.packageTitle}>{servicePackage.title}</Text>
+    <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
+    {servicePackage.imageUrl && <Image source={{ uri: servicePackage.imageUrl }} style={styles.packageImage} />}
+    <View style={styles.packageFooterInfo}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Wallet size={16} color="#32CD32" />
+        <Text style={styles.packagePrice}>{servicePackage.price}</Text>
+        <Clock size={16} color="gray" style={{ marginLeft: 16 }} />
+        <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
       </View>
-    </TouchableOpacity>
+    </View>
+    <View style={styles.packageStats}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={[styles.likeIconCircle, { backgroundColor: '#E7F3FF' }]}>
+          <ThumbsUp size={16} color="#1877F2" />
+        </View>
+        <Text style={styles.likes}>{servicePackage.likes}</Text>
+        <View style={[styles.dislikeIconCircle, { backgroundColor: '#FFF8DC' }]}>
+          <ThumbsDown size={16} color="#FBCB0A" />
+        </View>
+        <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
+      </View>
+      <Text style={styles.comments}>{servicePackage.comments}</Text>
+    </View>
+    <View style={styles.packageActions}>
+      <View style={styles.actionButton}>
+        <ThumbsUp size={20} color="gray" />
+        <Text style={styles.actionText}>Thích</Text>
+      </View>
+      <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id } })}>
+        <MessageCircle size={20} color="gray" />
+        <Text style={styles.actionText}>Bình luận</Text>
+      </TouchableOpacity>
+    </View>
+    <View style={styles.bookButtonContainer}>
+      <Text style={styles.bookButton}>Đặt lịch ngay</Text>
+    </View>
+  </TouchableOpacity>
 );
 
 
