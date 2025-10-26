@@ -205,7 +205,13 @@ export const getServicePackages = (params) => API.get("/service-packages", { par
 export const getServicePackageDetail = (id) =>
   API.get("/service-packages/detail", { params: { id } });
 export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
-export const searchKnowledgeItems = (params) => API.get("/knowledge-items/search", { params });
+export const searchKnowledgeItems = (params) => {
+  const queryParams = { ...params };
+  if (queryParams.categoryIds && Array.isArray(queryParams.categoryIds)) {
+    queryParams.categoryIds = queryParams.categoryIds.join(',');
+  }
+  return API.get("/knowledge-items/search", { params: queryParams });
+};
 export const getKnowledgeCategories = (params) => API.get("/knowledge-categories", { params });
 
 export const getChatConversations = (params) =>
@@ -221,6 +227,12 @@ export const sendChatMessage = (conversationId, payload) => {
       : undefined;
 
   return API.post(`/chat/conversations/${conversationId}/messages`, payload, config);
+};
+
+export const createReport = (payload) => {
+  return API.post("/reports", payload, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 };
 
 export const chatWithAI = (payload) => API.post("/ai-chat/query", payload);

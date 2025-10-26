@@ -4,7 +4,7 @@ import { getServicePackageDetail, getServicePackages, interactWithServicePackage
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Clock, Coins, Eye, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button } from "react-native-paper";
@@ -17,6 +17,7 @@ const demoServicePackages = [
     rating: 4.8,
     time: '2 giờ trước',
     category: 'Cung Hoàng Đạo',
+    displayCategory: 'Cung Hoàng Đạo',
     categoryColor: '#8A2BE2',
     categoryBgColor: '#E6E6FA',
     title: 'Xem bói tổng quát cuộc đời 2024',
@@ -33,7 +34,8 @@ const demoServicePackages = [
     seer: 'Thầy Nguyễn Tấn Trần Minh Khang',
     rating: 3.5,
     time: '2 giờ trước',
-    category: 'Chỉ tay',
+    category: 'Chỉ Tay',
+    displayCategory: 'Chỉ Tay',
     categoryColor: '#FF69B4',
     categoryBgColor: '#FFEFF5',
     title: 'Xem chỉ tay - Dự đoán tương lai',
@@ -46,6 +48,19 @@ const demoServicePackages = [
     comments: '143 bình luận',
   },
 ];
+
+const getCategoryStyle = (category: string | null) => {
+  const categoryMapping: Record<string, { display: string; background: string; text: string; }> = {
+    "Cung Hoàng Đạo": { display: "Cung Hoàng Đạo", background: Colors.categoryColors.zodiac.chip, text: Colors.categoryColors.zodiac.icon },
+    "Ngũ Hành": { display: "Ngũ Hành", background: Colors.categoryColors.elements.chip, text: Colors.categoryColors.elements.icon },
+    "Nhân Tướng Học": { display: "Nhân Tướng Học", background: Colors.categoryColors.physiognomy.chip, text: Colors.categoryColors.physiognomy.icon },
+    "Chỉ Tay": { display: "Chỉ Tay", background: Colors.categoryColors.palmistry.chip, text: Colors.categoryColors.palmistry.icon },
+    "Tarot": { display: "Tarot", background: Colors.categoryColors.tarot.chip, text: Colors.categoryColors.tarot.icon },
+    "TAROT": { display: "Tarot", background: Colors.categoryColors.tarot.chip, text: Colors.categoryColors.tarot.icon },
+    "Khác": { display: "Khác", background: Colors.categoryColors.other.chip, text: Colors.categoryColors.other.icon },
+  };
+  return category ? categoryMapping[category] ?? { display: category, background: "#F2F2F2", text: "#4F4F4F" } : { display: "", background: "#F2F2F2", text: "#4F4F4F" };
+};
 
 const popularServices = [
   { name: 'Cung Hoàng Đạo', Icon: Star, color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip },
@@ -75,64 +90,61 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
       <View style={styles.packageHeaderText}>
         <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={styles.packageTime}>{servicePackage.time} • </Text>
-          <View style={[styles.categoryTag, { backgroundColor: servicePackage.categoryBgColor }]}>
-            <Text style={[styles.categoryText, { color: servicePackage.categoryColor }]}>{servicePackage.category}</Text>
+          <Text style={styles.packageTime}>{servicePackage.time}</Text>
+              {servicePackage.displayCategory && (
+                <>
+                  <Text> • </Text>
+              <View style={[styles.categoryTag, { backgroundColor: servicePackage.categoryBgColor }]}>
+                <Text style={[styles.categoryText, { color: servicePackage.categoryColor }]}>{servicePackage.displayCategory}</Text>
+                    </>
+              )}
           </View>
         </View>
-      </View>
-      <X size={24} color="gray" />
-    </View>
-    <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-    <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
-    <Image 
-      source={servicePackage.imageUrl ? { uri: servicePackage.imageUrl } : require("@/assets/images/placeholder.png")} 
-      style={styles.packageImage}
-      onError={(e) => {
-      }}
-      defaultSource={require("@/assets/images/placeholder.png")}
-    />
-    <View style={styles.packageFooterInfo}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Wallet size={16} color="#32CD32" />
-        <Text style={styles.packagePrice}>{servicePackage.price}</Text>
-        <Clock size={16} color="gray" style={{ marginLeft: 16 }} />
-        <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
-      </View>
-    </View>
-    <View style={styles.packageStats}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={[styles.likeIconCircle, { backgroundColor: '#E7F3FF' }]}>
-          <ThumbsUp size={16} color="#1877F2" />
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title }})}>
+            <Flag size={20} color="gray" style={{marginRight: 12}}/>
+          </TouchableOpacity>
+          <X size={24} color="gray" />
         </View>
-        <Text style={styles.likes}>{servicePackage.likes}</Text>
-        <View style={[styles.dislikeIconCircle, { backgroundColor: '#FFF8DC' }]}>
-          <ThumbsDown size={16} color="#FBCB0A" />
-        </View>
-        <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
       </View>
-      <Text style={styles.comments}>{servicePackage.comments}</Text>
-    </View>
-    <View style={styles.packageActions}>
-      <TouchableOpacity
-        style={[styles.actionButton, servicePackage.userInteraction === 'LIKE' ? { opacity: 1 } : {},]}
-        onPress={() => onLike?.(servicePackage.id)}
-        disabled={Boolean((servicePackage as any).isLiking)}
-      >
-        <ThumbsUp size={20} color={servicePackage.userInteraction === 'LIKE' ? Colors.primary : 'gray'} />
-        <Text style={[styles.actionText, servicePackage.userInteraction === 'LIKE' ? { color: Colors.primary } : {}]}>Thích</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.actionButton}>
-        <MessageCircle size={20} color="gray" />
-        <Text style={styles.actionText}>Bình luận</Text>
-      </TouchableOpacity>
-    </View>
-    <TouchableOpacity
-      style={styles.bookButtonContainer}
-      onPress={() => onBooking?.(servicePackage.id, servicePackage.title, servicePackage.content, servicePackage.rating, servicePackage.price, servicePackage.duration, servicePackage.seer, servicePackage.avatarUrl)}>
-      <Text style={styles.bookButton}>Đặt lịch ngay</Text>
+      <Text style={styles.packageTitle}>{servicePackage.title}</Text>
+  <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
+      {servicePackage.imageUrl && <Image source={{ uri: servicePackage.imageUrl }} style={styles.packageImage} />}
+      <View style={styles.packageFooterInfo}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Wallet size={16} color="#32CD32" />
+              <Text style={styles.packagePrice}>{servicePackage.price}</Text>
+              <Clock size={16} color="gray" style={{marginLeft: 16}}/>
+              <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
+          </View>
+      </View>
+      <View style={styles.packageStats}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <View style={[styles.likeIconCircle, {backgroundColor: '#E7F3FF'}]}>
+                  <ThumbsUp size={16} color="#1877F2" />
+              </View>
+              <Text style={styles.likes}>{servicePackage.likes}</Text>
+              <View style={[styles.dislikeIconCircle, {backgroundColor: '#FFF8DC'}]}>
+                  <ThumbsDown size={16} color="#FBCB0A" />
+              </View>
+              <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
+          </View>
+        <Text style={styles.comments}>{servicePackage.comments}</Text>
+      </View>
+      <View style={styles.packageActions}>
+        <View style={styles.actionButton}>
+          <ThumbsUp size={20} color="gray" />
+          <Text style={styles.actionText}>Thích</Text>
+        </View>
+        <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id }})}>
+          <MessageCircle size={20} color="gray" />
+          <Text style={styles.actionText}>Bình luận</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.bookButtonContainer}>
+          <Text style={styles.bookButton}>Đặt lịch ngay</Text>
+      </View>
     </TouchableOpacity>
-  </TouchableOpacity>
 );
 
 
@@ -145,12 +157,20 @@ export default function HomeScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [likeInFlight, setLikeInFlight] = useState<Record<string, boolean>>({});
   const tabBarHeight = useBottomTabBarHeight();
+  const pageSize = 15;
 
-  const fetchServicePackages = useCallback(async () => {
-    setServicePackages(demoServicePackages);
-    setLoading(true);
+  const fetchServicePackages = useCallback(async (page: number = 1) => {
+    if (page === 1) {
+      setServicePackages([]);
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
     try {
       // Check if user is authenticated
@@ -163,15 +183,26 @@ export default function HomeScreen() {
       }
 
       if (isDemoMode) {
-        //setServicePackages(demoServicePackages);
+        if (page === 1) {
+          setServicePackages(demoServicePackages);
+        }
+        setCurrentPage(page);
+        setHasMore(false); // Demo has only 1 page
+        if (page === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
         return;
       }
 
       const response = await getServicePackages({
-        page: 1,
-        limit: 15,
+        page,
+        limit: pageSize,
         sortType: "desc",
         sortBy: "createdAt",
+        minPrice: "",
+        maxPrice: "",
       });
 
       if (response.data && response.data.data) {
@@ -185,9 +216,10 @@ export default function HomeScreen() {
                 seer: detail.seer.fullName,
                 rating: detail.seer.avgRating,
                 time: new Date(detail.createdAt).toLocaleDateString(),
-                category: 'Unknown', // API doesn't provide category, so using a placeholder
-                categoryColor: '#808080',
-                categoryBgColor: '#F0F0F0',
+                category: p.category,
+                displayCategory: getCategoryStyle(p.category).display,
+                categoryBgColor: getCategoryStyle(p.category).background,
+                categoryColor: getCategoryStyle(p.category).text,
                 title: detail.packageTitle,
                 content: detail.packageContent,
                 price: `${detail.price.toLocaleString("vi-VN")} VNĐ`,
@@ -206,9 +238,10 @@ export default function HomeScreen() {
                 seer: 'Không có thông tin',
                 rating: 0,
                 time: new Date(p.createdAt).toLocaleDateString(),
-                category: 'Unknown',
-                categoryColor: '#808080',
-                categoryBgColor: '#F0F0F0',
+                category: p.category,
+                displayCategory: getCategoryStyle(p.category).display,
+                categoryBgColor: getCategoryStyle(p.category).background,
+                categoryColor: getCategoryStyle(p.category).text,
                 title: p.packageTitle,
                 content: p.packageContent,
                 price: `${p.price.toLocaleString("vi-VN")} VNĐ`,
@@ -221,14 +254,29 @@ export default function HomeScreen() {
             }
           })
         );
-        setServicePackages(packagesWithDetails);
+        if (page === 0) {
+          setServicePackages(packagesWithDetails);
+        } else {
+          setServicePackages(prev => [...prev, ...packagesWithDetails]);
+        }
+        setCurrentPage(page);
+        setHasMore(page < response.data.paging.totalPages && response.data.data.length === pageSize);
       }
     } catch (err: any) {
       console.error("Failed to fetch service packages:", err);
       const token = await SecureStore.getItemAsync("authToken");
       const isDemoMode = token === "demo-token";
       if (isDemoMode) {
-        // setServicePackages(demoServicePackages);
+        if (page === 1) {
+          setServicePackages(demoServicePackages);
+        }
+        setCurrentPage(page);
+        setHasMore(false);
+        if (page === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
         return;
       }
       if (err.response?.status === 401) {
@@ -241,13 +289,25 @@ export default function HomeScreen() {
         setError("Không thể tải gói dịch vụ. Vui lòng thử lại sau.");
       }
     } finally {
-      setLoading(false);
+      if (page === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   }, [router]);
 
+  const loadMore = useCallback(() => {
+    if (hasMore && !loadingMore) {
+      fetchServicePackages(currentPage + 1);
+    }
+  }, [hasMore, loadingMore, currentPage, fetchServicePackages]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchServicePackages();
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchServicePackages(1);
     }, [fetchServicePackages])
   );
 
@@ -326,6 +386,16 @@ export default function HomeScreen() {
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
+            </View>
+          ) : null
+        }
         ListHeaderComponent={
           <>
             <View style={[styles.servicesContainer, styles.cardShadow]}>
@@ -446,13 +516,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   categoryTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     marginLeft: 4,
   },
   categoryText: {
     fontSize: 12,
+    fontWeight: '500',
     fontFamily: 'Inter',
   },
   packageTitle: {
@@ -579,6 +650,16 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 20,
+    fontFamily: 'Inter',
+  },
+  loadingMoreContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: 'gray',
     fontFamily: 'Inter',
   },
   avatar: {
