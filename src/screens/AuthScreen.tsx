@@ -2,7 +2,7 @@ import { theme } from "@/src/constants/theme";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
@@ -131,6 +131,22 @@ export default function AuthScreen() {
     const openMenu = () => setMenuVisible(true);
     const closeMenu = () => setMenuVisible(false);
 
+    useEffect(() => {
+        (async () => {
+            try {
+                const savedEmail = await SecureStore.getItemAsync("savedEmail");
+                const savedPassword = await SecureStore.getItemAsync("savedPassword");
+                if (savedEmail && savedPassword) {
+                    setEmail(savedEmail);
+                    setPassword(savedPassword);
+                    setRememberMe(true);
+                }
+            } catch (e) {
+                console.warn("Failed to load saved credentials", e);
+            }
+        })();
+    }, []);
+
     const handleDOBChange = (value: string) => {
         setDOB(value);
         setZodiac(calculateZodiacSign(value));
@@ -164,6 +180,18 @@ export default function AuthScreen() {
             }
             if (payload.userId) {
                 await SecureStore.setItemAsync("userId", payload.userId);
+            }
+
+            try {
+                if (rememberMe) {
+                    await SecureStore.setItemAsync("savedEmail", email);
+                    await SecureStore.setItemAsync("savedPassword", password);
+                } else {
+                    await SecureStore.deleteItemAsync("savedEmail");
+                    await SecureStore.deleteItemAsync("savedPassword");
+                }
+            } catch (e) {
+                console.warn("SecureStore operation failed", e);
             }
 
             router.replace("/(tabs)/home");

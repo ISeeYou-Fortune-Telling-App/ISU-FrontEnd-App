@@ -1,7 +1,7 @@
 import axios from "axios";
 import Constants from "expo-constants";
-import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 const ensureHttpProtocol = (raw) => {
   if (!raw) {
@@ -228,6 +228,12 @@ export const chatWithAI = (payload) => API.post("/ai-chat/query", payload);
 export const updateUserStatus = (id, status) =>
   API.patch(`/account/${id}/status`, null, { params: { id, status } });
 
+export const interactWithServicePackage = (packageId, payload) =>
+  API.post(`/service-packages/${packageId}/interact`, payload);
+
+export const createBooking = (servicePackageId, payload) =>
+  API.post(`/bookings/${servicePackageId}`, payload);
+
 export const createServicePackage = (seerId, data) =>
   API.post(`/service-packages?seerId=${seerId}`, data, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -238,6 +244,9 @@ export const updateServicePackage = (id, seerId, data) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
+export const deleteServicePackage = (id) =>
+  API.delete(`/service-packages/${id}`);
+
 export const forgotPassword = (email) =>
   API.post("/auth/forgot-password", { email });
 
@@ -246,5 +255,8 @@ export const resendOTP = (email) =>
 
 export const verifyForgotPassword = (data) =>
   API.post("/auth/forgot-password/verify", data);
+
+export const getMyBookings = (params) =>
+  API.get("/bookings/my-bookings", { params });
 
 export default API;

@@ -1,10 +1,10 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { getServicePackageDetail, getServicePackages } from "@/src/services/api";
+import { getServicePackageDetail, getServicePackages, interactWithServicePackage } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Clock, Coins, Eye, Hand, Laugh, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
+import { Clock, Coins, Eye, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button } from "react-native-paper";
@@ -60,62 +60,82 @@ type ServicePackageCardProps = {
   servicePackage: any;
   expanded: boolean;
   onToggle: () => void;
+  onLike?: (id: string) => void;
+  isLiking?: boolean;
+  onBooking?: (id: string, title: string, content: string, rating: number, price: string, duration: string, seer: string, avatarUrl: string) => void;
 };
 
-const ServicePackageCard = ({ servicePackage, expanded, onToggle }: ServicePackageCardProps) => (
-    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={onToggle}>
-      <View style={styles.packageHeader}>
-        <Laugh size={40} color="black" />
-        <View style={styles.packageHeaderText}>
-          <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.packageTime}>{servicePackage.time} • </Text>
-              <View style={[styles.categoryTag, {backgroundColor: servicePackage.categoryBgColor}]}>
-                  <Text style={[styles.categoryText, {color: servicePackage.categoryColor}]}>{servicePackage.category}</Text>
-              </View>
+
+const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBooking }: ServicePackageCardProps) => (
+  <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={onToggle}>
+    <View style={styles.packageHeader}>
+      {servicePackage.avatarUrl ? (
+        <Image source={{ uri: servicePackage.avatarUrl }} style={styles.avatar} resizeMode="cover" />
+      ) : <Image source={require("@/assets/images/user-placeholder.png")} style={styles.avatar} resizeMode="cover" />}
+      <View style={styles.packageHeaderText}>
+        <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.packageTime}>{servicePackage.time} • </Text>
+          <View style={[styles.categoryTag, { backgroundColor: servicePackage.categoryBgColor }]}>
+            <Text style={[styles.categoryText, { color: servicePackage.categoryColor }]}>{servicePackage.category}</Text>
           </View>
         </View>
-        <X size={24} color="gray" />
       </View>
-      <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-  <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
-      {servicePackage.imageUrl && <Image source={{ uri: servicePackage.imageUrl }} style={styles.packageImage} />}
-      <View style={styles.packageFooterInfo}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Wallet size={16} color="#32CD32" />
-              <Text style={styles.packagePrice}>{servicePackage.price}</Text>
-              <Clock size={16} color="gray" style={{marginLeft: 16}}/>
-              <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
-          </View>
+      <X size={24} color="gray" />
+    </View>
+    <Text style={styles.packageTitle}>{servicePackage.title}</Text>
+    <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
+    <Image 
+      source={servicePackage.imageUrl ? { uri: servicePackage.imageUrl } : require("@/assets/images/placeholder.png")} 
+      style={styles.packageImage}
+      onError={(e) => {
+      }}
+      defaultSource={require("@/assets/images/placeholder.png")}
+    />
+    <View style={styles.packageFooterInfo}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Wallet size={16} color="#32CD32" />
+        <Text style={styles.packagePrice}>{servicePackage.price}</Text>
+        <Clock size={16} color="gray" style={{ marginLeft: 16 }} />
+        <Text style={styles.packageDuration}>{servicePackage.duration}</Text>
       </View>
-      <View style={styles.packageStats}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <View style={[styles.likeIconCircle, {backgroundColor: '#E7F3FF'}]}>
-                  <ThumbsUp size={16} color="#1877F2" />
-              </View>
-              <Text style={styles.likes}>{servicePackage.likes}</Text>
-              <View style={[styles.dislikeIconCircle, {backgroundColor: '#FFF8DC'}]}>
-                  <ThumbsDown size={16} color="#FBCB0A" />
-              </View>
-              <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
-          </View>
-        <Text style={styles.comments}>{servicePackage.comments}</Text>
-      </View>
-      <View style={styles.packageActions}>
-        <View style={styles.actionButton}>
-          <ThumbsUp size={20} color="gray" />
-          <Text style={styles.actionText}>Thích</Text>
+    </View>
+    <View style={styles.packageStats}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={[styles.likeIconCircle, { backgroundColor: '#E7F3FF' }]}>
+          <ThumbsUp size={16} color="#1877F2" />
         </View>
-        <View style={styles.actionButton}>
-          <MessageCircle size={20} color="gray" />
-          <Text style={styles.actionText}>Bình luận</Text>
+        <Text style={styles.likes}>{servicePackage.likes}</Text>
+        <View style={[styles.dislikeIconCircle, { backgroundColor: '#FFF8DC' }]}>
+          <ThumbsDown size={16} color="#FBCB0A" />
         </View>
+        <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
       </View>
-      <View style={styles.bookButtonContainer}>
-          <Text style={styles.bookButton}>Đặt lịch ngay</Text>
-      </View>
+      <Text style={styles.comments}>{servicePackage.comments}</Text>
+    </View>
+    <View style={styles.packageActions}>
+      <TouchableOpacity
+        style={[styles.actionButton, servicePackage.userInteraction === 'LIKE' ? { opacity: 1 } : {},]}
+        onPress={() => onLike?.(servicePackage.id)}
+        disabled={Boolean((servicePackage as any).isLiking)}
+      >
+        <ThumbsUp size={20} color={servicePackage.userInteraction === 'LIKE' ? Colors.primary : 'gray'} />
+        <Text style={[styles.actionText, servicePackage.userInteraction === 'LIKE' ? { color: Colors.primary } : {}]}>Thích</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionButton}>
+        <MessageCircle size={20} color="gray" />
+        <Text style={styles.actionText}>Bình luận</Text>
+      </TouchableOpacity>
+    </View>
+    <TouchableOpacity
+      style={styles.bookButtonContainer}
+      onPress={() => onBooking?.(servicePackage.id, servicePackage.title, servicePackage.content, servicePackage.rating, servicePackage.price, servicePackage.duration, servicePackage.seer, servicePackage.avatarUrl)}>
+      <Text style={styles.bookButton}>Đặt lịch ngay</Text>
     </TouchableOpacity>
+  </TouchableOpacity>
 );
+
+
 
 
 export default function HomeScreen() {
@@ -125,6 +145,7 @@ export default function HomeScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
+  const [likeInFlight, setLikeInFlight] = useState<Record<string, boolean>>({});
   const tabBarHeight = useBottomTabBarHeight();
 
   const fetchServicePackages = useCallback(async () => {
@@ -145,14 +166,14 @@ export default function HomeScreen() {
         //setServicePackages(demoServicePackages);
         return;
       }
-      
+
       const response = await getServicePackages({
         page: 1,
         limit: 15,
         sortType: "desc",
         sortBy: "createdAt",
       });
-      
+
       if (response.data && response.data.data) {
         const packagesWithDetails = await Promise.all(
           response.data.data.map(async (p: any) => {
@@ -172,9 +193,10 @@ export default function HomeScreen() {
                 price: `${detail.price.toLocaleString("vi-VN")} VNĐ`,
                 duration: `${detail.durationMinutes} phút`,
                 imageUrl: detail.imageUrl,
-                likes: '0', // Placeholder
-                dislikes: '0', // Placeholder
+                likes: p.likeCount, // Placeholder
+                dislikes: p.dislikeCount, // Placeholder
                 comments: '0 bình luận', // Placeholder
+                avatarUrl: detail.seer.avatarUrl,
               };
             } catch (detailErr) {
               console.error(`Error fetching details for package ${p.id}:`, detailErr);
@@ -192,8 +214,8 @@ export default function HomeScreen() {
                 price: `${p.price.toLocaleString("vi-VN")} VNĐ`,
                 duration: `${p.durationMinutes} phút`,
                 imageUrl: p.imageUrl,
-                likes: '0',
-                dislikes: '0',
+                likes: p.likeCount,
+                dislikes: p.dislikeCount,
                 comments: '0 bình luận',
               };
             }
@@ -229,6 +251,36 @@ export default function HomeScreen() {
     }, [fetchServicePackages])
   );
 
+  const handleLike = async (packageId: string) => {
+    if (likeInFlight[packageId]) return; // prevent double taps
+    try {
+      setLikeInFlight((s) => ({ ...s, [packageId]: true }));
+
+      // find package current userInteraction
+      const pkg = servicePackages.find((p) => p.id === packageId);
+      const currentlyLiked = pkg?.userInteraction === 'LIKE';
+
+      // decide action: if currentlyLiked then UNLIKE (or REMOVE), else LIKE
+      const action = currentlyLiked ? 'LIKE' : 'LIKE';
+
+      const res = await interactWithServicePackage(packageId, { interactionType: action });
+      const data = res?.data?.data ?? res?.data ?? null;
+      if (data) {
+        setServicePackages((prev) =>
+          prev.map((p) =>
+            p.id === packageId
+              ? { ...p, likes: data.likeCount?.toString() ?? p.likes, dislikes: data.dislikeCount?.toString() ?? p.dislikes, userInteraction: data.userInteraction }
+              : p
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to like package', err);
+    } finally {
+      setLikeInFlight((s) => ({ ...s, [packageId]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -236,14 +288,14 @@ export default function HomeScreen() {
       </SafeAreaView>
     );
   }
-  
+
   if (error) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={styles.errorText}>{error}</Text>
-        <Button 
-          mode="contained" 
-          style={{ marginTop: 16 }} 
+        <Button
+          mode="contained"
+          style={{ marginTop: 16 }}
           onPress={() => fetchServicePackages()}>
           Thử lại
         </Button>
@@ -253,7 +305,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri"/>
+      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" />
       <FlatList
         data={servicePackages}
         renderItem={({ item }) => (
@@ -266,6 +318,9 @@ export default function HomeScreen() {
                 [item.id]: !prev[item.id],
               }))
             }
+            onLike={handleLike}
+            isLiking={Boolean(likeInFlight[item.id])}
+            onBooking={() => router.push({ pathname: "/book-package", params: { id: item.id, title: item.title, content: item.content, rating: item.rating, price: item.price, duration: item.duration, seer: item.seer, avatarUrl: item.avatarUrl } })}
           />
         )}
         keyExtractor={item => item.id}
@@ -278,8 +333,8 @@ export default function HomeScreen() {
               <View style={styles.servicesGrid}>
                 {popularServices.map((service, index) => (
                   <View key={index} style={styles.serviceItem}>
-                    <View style={[styles.serviceIcon, {backgroundColor: service.bgColor}]}> 
-                        <service.Icon color={service.color} size={24} />
+                    <View style={[styles.serviceIcon, { backgroundColor: service.bgColor }]}>
+                      <service.Icon color={service.color} size={24} />
                     </View>
                     <Text style={styles.serviceName}>{service.name}</Text>
                   </View>
@@ -289,12 +344,12 @@ export default function HomeScreen() {
 
             <View style={[styles.servicesContainer, styles.cardShadow]}>
               <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
-              <Button 
-                mode="contained" 
-                style={styles.btn} 
+              <Button
+                mode="contained"
+                style={styles.btn}
                 icon={() => <Package size={18} color="white" />}
                 onPress={() => router.push("/create-package")}>
-                  Tạo gói dịch vụ mới
+                Tạo gói dịch vụ mới
               </Button>
             </View>
           </>
@@ -525,5 +580,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     fontFamily: 'Inter',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: Colors.borderGray
   }
 });
