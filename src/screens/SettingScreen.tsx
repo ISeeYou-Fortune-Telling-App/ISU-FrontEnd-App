@@ -1,16 +1,22 @@
+import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
 
-type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT";
+type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMAGE";
 
 export default function SettingScreen() {
     const handlePress = (action: SettingAction) => {
         switch (action) {
+            case "PROFILE":
+                router.push("/edit-profile");
+                break;
+            case "IMAGE":
+                //router.push("/edit-images");
+                break;
             case "PASSWORD":
                 Alert.alert("Sắp ra mắt", "Tính năng đổi mật khẩu sẽ sớm khả dụng.");
                 break;
@@ -58,9 +64,14 @@ export default function SettingScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => router.push("/edit-profile")}>
+                <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("PROFILE")}>
                     <Text style={styles.cardTitle}>Thay đổi thông tin cá nhân</Text>
-                    <Text style={styles.cardSubtitle}>Tên, ngày sinh, ảnh đại diện, v.v.</Text>
+                    <Text style={styles.cardSubtitle}>Tên, ngày sinh, giới tính, v.v.</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("IMAGE")}>
+                    <Text style={styles.cardTitle}>Thay đổi ảnh</Text>
+                    <Text style={styles.cardSubtitle}>Ảnh đại diện, ảnh nền.</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("PASSWORD")}>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu } from "react-native-paper";
+import Colors from "../constants/colors";
 
 type StatusOption = {
   status: string,
@@ -11,6 +12,7 @@ type StatusOption = {
 const STATUS_OPTIONS: StatusOption[] = [
   { status: "ACTIVE", label: "ACTIVE", color: "green" },
   { status: "INACTIVE", label: "INACTIVE", color: "gray" },
+  { status: "VERIFIED", label: "VERIFIED", color: Colors.primary },
   { status: "BLOCKED", label: "Bận", color: "red" },
 ];
 

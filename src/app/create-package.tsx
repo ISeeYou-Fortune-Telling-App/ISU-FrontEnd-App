@@ -1,4 +1,4 @@
-import CreatePackageScreen from "../screens/CreatePackageScreen";
+import CreatePackageScreen from "../screens/package/CreatePackageScreen";
 
 export default function CreatePackage() {
     return <CreatePackageScreen/>

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { updateServicePackage } from "../services/api";
+import { updateServicePackage } from "../../services/api";
 
 type UpdateProps = {
     packageId?: string;
