@@ -89,10 +89,10 @@ export default function KnowledgeSearchModal({
   }, [visible]);
 
   const handleApply = () => {
-    if (!title.trim()) {
-      setTitleError(true);
-      return;
-    }
+    // if (!title.trim()) {
+    //   setTitleError(true);
+    //   return;
+    // }
     setTitleError(false);
     onApply?.({ title: title.trim(), categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined, status, sortType, sortBy });
     onClose();
