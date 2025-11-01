@@ -6,10 +6,13 @@ const Colors = {
   text: "#000000",
   error: "#B00020",
   white: "#ffffff",
+  green: "#00ce00ff",
   dark_gray: "#4B5563",
   gray: "#777777",
   black: "#000000",
   purple: "#7C3AED",
+  pink :"#DB2777",
+  yellow: "#F59E0B",
   borderGray: "#d1d5db",
   text_light: "#dee0e3ff",
   categoryColors: {

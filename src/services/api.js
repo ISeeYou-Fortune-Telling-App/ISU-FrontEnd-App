@@ -201,9 +201,11 @@ export const deleteAccount = (userId, reason) => {
 };
 export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
-export const getServicePackages = (params) => API.get("/service-packages", { params });
+export const getServicePackages = (params) => API.get("/public/service-packages", { params });
 export const getServicePackageDetail = (id) =>
   API.get("/service-packages/detail", { params: { id } });
+export const getServicePackageReviews = (id) =>
+  API.get(`/service-packages/${id}/reviews`, { params: { id } });
 export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
 export const searchKnowledgeItems = (params) => {
   const queryParams = { ...params };
@@ -294,6 +296,9 @@ export const updateServicePackage = (id, seerId, data) =>
 export const deleteServicePackage = (id) =>
   API.delete(`/service-packages/${id}`);
 
+export const getMyPackages = (params) =>
+  API.get("/service-packages/my-packages", { params });
+
 export const forgotPassword = (email) =>
   API.post("/auth/forgot-password", { email });
 
@@ -305,5 +310,8 @@ export const verifyForgotPassword = (data) =>
 
 export const getMyBookings = (params) =>
   API.get("/bookings/my-bookings", { params });
+
+export const getBookingDetail = (id) =>
+  API.get(`/bookings/${id}`);
 
 export default API;

@@ -1,4 +1,4 @@
-import UpdatePackageScreen from "../screens/UpdatePackageScreen";
+import UpdatePackageScreen from "../screens/package/UpdatePackageScreen";
 
 
 export default function UpdatePackage() {
