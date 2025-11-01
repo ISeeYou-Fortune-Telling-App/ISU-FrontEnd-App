@@ -62,6 +62,22 @@ const INITIAL_MESSAGES: AIMessage[] = [
   },
 ];
 
+const stripSseArtifacts = (input: string): string => {
+  if (!input) {
+    return "";
+  }
+
+  const withoutMeta = input
+    .replace(/(^|\n)\s*data:\s*/gi, "$1")
+    .replace(/(^|\n)\s*(event|id|retry):.*$/gim, "$1");
+
+  if (withoutMeta.trim() === "[DONE]") {
+    return "";
+  }
+
+  return withoutMeta;
+};
+
 const formatTimestamp = (timestamp: number) =>
   new Date(timestamp).toLocaleTimeString("vi-VN", {
     hour: "2-digit",
@@ -379,7 +395,11 @@ export default function AIChatScreen() {
             if (!chunk) {
               return;
             }
-            streamedContent += chunk;
+            const cleanedChunk = stripSseArtifacts(chunk);
+            if (!cleanedChunk) {
+              return;
+            }
+            streamedContent += cleanedChunk;
             setMessages((prev) =>
               prev.map((item) => (item.id === assistantId ? { ...item, content: streamedContent } : item)),
             );
@@ -418,12 +438,18 @@ export default function AIChatScreen() {
             payload,
         );
 
+        const rawAnswer =
+          typeof payload?.answer === "string" && payload?.answer.trim().length > 0
+            ? payload.answer
+            : undefined;
+        const sanitizedAnswer = rawAnswer ? stripSseArtifacts(rawAnswer) : undefined;
+
         const fallbackMessage: AIMessage = {
           id: assistantId,
           role: "assistant",
           createdAt: Date.now(),
           content:
-            payload?.answer ??
+            sanitizedAnswer ??
             "Xin lỗi, hiện tại mình chưa thể phản hồi yêu cầu này. Bạn hãy thử lại sau nhé!",
           references: references.length > 0 ? references : undefined,
         };

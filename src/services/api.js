@@ -219,6 +219,15 @@ export const getKnowledgeCategories = (params) => API.get("/knowledge-categories
 export const getChatConversations = (params) =>
   API.get("/chat/conversations", { params });
 
+export const getChatConversation = (conversationId) =>
+  API.get(`/chat/conversations/${conversationId}`);
+
+export const getCustomerPayments = (params) =>
+  API.get("/bookings/my-payments", { params });
+
+export const getSeerPayments = (params) =>
+  API.get("/bookings/seer/payments", { params });
+
 export const getChatMessages = (conversationId, params) =>
   API.get(`/chat/conversations/${conversationId}/messages`, { params });
 
@@ -228,8 +237,34 @@ export const sendChatMessage = (conversationId, payload) => {
       ? { headers: { "Content-Type": "multipart/form-data" } }
       : undefined;
 
-  return API.post(`/chat/conversations/${conversationId}/messages`, payload, config);
+  let body = payload;
+
+  if (typeof FormData !== "undefined" && payload instanceof FormData) {
+    const hasConversationId =
+      typeof payload.get === "function"
+        ? Boolean(payload.get("conversationId"))
+        : Array.isArray(payload?._parts)
+          ? payload._parts.some((part) => Array.isArray(part) && part[0] === "conversationId")
+          : false;
+
+    if (!hasConversationId && conversationId) {
+      payload.append("conversationId", conversationId);
+    }
+  } else {
+    body = { ...(payload ?? {}), conversationId };
+  }
+
+  return API.post("/chat/messages", body, config);
 };
+
+export const markConversationMessagesRead = (conversationId) =>
+  API.post(`/chat/conversations/${conversationId}/mark-read`);
+
+export const deleteChatMessage = (messageId) =>
+  API.delete(`/chat/messages/${messageId}`);
+
+export const recallChatMessage = (messageId) =>
+  API.post(`/chat/messages/${messageId}/recall`);
 
 export const createReport = (payload) => {
   return API.post("/reports", payload, {
