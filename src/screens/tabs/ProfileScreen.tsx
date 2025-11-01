@@ -4,9 +4,9 @@ import { getProfile, updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Bell, Calendar, Mail, Mars, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, CreditCard, Mail, Mars, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
@@ -153,6 +153,20 @@ export default function ProfileScreen() {
 
         <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />
         <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.85}
+          onPress={() => router.push("/transaction-history")}
+        >
+          <View style={styles.actionIcon}>
+            <CreditCard size={20} color={Colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionTitle}>Lịch sử giao dịch</Text>
+            <Text style={styles.actionSubtitle}>Theo dõi các thanh toán gần đây của bạn</Text>
+          </View>
+        </TouchableOpacity>
 
       </ScrollView>
 
@@ -414,5 +428,35 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginTop: -64,
     alignItems: "center",
+  },
+  actionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e2e8f0",
+    gap: 12,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eef2ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.black,
+  },
+  actionSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#64748b",
   },
 })

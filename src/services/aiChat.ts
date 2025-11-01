@@ -42,6 +42,36 @@ export const streamChatWithAI = async (
   payload: Record<string, unknown>,
   callbacks: StreamCallbacks,
 ) => {
+  const sanitizeSsePayload = (raw: string): string => {
+    if (!raw) {
+      return "";
+    }
+
+    const lines = raw.split(/\r?\n/);
+    const dataLines: string[] = [];
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      if (/^data:/i.test(trimmed)) {
+        dataLines.push(trimmed.replace(/^data:\s*/i, ""));
+        return;
+      }
+
+      if (/^(event|id|retry):/i.test(trimmed)) {
+        return;
+      }
+
+      dataLines.push(trimmed);
+    });
+
+    const joined = dataLines.join("\n").trim();
+    return joined.replace(/^data:\s*/gim, "");
+  };
+
   const controller = new AbortController();
   callbacks.onStart?.(controller);
 
@@ -78,6 +108,41 @@ export const streamChatWithAI = async (
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
 
+    const processEvent = (raw: string) => {
+      if (!raw) {
+        return false;
+      }
+
+      const lines = raw
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length === 0) {
+        return false;
+      }
+
+      const rawPayload = lines
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.replace(/^data:\s*/i, ""))
+        .join("\n");
+
+      const dataPayload = sanitizeSsePayload(rawPayload || raw);
+
+      if (!dataPayload) {
+        return false;
+      }
+
+      if (dataPayload === "[DONE]") {
+        callbacks.onComplete?.();
+        controller.abort();
+        return true;
+      }
+
+      callbacks.onChunk?.(dataPayload);
+      return false;
+    };
+
     while (true) {
       const { value, done } = await reader.read();
       if (done) {
@@ -85,34 +150,26 @@ export const streamChatWithAI = async (
       }
 
       buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split("\n\n");
-      buffer = parts.pop() ?? "";
 
-      parts.forEach((raw) => {
-        const line = raw.trim();
-        if (!line.startsWith("data:")) {
-          return;
+      let separatorIndex = buffer.indexOf("\n\n");
+      while (separatorIndex !== -1) {
+        const event = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+        const shouldStop = processEvent(event);
+        if (shouldStop) {
+          return controller;
         }
-
-        const data = line.replace(/^data:\s*/, "");
-        if (data === "[DONE]") {
-          callbacks.onComplete?.();
-          controller.abort();
-          return;
-        }
-
-        callbacks.onChunk?.(data);
-      });
-    }
-
-    if (buffer.length > 0) {
-      const data = buffer.replace(/^data:\s*/, "");
-      if (data && data !== "[DONE]") {
-        callbacks.onChunk?.(data);
+        separatorIndex = buffer.indexOf("\n\n");
       }
     }
 
-    callbacks.onComplete?.();
+    if (buffer.trim().length > 0) {
+      processEvent(buffer);
+    }
+
+    if (!controller.signal.aborted) {
+      callbacks.onComplete?.();
+    }
   } catch (error) {
     if (!controller.signal.aborted) {
       callbacks.onError?.(error);
