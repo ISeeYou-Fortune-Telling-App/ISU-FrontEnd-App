@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Bell, Calendar, CreditCard, ChevronRight, Mail, Mars, Package, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, ChevronRight, CreditCard, Mail, Mars, Package, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -215,7 +215,7 @@ export default function ProfileScreen() {
         <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, styles.cardShadow]}
           activeOpacity={0.85}
           onPress={() => router.push("/transaction-history")}
         >
@@ -557,8 +557,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     padding: 16,
     borderRadius: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginHorizontal: 10,
+    marginTop: 5,
+    marginBottom: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e2e8f0",
     gap: 12,
@@ -580,6 +581,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 13,
     color: "#64748b",
+  },
   cardShadow: {
     shadowColor: Colors.black,
     shadowOffset: { width: 10, height: 6 },
