@@ -1,5 +1,12 @@
 import Colors from "@/src/constants/colors";
-import { getChatMessages, sendChatMessage } from "@/src/services/api";
+import {
+  deleteChatMessage,
+  getChatConversation,
+  getChatMessages,
+  markConversationMessagesRead,
+  recallChatMessage,
+  sendChatMessage,
+} from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as SecureStore from "expo-secure-store";
@@ -11,6 +18,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   RefreshControl,
   StyleSheet,
@@ -28,6 +36,7 @@ type Attachment = {
   uri: string;
   name?: string;
   mimeType?: string;
+  kind: "image" | "video";
 };
 
 type ChatMessage = {
@@ -37,57 +46,82 @@ type ChatMessage = {
   attachments?: Attachment[];
   status: MessageStatus;
   createdAt: number;
+  isRecalled?: boolean;
 };
+
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB cap to keep uploads reliable
+const MAX_VIDEO_DURATION_MS = 3 * 60 * 1000; // 3 minutes max duration
 
 const normalizeStatus = (status?: string | null): MessageStatus => {
   switch ((status ?? "").toLowerCase()) {
     case "sending":
+    case "pending":
       return "sending";
     case "delivered":
       return "delivered";
     case "read":
       return "read";
     case "failed":
+    case "error":
+    case "removed":
+    case "deleted":
       return "failed";
+    case "recalled":
+      return "sent";
+    case "unread":
+    case "sent":
+    case "success":
+      return "sent";
     default:
       return "sent";
   }
 };
 
-const mapAttachment = (attachment: any, fallbackId: string): Attachment | null => {
-  const uri = attachment?.url ?? attachment?.uri;
-  if (!uri) {
-    return null;
-  }
-  return {
-    id: String(attachment?.id ?? fallbackId),
-    uri,
-    name: attachment?.name ?? attachment?.fileName ?? undefined,
-    mimeType: attachment?.mimeType ?? attachment?.type ?? "image/jpeg",
-  };
-};
-
 const mapApiMessage = (item: any, currentUserId: string | null): ChatMessage => {
   const senderId = item?.senderId ?? item?.fromUserId ?? item?.authorId ?? null;
+  const baseId = String(item?.id ?? item?.messageId ?? Date.now());
   const createdAt =
     typeof item?.createdAt === "number"
       ? item.createdAt
       : new Date(item?.createdAt ?? item?.timestamp ?? Date.now()).getTime();
 
-  const attachments = Array.isArray(item?.attachments)
-    ? (item.attachments
-        .map((value: any, index: number) => mapAttachment(value, `${item?.id ?? Date.now()}-${index}`))
-        .filter(Boolean) as Attachment[])
-    : undefined;
+  const isRecalled = Boolean(item?.recalled ?? item?.isRecalled);
+
+  const attachments: Attachment[] = [];
+
+  if (!isRecalled) {
+    const imageUrl = item?.imageUrl ?? item?.image ?? null;
+    if (typeof imageUrl === "string" && imageUrl.trim().length > 0) {
+      attachments.push({
+        id: `${baseId}-image`,
+        uri: imageUrl,
+        name: "image.jpg",
+        mimeType: item?.imageMimeType ?? "image/jpeg",
+        kind: "image",
+      });
+    }
+
+    const videoUrl = item?.videoUrl ?? item?.video ?? null;
+    if (typeof videoUrl === "string" && videoUrl.trim().length > 0) {
+      attachments.push({
+        id: `${baseId}-video`,
+        uri: videoUrl,
+        name: "video.mp4",
+        mimeType: item?.videoMimeType ?? "video/mp4",
+        kind: "video",
+      });
+    }
+  }
 
   return {
-    id: String(item?.id ?? item?.messageId ?? createdAt),
+    id: baseId,
     role:
       senderId && currentUserId && String(senderId) === String(currentUserId) ? "outgoing" : "incoming",
-    content: item?.content ?? item?.text ?? "",
-    attachments,
-    status: normalizeStatus(item?.status),
+    content: isRecalled ? undefined : (item?.textContent ?? item?.content ?? item?.text ?? "") || undefined,
+    attachments: attachments.length > 0 ? attachments : undefined,
+    status: normalizeStatus(item?.status ?? item?.messageStatus),
     createdAt,
+    isRecalled,
   };
 };
 
@@ -98,7 +132,7 @@ export default function ChatDetailScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>("");
-  const [selectedImages, setSelectedImages] = useState<Attachment[]>([]);
+  const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string>("Cuộc trò chuyện");
   const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null);
   const [isPartnerOnline, setIsPartnerOnline] = useState<boolean>(false);
@@ -110,7 +144,7 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     let active = true;
-    const loadUser = async () => {
+    const loadUserContext = async () => {
       try {
         const storedId = await SecureStore.getItemAsync("userId");
         if (active) {
@@ -120,7 +154,8 @@ export default function ChatDetailScreen() {
         console.error(err);
       }
     };
-    loadUser();
+
+    loadUserContext();
     return () => {
       active = false;
     };
@@ -154,42 +189,54 @@ export default function ChatDetailScreen() {
 
       try {
         setLoadError(null);
-        const response = await getChatMessages(conversationId);
-        const payload = response?.data?.data;
+        const [messagesResponse, conversationResponse] = await Promise.all([
+          getChatMessages(conversationId),
+          getChatConversation(conversationId),
+        ]);
 
-        const rawMessages = Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.messages)
-            ? payload.messages
-            : Array.isArray(response?.data?.messages)
-              ? response.data.messages
-              : [];
+        const messagePayload = messagesResponse?.data?.data;
+        const rawMessages = Array.isArray(messagePayload) ? messagePayload : [];
 
         const normalized = rawMessages
           .map((item: any) => mapApiMessage(item, currentUserId))
           .sort((a, b) => a.createdAt - b.createdAt);
 
-        const meta =
-          payload?.conversation ??
-          payload?.conversationInfo ??
-          response?.data?.meta ??
-          null;
+        setMessages(normalized);
 
-        if (meta) {
-          setConversationTitle(
-            meta?.name ??
-              meta?.title ??
-              meta?.partnerName ??
-              meta?.seerName ??
-              "Cuộc trò chuyện",
-          );
-          setPartnerAvatar(meta?.avatarUrl ?? meta?.partnerAvatar ?? meta?.seerAvatar ?? null);
-          if (typeof meta?.isOnline === "boolean") {
-            setIsPartnerOnline(Boolean(meta.isOnline));
+        const conversation = conversationResponse?.data?.data ?? null;
+        if (conversation) {
+          const viewerIsSeer =
+            currentUserId &&
+            conversation.seerId &&
+            String(conversation.seerId) === String(currentUserId);
+          const viewerIsCustomer =
+            currentUserId &&
+            conversation.customerId &&
+            String(conversation.customerId) === String(currentUserId);
+
+          if (viewerIsSeer) {
+            setConversationTitle(conversation.customerName ?? "Khách hàng");
+            setPartnerAvatar(conversation.customerAvatarUrl ?? null);
+          } else if (viewerIsCustomer) {
+            setConversationTitle(conversation.seerName ?? "Nhà tiên tri");
+            setPartnerAvatar(conversation.seerAvatarUrl ?? null);
+          } else {
+            setConversationTitle(
+              conversation.seerName ?? conversation.customerName ?? "Cuộc trò chuyện",
+            );
+            setPartnerAvatar(
+              conversation.seerAvatarUrl ?? conversation.customerAvatarUrl ?? null,
+            );
           }
+
+          setIsPartnerOnline(
+            (conversation.status ?? "").toString().toUpperCase() === "ACTIVE",
+          );
         }
 
-        setMessages(normalized);
+        markConversationMessagesRead(conversationId).catch((err) => {
+          console.warn("Không thể đánh dấu đã đọc:", err);
+        });
       } catch (error: any) {
         console.error(error);
         const message =
@@ -211,42 +258,91 @@ export default function ChatDetailScreen() {
     fetchMessages();
   }, [fetchMessages]);
 
-  const handlePickImages = useCallback(async () => {
+  const handlePickImage = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "image/*",
         copyToCacheDirectory: true,
-        multiple: true,
+        multiple: false,
       });
 
       if (result.canceled || !result.assets?.length) {
         return;
       }
 
-      const timestamp = Date.now();
-      const attachments = result.assets
-        .filter((asset) => asset.uri)
-        .map((asset, index) => ({
-          id: `${timestamp}-${index}`,
-          uri: asset.uri ?? "",
-          name: asset.name,
-          mimeType: asset.mimeType ?? "image/jpeg",
-        }))
-        .filter((item) => item.uri.length > 0);
+      const asset = result.assets.find((item) => item?.uri);
+      if (!asset?.uri) {
+        return;
+      }
 
-      setSelectedImages((prev) => [...prev, ...attachments]);
+      setSelectedAttachment({
+        id: `${Date.now()}`,
+        uri: asset.uri,
+        name: asset.name ?? undefined,
+        mimeType: asset.mimeType ?? "image/jpeg",
+        kind: "image",
+      });
     } catch (err) {
       console.error(err);
       Alert.alert("Không thể chọn ảnh", "Vui lòng thử lại sau.");
     }
   }, []);
 
-  const handleRemoveAttachment = useCallback((attachmentId: string) => {
-    setSelectedImages((prev) => prev.filter((item) => item.id !== attachmentId));
+  const handlePickVideo = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "video/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets.find((item) => item?.uri);
+      if (!asset?.uri) {
+        return;
+      }
+
+      if (typeof asset.size === "number" && asset.size > MAX_VIDEO_SIZE_BYTES) {
+        Alert.alert(
+          "Video quá lớn",
+          "Vui lòng chọn video nhỏ hơn 50MB để đảm bảo quá trình tải lên ổn định.",
+        );
+        return;
+      }
+
+      if (typeof asset.duration === "number" && asset.duration > MAX_VIDEO_DURATION_MS) {
+        Alert.alert(
+          "Video quá dài",
+          "Vui lòng chọn video có độ dài tối đa 3 phút để gửi nhanh hơn.",
+        );
+        return;
+      }
+
+      setSelectedAttachment({
+        id: `${Date.now()}`,
+        uri: asset.uri,
+        name: asset.name ?? undefined,
+        mimeType: asset.mimeType ?? "video/mp4",
+        kind: "video",
+      });
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Không thể chọn video", "Vui lòng thử lại sau.");
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback(() => {
+    setSelectedAttachment(null);
   }, []);
 
   const handleSendMessage = useCallback(async () => {
-    if (isSending || (!input.trim() && selectedImages.length === 0)) {
+    const trimmed = input.trim();
+    const attachment = selectedAttachment;
+
+    if (isSending || (!trimmed && !attachment)) {
       return;
     }
     if (!conversationId) {
@@ -254,46 +350,58 @@ export default function ChatDetailScreen() {
       return;
     }
 
-    const trimmed = input.trim();
-    const attachments = selectedImages;
     const localId = `${Date.now()}`;
+    const optimisticAttachments = attachment ? [attachment] : undefined;
 
     const optimisticMessage: ChatMessage = {
       id: localId,
       role: "outgoing",
       content: trimmed.length > 0 ? trimmed : undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: optimisticAttachments,
       status: "sending",
       createdAt: Date.now(),
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
     setInput("");
-    setSelectedImages([]);
+    setSelectedAttachment(null);
     setIsSending(true);
     scrollToEnd();
 
     try {
       let payload: any;
-      if (attachments.length > 0) {
+      if (attachment) {
         const formData = new FormData();
+        formData.append("conversationId", conversationId);
         if (trimmed.length > 0) {
-          formData.append("content", trimmed);
+          formData.append("textContent", trimmed);
         }
-        attachments.forEach((attachment) => {
-          formData.append("attachments", {
+        const fieldName = attachment.kind === "video" ? "video" : "image";
+        formData.append(
+          fieldName,
+          {
             uri: attachment.uri,
-            name: attachment.name ?? `${attachment.id}.jpg`,
-            type: attachment.mimeType ?? "image/jpeg",
-          } as any);
-        });
+            name: attachment.name ?? `${attachment.id}.${attachment.kind === "video" ? "mp4" : "jpg"}`,
+            type: attachment.mimeType ?? (attachment.kind === "video" ? "video/mp4" : "image/jpeg"),
+          } as any,
+        );
         payload = formData;
       } else {
-        payload = { content: trimmed };
+        payload = {
+          conversationId,
+          ...(trimmed.length > 0 ? { textContent: trimmed } : {}),
+        };
       }
 
       const response = await sendChatMessage(conversationId, payload);
-      const persisted = mapApiMessage(response?.data?.data, currentUserId);
+      const persistedRaw = response?.data?.data;
+      const persisted = persistedRaw
+        ? mapApiMessage(persistedRaw, currentUserId)
+        : {
+            ...optimisticMessage,
+            id: `${localId}-persisted`,
+            status: "sent" as MessageStatus,
+          };
 
       setMessages((prev) =>
         prev.map((message) => (message.id === localId ? persisted : message)),
@@ -311,54 +419,178 @@ export default function ChatDetailScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [conversationId, currentUserId, fetchMessages, input, isSending, scrollToEnd, selectedImages]);
+  }, [conversationId, currentUserId, fetchMessages, input, isSending, scrollToEnd, selectedAttachment]);
+
+  const handleOpenAttachment = useCallback((uri: string) => {
+    if (!uri) {
+      return;
+    }
+    Linking.openURL(uri).catch((err) => {
+      console.error("Failed to open attachment", err);
+      Alert.alert("Không thể mở tệp", "Vui lòng thử lại sau.");
+    });
+  }, []);
+
+  const handleDeleteMessage = useCallback(
+    (message: ChatMessage) => {
+      if (!message.id || message.status === "sending") {
+        return;
+      }
+
+      Alert.alert("Xóa tin nhắn", "Tin nhắn sẽ bị xóa khỏi thiết bị của bạn.", [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteChatMessage(message.id);
+              setMessages((prev) => prev.filter((item) => item.id !== message.id));
+            } catch (err: any) {
+              console.error("Delete message failed", err);
+              const messageText =
+                err?.response?.data?.message ?? "Không thể xóa tin nhắn. Vui lòng thử lại.";
+              Alert.alert("Lỗi", messageText);
+            }
+          },
+        },
+      ]);
+    },
+    [],
+  );
+
+  const handleRecallMessage = useCallback(
+    (message: ChatMessage) => {
+      if (!message.id || message.status === "sending" || message.isRecalled) {
+        return;
+      }
+
+      Alert.alert("Thu hồi tin nhắn", "Tin nhắn sẽ bị thu hồi cho tất cả mọi người.", [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Thu hồi",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await recallChatMessage(message.id);
+              setMessages((prev) =>
+                prev.map((item) =>
+                  item.id === message.id
+                    ? { ...item, isRecalled: true, content: undefined, attachments: undefined }
+                    : item,
+                ),
+              );
+              fetchMessages({ silent: true });
+            } catch (err: any) {
+              console.error("Recall message failed", err);
+              const messageText =
+                err?.response?.data?.message ?? "Không thể thu hồi tin nhắn. Vui lòng thử lại.";
+              Alert.alert("Lỗi", messageText);
+            }
+          },
+        },
+      ]);
+    },
+    [fetchMessages],
+  );
+
+  const handleMessageOptions = useCallback(
+    (message: ChatMessage) => {
+      if (!message.id || message.status === "sending") {
+        return;
+      }
+
+      const options: { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void }[] = [];
+
+      if (message.role === "outgoing" && !message.isRecalled) {
+        options.push({ text: "Thu hồi", style: "destructive", onPress: () => handleRecallMessage(message) });
+      }
+
+      if (!message.isRecalled) {
+        options.push({ text: "Xóa phía tôi", onPress: () => handleDeleteMessage(message) });
+      }
+
+      options.push({ text: "Huỷ", style: "cancel" });
+
+      Alert.alert("Tùy chọn", undefined, options);
+    },
+    [handleDeleteMessage, handleRecallMessage],
+  );
 
   const canSend = useMemo(
-    () => input.trim().length > 0 || selectedImages.length > 0,
-    [input, selectedImages],
+    () => input.trim().length > 0 || Boolean(selectedAttachment),
+    [input, selectedAttachment],
   );
 
   const renderMessage = useCallback(
     ({ item }: { item: ChatMessage }) => {
       const isOutgoing = item.role === "outgoing";
-      return (
-        <View
-          style={[
-            styles.messageRow,
-            isOutgoing ? styles.alignRight : styles.alignLeft,
-          ]}
-        >
-          {item.attachments?.length ? (
-            <View style={[styles.attachmentGroup, isOutgoing && styles.attachmentOutgoing]}>
-              {item.attachments.map((attachment) => (
-                <Image key={attachment.id} source={{ uri: attachment.uri }} style={styles.messageImage} />
-              ))}
-            </View>
-          ) : null}
-          {item.content ? (
-            <View style={[styles.bubble, isOutgoing ? styles.bubbleOutgoing : styles.bubbleIncoming]}>
-              <Text style={[styles.messageText, isOutgoing && styles.messageTextOutgoing]}>
-                {item.content}
-              </Text>
-            </View>
-          ) : null}
-          {isOutgoing ? (
-            <Text style={styles.statusLabel}>
-              {item.status === "failed"
-                ? "Lỗi"
-                : item.status === "sending"
-                  ? "Đang gửi..."
-                  : item.status === "delivered"
-                    ? "Đã giao"
-                    : item.status === "read"
-                      ? "Đã xem"
-                      : "Đã gửi"}
+      const attachments = !item.isRecalled ? item.attachments ?? [] : [];
+
+      const bubble =
+        item.isRecalled ? (
+          <View style={[styles.bubble, styles.recalledBubble]}>
+            <Text style={styles.recalledText}>Tin nhắn đã được thu hồi</Text>
+          </View>
+        ) : item.content ? (
+          <View style={[styles.bubble, isOutgoing ? styles.bubbleOutgoing : styles.bubbleIncoming]}>
+            <Text style={[styles.messageText, isOutgoing && styles.messageTextOutgoing]}>
+              {item.content}
             </Text>
-          ) : null}
-        </View>
+          </View>
+        ) : null;
+
+      return (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onLongPress={() => handleMessageOptions(item)}
+          delayLongPress={250}
+        >
+          <View
+            style={[
+              styles.messageRow,
+              isOutgoing ? styles.alignRight : styles.alignLeft,
+            ]}
+          >
+            {attachments.length ? (
+              <View style={[styles.attachmentGroup, isOutgoing && styles.attachmentOutgoing]}>
+                {attachments.map((attachment) =>
+                  attachment.kind === "image" ? (
+                    <Image key={attachment.id} source={{ uri: attachment.uri }} style={styles.messageImage} />
+                  ) : (
+                    <TouchableOpacity
+                      key={attachment.id}
+                      style={styles.videoAttachment}
+                      onPress={() => handleOpenAttachment(attachment.uri)}
+                    >
+                      <Ionicons name="videocam" size={18} color={Colors.primary} />
+                      <Text style={styles.videoText}>Xem video</Text>
+                    </TouchableOpacity>
+                  ),
+                )}
+              </View>
+            ) : null}
+            {bubble}
+            {isOutgoing ? (
+              <Text style={styles.statusLabel}>
+                {item.isRecalled
+                  ? "Đã thu hồi"
+                  : item.status === "failed"
+                    ? "Lỗi"
+                    : item.status === "sending"
+                      ? "Đang gửi..."
+                      : item.status === "delivered"
+                        ? "Đã giao"
+                        : item.status === "read"
+                          ? "Đã xem"
+                          : "Đã gửi"}
+              </Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
       );
     },
-    [],
+    [handleMessageOptions, handleOpenAttachment],
   );
 
   const headerInfo = useMemo(
@@ -446,25 +678,30 @@ export default function ChatDetailScreen() {
           showsVerticalScrollIndicator={false}
         />
 
-        {selectedImages.length > 0 && (
+        {selectedAttachment ? (
           <View style={styles.previewRow}>
-            {selectedImages.map((attachment) => (
-              <View key={attachment.id} style={styles.previewItem}>
-                <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.removePreviewButton}
-                  onPress={() => handleRemoveAttachment(attachment.id)}
-                >
-                  <Ionicons name="close" size={16} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
-            ))}
+            <View style={styles.previewItem}>
+              {selectedAttachment.kind === "image" ? (
+                <Image source={{ uri: selectedAttachment.uri }} style={styles.previewImage} />
+              ) : (
+                <View style={styles.previewVideo}>
+                  <Ionicons name="videocam" size={18} color={Colors.white} />
+                  <Text style={styles.previewVideoText}>Video đính kèm</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.removePreviewButton} onPress={handleRemoveAttachment}>
+                <Ionicons name="close" size={16} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.inputRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={handlePickImages}>
+          <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
             <Ionicons name="image-outline" size={22} color={Colors.gray} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handlePickVideo}>
+            <Ionicons name="videocam-outline" size={22} color={Colors.gray} />
           </TouchableOpacity>
           <TextInput
             style={styles.messageInput}
@@ -591,6 +828,19 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 14,
   },
+  videoAttachment: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: "#e0f2fe",
+  },
+  videoText: {
+    fontSize: 13,
+    color: "#0369a1",
+  },
   bubble: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -605,6 +855,9 @@ const styles = StyleSheet.create({
   bubbleOutgoing: {
     backgroundColor: Colors.primary,
   },
+  recalledBubble: {
+    backgroundColor: "#e2e8f0",
+  },
   messageText: {
     fontSize: 14,
     color: Colors.black,
@@ -617,6 +870,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.gray,
     marginTop: 2,
+  },
+  recalledText: {
+    fontSize: 13,
+    fontStyle: "italic",
+    color: "#475569",
   },
   emptyState: {
     alignItems: "center",
@@ -672,6 +930,21 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 12,
+  },
+  previewVideo: {
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    gap: 4,
+  },
+  previewVideoText: {
+    fontSize: 11,
+    color: Colors.white,
+    textAlign: "center",
   },
   removePreviewButton: {
     position: "absolute",

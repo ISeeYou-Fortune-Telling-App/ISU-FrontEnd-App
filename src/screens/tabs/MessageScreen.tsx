@@ -4,7 +4,8 @@ import { getChatConversations } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import * as SecureStore from "expo-secure-store";
 import {
   ActivityIndicator,
   FlatList,
@@ -63,38 +64,57 @@ const formatTimestamp = (value?: string | number | Date | null): string => {
   });
 };
 
-const mapConversation = (item: any, index: number): Conversation => {
+const mapConversation = (item: any, index: number, currentUserId: string | null): Conversation => {
   const timestamp =
-    item?.lastMessage?.createdAt ??
-    item?.lastMessage?.timestamp ??
-    item?.lastMessageAt ??
-    item?.updatedAt ??
-    item?.createdAt ??
-    null;
+    item?.lastMessageTime ?? item?.updatedAt ?? item?.createdAt ?? null;
+
+  const conversationId = item?.conversationId ?? item?.id ?? index;
+  const viewerIsSeer =
+    currentUserId &&
+    item?.seerId &&
+    String(item.seerId) === String(currentUserId);
+  const viewerIsCustomer =
+    currentUserId &&
+    item?.customerId &&
+    String(item.customerId) === String(currentUserId);
+
+  let title = "Cuộc trò chuyện";
+  let avatarUrl: string | null =
+    item?.seerAvatarUrl ?? item?.customerAvatarUrl ?? null;
+  let unreadCount = 0;
+
+  if (viewerIsSeer) {
+    title = item?.customerName ?? "Khách hàng";
+    avatarUrl = item?.customerAvatarUrl ?? avatarUrl;
+    unreadCount = typeof item?.seerUnreadCount === "number" ? item.seerUnreadCount : 0;
+  } else if (viewerIsCustomer) {
+    title = item?.seerName ?? "Nhà tiên tri";
+    avatarUrl = item?.seerAvatarUrl ?? avatarUrl;
+    unreadCount =
+      typeof item?.customerUnreadCount === "number" ? item.customerUnreadCount : 0;
+  } else {
+    title = item?.seerName ?? item?.customerName ?? title;
+    unreadCount =
+      typeof item?.seerUnreadCount === "number"
+        ? item.seerUnreadCount
+        : typeof item?.customerUnreadCount === "number"
+          ? item.customerUnreadCount
+          : 0;
+  }
 
   return {
-    id: String(item?.id ?? item?.conversationId ?? index),
-    title:
-      item?.name ??
-      item?.title ??
-      item?.partnerName ??
-      item?.seerName ??
-      "Cuộc trò chuyện",
-    lastMessage:
-      item?.lastMessage?.content ??
-      item?.lastMessage?.message ??
-      item?.preview ??
-      item?.lastMessageText ??
-      "",
+    id: String(conversationId),
+    title,
+    lastMessage: item?.lastMessageContent ?? "",
     lastTimestamp: timestamp,
-    unreadCount: typeof item?.unreadCount === "number" ? item.unreadCount : 0,
-    avatarUrl: item?.avatarUrl ?? item?.partnerAvatar ?? item?.seerAvatar ?? null,
+    unreadCount,
+    avatarUrl,
   };
 };
 
-const normalizeConversations = (items: any[]): Conversation[] =>
+const normalizeConversations = (items: any[], currentUserId: string | null): Conversation[] =>
   items
-    .map(mapConversation)
+    .map((item, index) => mapConversation(item, index, currentUserId))
     .sort((a, b) => {
       const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
       const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
@@ -105,11 +125,32 @@ export default function MessageScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadUserId = async () => {
+      try {
+        const storedId = await SecureStore.getItemAsync("userId");
+        if (active) {
+          setCurrentUserId(storedId ?? null);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadUserId();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchConversations = useCallback(
     async (options: { silent?: boolean; refreshing?: boolean } = {}) => {
@@ -125,14 +166,8 @@ export default function MessageScreen() {
         setLoadError(null);
         const response = await getChatConversations();
         const payload = response?.data?.data;
-        const list = Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.items)
-            ? payload.items
-            : Array.isArray(response?.data?.conversations)
-              ? response.data.conversations
-              : [];
-        setConversations(normalizeConversations(list));
+        const list = Array.isArray(payload) ? payload : [];
+        setConversations(normalizeConversations(list, currentUserId));
       } catch (error: any) {
         console.error(error);
         const message =
@@ -148,7 +183,7 @@ export default function MessageScreen() {
         }
       }
     },
-    [],
+    [currentUserId],
   );
 
   useFocusEffect(
@@ -156,6 +191,12 @@ export default function MessageScreen() {
       fetchConversations();
     }, [fetchConversations]),
   );
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchConversations({ silent: true });
+    }
+  }, [currentUserId, fetchConversations]);
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) {
