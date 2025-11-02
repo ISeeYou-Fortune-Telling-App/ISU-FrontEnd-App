@@ -68,7 +68,12 @@ export default function BookingDetailScreen() {
     const handleCancelBooking = async () => {
         try {
             const res = await cancelBooking(bookingId);
-            Alert.alert("Thành công", "Lịch hẹn đã được huỷ");
+            Alert.alert("Thành công", "Lịch hẹn đã được huỷ", [
+                {
+                    text: "OK",
+                    onPress: () => router.back(),
+                },
+            ]);
         } catch (err) {
             Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
             console.error("Error cancelling booking", err);
@@ -499,7 +504,6 @@ const styles = StyleSheet.create({
     },
     secondaryButton: {
         flex: 1,
-        marginRight: 8,
         paddingVertical: 12,
         backgroundColor: 'white',
         borderRadius: 10,

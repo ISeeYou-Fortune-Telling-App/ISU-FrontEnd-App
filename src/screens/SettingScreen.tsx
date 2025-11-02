@@ -33,6 +33,8 @@ export default function SettingScreen() {
                             text: "Đăng xuất",
                             style: "destructive",
                             onPress: async () => {
+                                // const token = await SecureStore.getItemAsync("expoPushToken") || "";
+                                // await logoutUser(token);
                                 await SecureStore.deleteItemAsync("authToken");
                                 await SecureStore.deleteItemAsync("refreshToken");
                                 await SecureStore.deleteItemAsync("userRole");

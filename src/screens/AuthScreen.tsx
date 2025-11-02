@@ -162,7 +162,7 @@ export default function AuthScreen() {
 
         try {
             setSubmitting(true);
-            const fcmToken = await SecureStore.getItemAsync("expoPushToken");
+            const fcmToken = await SecureStore.getItemAsync("expoPushToken") || "";
             const response = await loginUser({ email, password, fcmToken });
             const payload = response?.data?.data;
 
@@ -270,7 +270,7 @@ export default function AuthScreen() {
         <ImageBackground
             source={require("@/assets/images/authBackground.png")}
             resizeMode="cover"
-            style={{ flex: 1}}>
+            style={{ flex: 1 }}>
 
 
             <SafeAreaView edges={['top', 'left', 'right']} style={styles.SafeAreaView}>

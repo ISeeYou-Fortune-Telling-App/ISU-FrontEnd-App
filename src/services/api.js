@@ -187,6 +187,7 @@ API.interceptors.response.use(
 );
 
 export const loginUser = (data) => API.post("/auth/login", data);
+export const logoutUser = (firebaseToken) => API.get("/auth/logout", { firebaseToken });
 export const registerUser = (data) => API.post("/auth/register", data);
 export const deleteAccount = (userId, reason) => {
   if (!userId) {
@@ -325,6 +326,6 @@ export const submitBookingReview = (id, data) =>
   API.post(`/bookings/${id}/review`, data);
 
 export const cancelBooking = (id) =>
-  API.post(`/bookings/${id}/cancel`, {id});
+  API.post(`/bookings/${id}/cancel`, { id });
 
 export default API;

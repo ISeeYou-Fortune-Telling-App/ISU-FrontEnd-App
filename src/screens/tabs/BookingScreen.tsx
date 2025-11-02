@@ -4,10 +4,10 @@ import { getMyBookings } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { ChevronRight } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -231,20 +231,22 @@ export default function BookingScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    setState(prev => ({ ...prev, loading: true }));
-    (async () => {
-      try {
-        const storedRole = await SecureStore.getItemAsync("userRole");
-        if (storedRole) setRole(storedRole);
-      } catch (e) {
-        console.warn("Unable to read userRole from SecureStore", e);
-      }
-    })();
-    fetchBookings(1);
-    fetchCounts();
-  }, [selectedTab, fetchBookings, fetchCounts]);
-
+  useFocusEffect(
+    useCallback(() => {
+      setState(prev => ({ ...prev, loading: true }));
+      (async () => {
+        try {
+          const storedRole = await SecureStore.getItemAsync("userRole");
+          if (storedRole) setRole(storedRole);
+        } catch (e) {
+          console.warn("Unable to read userRole from SecureStore", e);
+        }
+      })();
+      fetchBookings(1);
+      fetchCounts();
+      return () => { };
+    }, [selectedTab, fetchBookings, fetchCounts])
+  );
 
   const handleRefresh = useCallback(() => {
     setState(prev => ({ ...prev, refreshing: true }));

@@ -3,7 +3,7 @@ import { createBooking } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,9 +23,11 @@ export default function BookPackageScreen() {
   const [bookingLoading, setBookingLoading] = useState<boolean>(false);
   const [snackbarVisible, setSnackbarVisible] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>("");
+  const [avatarError, setAvatarError] = useState(false);
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
+  const pad = (n: number) => n.toString().padStart(2, "0");
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
@@ -41,22 +43,34 @@ export default function BookPackageScreen() {
   };
 
   const handleConfirmDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+
     setSelectedDateObj(date);
-    setScheduledDate(formatDate(date));
-    // store date ISO for now (time will be added when time is picked)
-    setScheduledDateISO(date.toISOString());
+    setScheduledDate(`${pad(day)}/${pad(month + 1)}/${year}`);
     setShowDatePicker(false);
   };
 
   const handleConfirmTime = (time: Date) => {
-    // time is a Date where hours/minutes represent the chosen time
-    setSelectedTimeObj(time);
-    setScheduledTime(formatTime(time));
+    if (!selectedDateObj) {
+      setSnackbarMsg("Vui lòng chọn ngày trước");
+      setSnackbarVisible(true);
+      setShowTimePicker(false);
+      return;
+    }
 
-    // Combine selected date and time into one ISO string
-    const baseDate = selectedDateObj ? new Date(selectedDateObj) : new Date();
-    baseDate.setHours(time.getHours(), time.getMinutes(), 0, 0);
-    setScheduledDateISO(baseDate.toISOString());
+    const year = selectedDateObj.getFullYear();
+    const month = selectedDateObj.getMonth();
+    const day = selectedDateObj.getDate();
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
+
+    setSelectedTimeObj(time);
+    setScheduledTime(`${pad(hours)}:${pad(minutes)}`);
+
+    const localIso = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
+    setScheduledDateISO(localIso);
 
     setShowTimePicker(false);
   };
@@ -91,16 +105,20 @@ export default function BookPackageScreen() {
       const res = await createBooking(id as string, payload);
       const redirectUrl = res?.data?.data?.redirectUrl;
 
-      setSnackbarMsg("Đặt lịch thành công");
-      setSnackbarVisible(true);
+      // setSnackbarMsg("Đặt lịch thành công");
+      // setSnackbarVisible(true);
+      Alert.alert("Thành công", "Đặt lịch thành công", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(tabs)/booking"),
+        },
+      ]);
 
       if (redirectUrl) {
         // open payment/approval page if provided by backend
         Linking.openURL(redirectUrl);
-      } else {
-        // go back to previous screen
-        router.back();
       }
+
     } catch (error) {
       const msg = (error as any)?.response?.data?.message || "Đặt lịch thất bại";
       setSnackbarMsg(msg);
@@ -128,10 +146,21 @@ export default function BookPackageScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Thông tin thầy bói</Text>
             <View style={styles.rowCenter}>
-              <Image source={avatarUrl ? { uri: avatarUrl as string } : require('@/assets/images/user-placeholder.png')} style={styles.avatarSmall} />
+              <Image
+                source={
+                  avatarError || !avatarUrl
+                    ? require('@/assets/images/user-placeholder.png')
+                    : { uri: avatarUrl }
+                }
+                style={styles.avatarSmall}
+                onError={(e) => {
+                  console.log('Avatar image failed to load:', e.nativeEvent);
+                  setAvatarError(true);
+                }}
+              />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.seerNameCard}>{seer ?? 'Thầy Ông Nội'}</Text>
-                <Text style={styles.rating}>⭐ {rating ?? '4.1'}</Text>
+                <Text style={styles.seerNameCard}>{seer ?? 'Không Tên'}</Text>
+                <Text style={styles.rating}>⭐ {rating ?? '0.0'}</Text>
               </View>
             </View>
           </View>
@@ -149,11 +178,11 @@ export default function BookPackageScreen() {
             <View style={styles.infoRowBox}>
               <View style={styles.infoBox}>
                 <Text style={styles.infoLabel}>Giá tiền</Text>
-                <Text style={styles.infoValue}>{price ?? '1000.000 VNĐ'}</Text>
+                <Text style={styles.infoValue}>{price ?? '0.000 VNĐ'}</Text>
               </View>
               <View style={styles.infoBox}>
                 <Text style={styles.infoLabel}>Thời lượng</Text>
-                <Text style={styles.infoValue}>{duration ?? '90 phút'}</Text>
+                <Text style={styles.infoValue}>{duration ?? '0 phút'}</Text>
               </View>
             </View>
           </View>

@@ -66,6 +66,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     searchParamsRef.current = searchParams;
+    (async () => {
+      try {
+        const storedRole = await SecureStore.getItemAsync("userRole");
+        if (storedRole) setRole(storedRole);
+      } catch (e) {
+        console.warn("Unable to read userRole from SecureStore", e);
+      }
+    })();
   }, [searchParams]);
 
   useEffect(() => {
@@ -368,6 +376,35 @@ export default function HomeScreen() {
     }
   };
 
+  const handleDislike = async (packageId: string) => {
+    if (likeInFlight[packageId]) return; // prevent double taps
+    try {
+      setLikeInFlight((s) => ({ ...s, [packageId]: true }));
+
+      // find package current userInteraction
+      const pkg = servicePackages.find((p) => p.id === packageId);
+      const currentlyDisliked = pkg?.userInteraction === 'DISLIKE';
+
+      const action = currentlyDisliked ? 'DISLIKE' : 'DISLIKE';
+
+      const res = await interactWithServicePackage(packageId, { interactionType: action });
+      const data = res?.data?.data ?? res?.data ?? null;
+      if (data) {
+        setServicePackages((prev) =>
+          prev.map((p) =>
+            p.id === packageId
+              ? { ...p, likes: data.likeCount?.toString() ?? p.likes, dislikes: data.dislikeCount?.toString() ?? p.dislikes, userInteraction: data.userInteraction }
+              : p
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to dislike package', err);
+    } finally {
+      setLikeInFlight((s) => ({ ...s, [packageId]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -421,6 +458,7 @@ export default function HomeScreen() {
                 }))
               }
               onLike={handleLike}
+              onDislike={handleDislike}
               isLiking={Boolean(likeInFlight[item.id])}
               onBooking={() => router.push({ pathname: "/book-package", params: { id: item.id, title: item.title, content: item.content, rating: item.rating, price: item.price, duration: item.duration, seer: item.seer, avatarUrl: item.avatarUrl } })}
             />
@@ -509,15 +547,37 @@ type ServicePackageCardProps = {
   expanded: boolean;
   onToggle: () => void;
   onLike?: (id: string) => void;
+  onDislike?: (id: string) => void;
   isLiking?: boolean;
   onBooking?: (id: string, title: string, content: string, rating: number, price: string, duration: string, seer: string, avatarUrl: string) => void;
 };
 
-const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBooking }: ServicePackageCardProps) => {
+const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDislike, onBooking }: ServicePackageCardProps) => {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [interaction, setInteraction] = useState("");
+
+  function handleInteraction(interactionType: string) {
+    if (interactionType === "LIKE") {
+      onLike ? onLike(servicePackage.id) : null;
+      setInteraction("");
+    }
+    else if (interactionType === "DISLIKE") {
+      onDislike ? onDislike(servicePackage.id) : null;
+      setInteraction("");
+    }
+    else {
+      onLike ? onLike(servicePackage.id) : null;
+      setInteraction("LIKE");
+    }
+  }
+  // const isLiked = servicePackage.userInteraction === "LIKE";
+  // const isDisliked = servicePackage.userInteraction === "DISLIKE";
+
   return (
     <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={onToggle}>
+      {/* --- HEADER --- */}
       <View style={styles.packageHeader}>
         <Image
           source={
@@ -528,34 +588,57 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
           style={styles.avatar}
           resizeMode="cover"
           onError={(e) => {
-            console.log('Avatar image failed to load:', e.nativeEvent);
+            console.log("Avatar image failed to load:", e.nativeEvent);
             setAvatarError(true);
           }}
         />
         <View style={styles.packageHeaderText}>
-          <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
+          <Text style={styles.seerName}>
+            {servicePackage.seer} <Star size={16} color="#FFD700" /> {servicePackage.rating}
+          </Text>
           <Text style={styles.packageTime}>{servicePackage.time}</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title } })}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/report",
+                params: {
+                  targetId: servicePackage.id,
+                  targetType: "SERVICE_PACKAGE",
+                  targetName: servicePackage.title,
+                },
+              })
+            }
+          >
             <Flag size={20} color="gray" style={{ marginRight: 12 }} />
           </TouchableOpacity>
           <X size={24} color="gray" />
         </View>
       </View>
 
-      {servicePackage.categoryDisplays && servicePackage.categoryDisplays.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 4 }}>
+      {/* --- CATEGORY TAGS --- */}
+      {servicePackage.categoryDisplays?.length > 0 && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8, marginBottom: 4 }}>
           {servicePackage.categoryDisplays.map((catDisplay: any, index: number) => (
-            <View key={index} style={[styles.categoryTag, { backgroundColor: catDisplay.background, marginRight: 4, marginBottom: 2 }]}>
+            <View
+              key={index}
+              style={[
+                styles.categoryTag,
+                { backgroundColor: catDisplay.background, marginRight: 4, marginBottom: 2 },
+              ]}
+            >
               <Text style={[styles.categoryText, { color: catDisplay.text }]}>{catDisplay.display}</Text>
             </View>
           ))}
         </View>
       )}
 
+      {/* --- CONTENT --- */}
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-      <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
+      <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>
+        {servicePackage.content}
+      </Text>
 
       <Image
         source={
@@ -565,13 +648,14 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
         }
         style={styles.packageImage}
         onError={(e) => {
-          console.log('Cover image failed to load:', e.nativeEvent);
+          console.log("Cover image failed to load:", e.nativeEvent);
           setCoverError(true);
         }}
       />
 
+      {/* --- PRICE + DURATION --- */}
       <View style={styles.packageFooterInfo}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Wallet size={16} color="#32CD32" />
           <Text style={styles.packagePrice}>{servicePackage.price}</Text>
           <Clock size={16} color="gray" style={{ marginLeft: 16 }} />
@@ -579,13 +663,14 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
         </View>
       </View>
 
+      {/* --- STATS --- */}
       <View style={styles.packageStats}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={[styles.likeIconCircle, { backgroundColor: '#E7F3FF' }]}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View style={[styles.likeIconCircle, { backgroundColor: "#E7F3FF" }]}>
             <ThumbsUp size={16} color="#1877F2" />
           </View>
           <Text style={styles.likes}>{servicePackage.likes}</Text>
-          <View style={[styles.dislikeIconCircle, { backgroundColor: '#FFF8DC' }]}>
+          <View style={[styles.dislikeIconCircle, { backgroundColor: "#FFF8DC" }]}>
             <ThumbsDown size={16} color="#FBCB0A" />
           </View>
           <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
@@ -593,23 +678,153 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
         <Text style={styles.comments}>{servicePackage.comments}</Text>
       </View>
 
+      {/* --- ACTIONS --- */}
       <View style={styles.packageActions}>
-        <TouchableOpacity style={styles.actionButton} onPress={onLike ? () => onLike(servicePackage.id) : undefined}>
-          <ThumbsUp size={20} color="gray" />
-          <Text style={styles.actionText}>Thích</Text>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            (["LIKE", "DISLIKE"].includes(interaction)) && {
+              backgroundColor: interaction === "LIKE" ? "#E7F3FF" : "#FFF7E0",
+              borderRadius: 10,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+            },
+          ]}
+          onPress={
+            () => {
+              if (interaction === "DISLIKE") {
+                handleInteraction("DISLIKE");
+              } else if (interaction === "LIKE") {
+                handleInteraction("LIKE");
+              }
+              else {
+                handleInteraction("");
+              }
+            }
+          }
+          onLongPress={() => setShowPopup(true)}
+        >
+          <ThumbsUp
+            size={20}
+            color={interaction === "LIKE" ? "#1877F2" : interaction === "DISLIKE" ? Colors.brightYellow : "gray"}
+          />
+          {interaction === "LIKE" ?
+            <Text
+              style={[styles.actionText, { color: "#1877F2" }]}>
+              Thích
+            </Text> : interaction === "DISLIKE" ?
+              <Text
+                style={[styles.actionText, { color: Colors.brightYellow }]}>
+                Không thích
+              </Text> :
+              <Text style={styles.actionText}>Thích</Text>
+          }
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id } })}>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() =>
+            router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id } })
+          }
+        >
           <MessageCircle size={20} color="gray" />
           <Text style={styles.actionText}>Bình luận</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.bookButtonContainer} onPress={() => router.push({ pathname: "/book-package", params: { id: servicePackage.id, title: servicePackage.title, content: servicePackage.content, rating: servicePackage.rating, price: servicePackage.price, duration: servicePackage.duration, seer: servicePackage.seer, avatarUrl: servicePackage.avatarUrl } })}>
+      {/* --- POPUP --- */}
+      {showPopup && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            position: "absolute",
+            bottom: 80,
+            left: "25%",
+            right: "25%",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.1)",
+            zIndex: 999,
+          }}
+          onPressOut={() => setShowPopup(false)}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              backgroundColor: "white",
+              padding: 12,
+              borderRadius: 14,
+              elevation: 6,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.25,
+              shadowRadius: 6,
+            }}
+          >
+            <TouchableOpacity
+              style={{
+                alignItems: "center",
+                marginHorizontal: 10,
+                backgroundColor: interaction === "LIKE" ? "#E7F3FF" : "transparent",
+                borderRadius: 8,
+                padding: 4,
+              }}
+              onPress={() => {
+                setShowPopup(false);
+                onLike && onLike(servicePackage.id);
+                interaction !== "LIKE" ? setInteraction("LIKE") : setInteraction("")
+              }}
+            >
+              <ThumbsUp size={26} color="#1877F2" />
+              <Text style={{ fontSize: 12, color: "#333" }}>Thích</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                alignItems: "center",
+                marginHorizontal: 10,
+                backgroundColor: interaction === "DISLIKE" ? "#FFF7E0" : "transparent",
+                borderRadius: 8,
+                padding: 4,
+              }}
+              onPress={() => {
+                setShowPopup(false);
+                onDislike && onDislike(servicePackage.id);
+                interaction !== "DISLIKE" ? setInteraction("DISLIKE") : setInteraction("")
+              }}
+            >
+              <ThumbsDown size={26} color="#FBCB0A" />
+              <Text style={{ fontSize: 12, color: "#333" }}>Không thích</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* --- BOOK BUTTON --- */}
+      <TouchableOpacity
+        style={styles.bookButtonContainer}
+        onPress={() =>
+          router.push({
+            pathname: "/book-package",
+            params: {
+              id: servicePackage.id,
+              title: servicePackage.title,
+              content: servicePackage.content,
+              rating: servicePackage.rating,
+              price: servicePackage.price,
+              duration: servicePackage.duration,
+              seer: servicePackage.seer,
+              avatarUrl: servicePackage.avatarUrl,
+            },
+          })
+        }
+      >
         <Text style={styles.bookButton}>Đặt lịch ngay</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
 };
+
 
 type SeerCardProps = {
   seer: any;
@@ -618,7 +833,7 @@ type SeerCardProps = {
 const SeerCard = ({ seer }: SeerCardProps) => {
   const [avatarError, setAvatarError] = useState(false);
   return (
-    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={() => {/* TODO: navigate to seer profile */}}>
+    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={() => {/* TODO: navigate to seer profile */ }}>
       <View style={styles.packageHeader}>
         <Image
           source={

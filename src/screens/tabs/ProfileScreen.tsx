@@ -38,21 +38,11 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     fetchData();
-    fetchPackageStats();
-    (async () => {
-      try {
-        const storedRole = await SecureStore.getItemAsync("userRole");
-        if (storedRole) setRole(storedRole);
-      } catch (e) {
-        console.warn("Unable to read userRole from SecureStore", e);
-      }
-    })();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchData();
-      fetchPackageStats();
       return () => { };
     }, [])
   );
@@ -69,6 +59,7 @@ export default function ProfileScreen() {
       setPackageApprovedCount(approved);
       setPackagePendingCount(pending);
       setPackageRejectedCount(rejected);
+      setPackCount(packages.length);
     } catch (err) {
       console.error("Failed to load package stats:", err);
     }
@@ -116,6 +107,16 @@ export default function ProfileScreen() {
           if (typeof spStats.total === "number") setPackCount(spStats.total);
           if (typeof spStats.approved === "number") setPackageApprovedCount(spStats.approved);
           if (typeof spStats.pending === "number") setPackagePendingCount(spStats.pending);
+        }
+        let storedRole: string | null = null;
+        try {
+          storedRole = await SecureStore.getItemAsync("userRole");
+          if (storedRole) setRole(storedRole);
+        } catch (e) {
+          console.warn("Unable to read userRole from SecureStore", e);
+        }
+        if (storedRole === "SEER") {
+          fetchPackageStats();
         }
       }
     } catch (err) {
@@ -186,7 +187,7 @@ export default function ProfileScreen() {
             }}
           />
           <Text style={styles.name}>{fullName}</Text>
-          <StatusDropdown value={status} onChange={handleStatusChange} />
+          {role === "SEER" && <StatusDropdown value={status} onChange={handleStatusChange} />}
           <Text style={{ fontFamily: "inter", marginTop: 10 }}>{description}</Text>
         </View>
       </View>
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     borderWidth: 1,
     borderColor: Colors.primary,
-    marginVertical: 10,
+    marginTop: 10,
   },
   zodiacText: {
     marginLeft: 8,
