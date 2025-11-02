@@ -2,7 +2,7 @@ import Colors from "@/src/constants/colors";
 import { getCustomerPayments, getSeerPayments } from "@/src/services/api";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -90,6 +90,9 @@ export default function TransactionHistoryScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
+  const pageRef = useRef(1);
+  const hasMoreRef = useRef(true);
 
   useEffect(() => {
     let mounted = true;
@@ -124,18 +127,25 @@ export default function TransactionHistoryScreen() {
       }
 
       const { reset = false } = options;
-      const targetPage = reset ? 1 : page + (hasMore ? 1 : 0);
 
-      if (loading || (!reset && !hasMore)) {
+      if (reset) {
+        pageRef.current = 1;
+        hasMoreRef.current = true;
+        setHasMore(true);
+        setPayments([]);
+        setPage(1);
+        setError(null);
+      } else if (!hasMoreRef.current) {
         return;
       }
 
-      if (reset) {
-        setLoading(true);
-        setError(null);
-      } else {
-        setLoading(true);
+      if (isFetchingRef.current) {
+        return;
       }
+
+      const targetPage = pageRef.current;
+      isFetchingRef.current = true;
+      setLoading(true);
 
       try {
         const params = {
@@ -145,39 +155,39 @@ export default function TransactionHistoryScreen() {
           sortBy: "createdAt",
         };
 
-        const response = role === "SEER"
-          ? await getSeerPayments(params)
-          : await getCustomerPayments(params);
+        const response =
+          role === "SEER" ? await getSeerPayments(params) : await getCustomerPayments(params);
 
-        const dataArray = Array.isArray(response?.data?.data)
-          ? response?.data?.data
-          : [];
+        const dataArray = Array.isArray(response?.data?.data) ? response?.data?.data : [];
         const mapped = dataArray.map(mapPayment);
-
-        const paging = response?.data?.paging;
-        const totalPages = typeof paging?.totalPages === "number" ? paging.totalPages : targetPage;
 
         setPayments((prev) => (reset ? mapped : [...prev, ...mapped]));
         setPage(targetPage);
-        setHasMore(targetPage < totalPages);
+
+        const paging = response?.data?.paging;
+        const totalPages =
+          typeof paging?.totalPages === "number" ? paging.totalPages : targetPage;
+        const hasMorePages = targetPage < totalPages && mapped.length > 0;
+
+        hasMoreRef.current = hasMorePages;
+        setHasMore(hasMorePages);
+        pageRef.current = hasMorePages ? targetPage + 1 : targetPage;
       } catch (err: any) {
         console.error("Failed to fetch payments", err);
         const message =
           err?.response?.data?.message ?? err?.message ?? "Không thể tải lịch sử giao dịch.";
         setError(message);
       } finally {
+        isFetchingRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [role, page, hasMore, loading],
+    [role],
   );
 
   useFocusEffect(
     useCallback(() => {
-      setPayments([]);
-      setPage(1);
-      setHasMore(true);
       if (role) {
         fetchPayments({ reset: true });
       }
@@ -185,12 +195,10 @@ export default function TransactionHistoryScreen() {
   );
 
   const handleRefresh = useCallback(() => {
-    if (loading) {
+    if (loading || isFetchingRef.current) {
       return;
     }
     setRefreshing(true);
-    setHasMore(true);
-    setPage(1);
     fetchPayments({ reset: true });
   }, [fetchPayments, loading]);
 
