@@ -1,13 +1,13 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { getServicePackageDetail, getServicePackages, interactWithServicePackage } from "@/src/services/api";
+import { getSeers, getServicePackageDetail, getServicePackages, interactWithServicePackage } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Button } from "react-native-paper";
+import { Button, SegmentedButtons } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const demoServicePackages = [
@@ -16,10 +16,8 @@ const demoServicePackages = [
     seer: 'Thầy Ông Nội',
     rating: 4.8,
     time: '2 giờ trước',
-    category: 'Cung Hoàng Đạo',
-    displayCategory: 'Cung Hoàng Đạo',
-    categoryColor: '#8A2BE2',
-    categoryBgColor: '#E6E6FA',
+    categories: [{ id: '1', name: 'Cung Hoàng Đạo', description: 'Dự đoán theo cung hoàng đạo' }],
+    categoryDisplays: [{ name: 'Cung Hoàng Đạo', display: 'Cung Hoàng Đạo', background: Colors.categoryColors.zodiac.chip, text: Colors.categoryColors.zodiac.icon }],
     title: 'Xem bói tổng quát cuộc đời 2024',
     content: 'Dự đoán vận mệnh, tình duyên, sự nghiệp và tài lộc trong năm 2024. Phân tích chi tiết dựa trên ngày sinh và đặc điểm cá nhân. Tôi sẽ giúp bạn hiểu rõ hơn về con đường phía trước và cách để đạt được thành công.',
     price: '1.000.000 VNĐ',
@@ -34,10 +32,8 @@ const demoServicePackages = [
     seer: 'Thầy Nguyễn Tấn Trần Minh Khang',
     rating: 3.5,
     time: '2 giờ trước',
-    category: 'Chỉ Tay',
-    displayCategory: 'Chỉ Tay',
-    categoryColor: '#FF69B4',
-    categoryBgColor: '#FFEFF5',
+    categories: [{ id: '2', name: 'Chỉ Tay', description: 'Xem vận mệnh qua đường chỉ tay' }],
+    categoryDisplays: [{ name: 'Chỉ Tay', display: 'Chỉ Tay', background: Colors.categoryColors.palmistry.chip, text: Colors.categoryColors.palmistry.icon }],
     title: 'Xem chỉ tay - Dự đoán tương lai',
     content: 'Đọc các đường chỉ tay ...Xem thêm',
     price: '10.000 VNĐ',
@@ -50,8 +46,12 @@ const demoServicePackages = [
 ];
 
 export default function HomeScreen() {
+  const searchParams = useLocalSearchParams();
+  const searchParamsRef = useRef(searchParams);
   const [activePage, setActivePage] = useState<"home" | "search">("home");
+  const [searchType, setSearchType] = useState<"packages" | "seers">("packages");
   const [servicePackages, setServicePackages] = useState<any[]>([]);
+  const [seers, setSeers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("CUSTOMER");
 
@@ -65,17 +65,16 @@ export default function HomeScreen() {
   const pageSize = 15;
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const storedRole = await SecureStore.getItemAsync("userRole");
-        if (mounted && storedRole) setRole(storedRole);
-      } catch (e) {
-        console.warn("Unable to read userRole from SecureStore", e);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (searchParams.searchText || searchParams.packageCategoryIds || searchParams.seerSpecialityIds || searchParams.minPrice || searchParams.maxPrice || searchParams.minTime || searchParams.maxTime) {
+      setActivePage("search");
+    } else {
+      setActivePage("home");
+    }
+  }, [searchParams]);
 
   const fetchServicePackages = useCallback(async (page: number = 1) => {
     if (page === 1) {
@@ -109,14 +108,25 @@ export default function HomeScreen() {
         return;
       }
 
-      const response = await getServicePackages({
+      const params: any = {
         page,
         limit: pageSize,
-        sortType: "desc",
-        sortBy: "createdAt",
-        minPrice: "",
-        maxPrice: "",
-      });
+        sortType: searchParamsRef.current?.sortType as string || "desc",
+        sortBy: searchParamsRef.current?.sortBy as string || "createdAt",
+        minPrice: searchParamsRef.current?.minPrice ? parseFloat(searchParamsRef.current.minPrice as string) : undefined,
+        maxPrice: searchParamsRef.current?.maxPrice ? parseFloat(searchParamsRef.current.maxPrice as string) : undefined,
+        searchText: searchParamsRef.current?.searchText as string || undefined,
+        minTime: searchParamsRef.current?.minTime ? parseInt(searchParamsRef.current.minTime as string) : undefined,
+        maxTime: searchParamsRef.current?.maxTime ? parseInt(searchParamsRef.current.maxTime as string) : undefined,
+        packageCategoryIds: searchParamsRef.current?.packageCategoryIds ? (Array.isArray(searchParamsRef.current.packageCategoryIds) ? searchParamsRef.current.packageCategoryIds : [searchParamsRef.current.packageCategoryIds]) : undefined,
+        seerSpecialityIds: searchParamsRef.current?.seerSpecialityIds ? (Array.isArray(searchParamsRef.current.seerSpecialityIds) ? searchParamsRef.current.seerSpecialityIds : [searchParamsRef.current.seerSpecialityIds]) : undefined,
+        status: searchParamsRef.current?.status as string || "AVAILABLE",
+      };
+
+      // Remove undefined values
+      Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+
+      const response = await getServicePackages(params);
 
       if (response.data && response.data.data) {
         const packagesWithDetails = await Promise.all(
@@ -129,10 +139,11 @@ export default function HomeScreen() {
                 seer: detail.seer.fullName,
                 rating: detail.seer.avgRating,
                 time: new Date(detail.createdAt).toLocaleDateString(),
-                category: p.category,
-                displayCategory: getCategoryStyle(p.category).display,
-                categoryBgColor: getCategoryStyle(p.category).background,
-                categoryColor: getCategoryStyle(p.category).text,
+                categories: p.categories || [],
+                categoryDisplays: (p.categories || []).map((cat: any) => ({
+                  name: cat.name,
+                  ...getCategoryStyle(cat.name)
+                })),
                 title: detail.packageTitle,
                 content: detail.packageContent,
                 price: `${detail.price.toLocaleString("vi-VN")} VNĐ`,
@@ -151,10 +162,11 @@ export default function HomeScreen() {
                 seer: 'Không có thông tin',
                 rating: 0,
                 time: new Date(p.createdAt).toLocaleDateString(),
-                category: p.category,
-                displayCategory: getCategoryStyle(p.category).display,
-                categoryBgColor: getCategoryStyle(p.category).background,
-                categoryColor: getCategoryStyle(p.category).text,
+                categories: p.categories || [],
+                categoryDisplays: (p.categories || []).map((cat: any) => ({
+                  name: cat.name,
+                  ...getCategoryStyle(cat.name)
+                })),
                 title: p.packageTitle,
                 content: p.packageContent,
                 price: `${p.price.toLocaleString("vi-VN")} VNĐ`,
@@ -194,19 +206,137 @@ export default function HomeScreen() {
     }
   }, [router]);
 
+  const fetchSeers = useCallback(async (page: number = 1) => {
+    if (page === 1) {
+      setSeers([]);
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    setError(null);
+    try {
+      // Check if user is authenticated
+      const token = await SecureStore.getItemAsync("authToken");
+      const isDemoMode = token === "demo-token";
+
+      if (!token) {
+        router.replace("/auth");
+        return;
+      }
+
+      if (isDemoMode) {
+        // For demo, show empty or dummy seers
+        setSeers([]);
+        setCurrentPage(page);
+        setHasMore(false);
+        if (page === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
+        return;
+      }
+
+      const params: any = {
+        page,
+        limit: pageSize,
+        sortType: searchParamsRef.current?.sortType as string || "desc",
+        sortBy: searchParamsRef.current?.sortBy as string || "createdAt",
+        searchText: searchParamsRef.current?.searchText as string || undefined,
+        seerSpecialityIds: searchParamsRef.current?.seerSpecialityIds ? (Array.isArray(searchParamsRef.current.seerSpecialityIds) ? searchParamsRef.current.seerSpecialityIds : [searchParamsRef.current.seerSpecialityIds]) : undefined,
+      };
+
+      // Remove undefined values
+      Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+
+      const response = await getSeers(params);
+
+      if (response.data && response.data.data) {
+        const seersData = response.data.data.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          avatarUrl: s.avatarUrl,
+          rating: s.rating,
+          totalRates: s.totalRates,
+          profileDescription: s.profileDescription,
+          specialities: s.specialities,
+          specialityDisplays: s.specialities.map((spec: string) => ({
+            name: spec,
+            ...getCategoryStyle(spec)
+          })),
+        }));
+        if (page === 1) {
+          setSeers(seersData);
+        } else {
+          setSeers(prev => [...prev, ...seersData]);
+        }
+        setCurrentPage(page);
+        setHasMore(page < response.data.paging.totalPages && response.data.data.length === pageSize);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch seers:", err);
+      if (err.response?.status === 401) {
+        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        setTimeout(() => {
+          router.replace("/auth");
+        }, 2000);
+      } else {
+        setError("Không thể tải danh sách thầy bói. Vui lòng thử lại sau.");
+      }
+    } finally {
+      if (page === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  }, [router]);
+
   const loadMore = useCallback(() => {
     if (hasMore && !loadingMore) {
-      fetchServicePackages(currentPage + 1);
+      if (searchType === "packages") {
+        fetchServicePackages(currentPage + 1);
+      } else {
+        fetchSeers(currentPage + 1);
+      }
     }
-  }, [hasMore, loadingMore, currentPage, fetchServicePackages]);
+  }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers]);
 
   useFocusEffect(
     useCallback(() => {
       setCurrentPage(1);
       setHasMore(true);
-      fetchServicePackages(1);
-    }, [fetchServicePackages])
+      if (searchType === "packages") {
+        fetchServicePackages(1);
+      } else {
+        fetchSeers(1);
+      }
+    }, [searchType, fetchServicePackages, fetchSeers])
   );
+
+  useEffect(() => {
+    if (Object.keys(searchParams).length > 0) {
+      setCurrentPage(1);
+      setHasMore(true);
+      if (searchType === "packages") {
+        fetchServicePackages(1);
+      } else {
+        fetchSeers(1);
+      }
+    }
+  }, [JSON.stringify(searchParams), searchType, fetchServicePackages, fetchSeers]);
+
+  useEffect(() => {
+    if (activePage === "search") {
+      setCurrentPage(1);
+      setHasMore(true);
+      if (searchType === "packages") {
+        fetchServicePackages(1);
+      } else {
+        fetchSeers(1);
+      }
+    }
+  }, [searchType, activePage, fetchServicePackages, fetchSeers]);
 
   const handleLike = async (packageId: string) => {
     if (likeInFlight[packageId]) return; // prevent double taps
@@ -262,25 +392,41 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" />
-      <FlatList
-        data={servicePackages}
-        renderItem={({ item }) => (
-          <ServicePackageCard
-            servicePackage={item}
-            expanded={Boolean(expandedPackages[item.id])}
-            onToggle={() =>
-              setExpandedPackages((prev) => ({
-                ...prev,
-                [item.id]: !prev[item.id],
-              }))
-            }
-            onLike={handleLike}
-            isLiking={Boolean(likeInFlight[item.id])}
-            onBooking={() => router.push({ pathname: "/book-package", params: { id: item.id, title: item.title, content: item.content, rating: item.rating, price: item.price, duration: item.duration, seer: item.seer, avatarUrl: item.avatarUrl } })}
+      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" isSearchButton={true} onSearchPress={() => router.push('/search')} />
+      {activePage === "search" && (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <SegmentedButtons
+            value={searchType}
+            onValueChange={setSearchType}
+            buttons={[
+              { value: 'packages', label: 'Gói dịch vụ' },
+              { value: 'seers', label: 'Thầy bói' },
+            ]}
           />
+        </View>
+      )}
+      <FlatList
+        data={activePage === "search" && searchType === "seers" ? seers : servicePackages}
+        renderItem={({ item }) => (
+          activePage === "search" && searchType === "seers" ? (
+            <SeerCard seer={item} />
+          ) : (
+            <ServicePackageCard
+              servicePackage={item}
+              expanded={Boolean(expandedPackages[item.id])}
+              onToggle={() =>
+                setExpandedPackages((prev) => ({
+                  ...prev,
+                  [item.id]: !prev[item.id],
+                }))
+              }
+              onLike={handleLike}
+              isLiking={Boolean(likeInFlight[item.id])}
+              onBooking={() => router.push({ pathname: "/book-package", params: { id: item.id, title: item.title, content: item.content, rating: item.rating, price: item.price, duration: item.duration, seer: item.seer, avatarUrl: item.avatarUrl } })}
+            />
+          )
         )}
-        keyExtractor={item => item.id}
+        keyExtractor={(item, index) => item.id + '-' + index}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
         onEndReached={loadMore}
@@ -294,37 +440,43 @@ export default function HomeScreen() {
           ) : null
         }
         ListHeaderComponent={
-          <>
-            <View style={[styles.servicesContainer, styles.cardShadow]}>
-              <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
-              <View style={styles.servicesGrid}>
-                {popularServices.map((service, index) => (
-                  <View key={index} style={styles.serviceItem}>
-                    <View style={[styles.serviceIcon, { backgroundColor: service.bgColor }]}>
-                      <service.Icon color={service.color} size={24} />
-                    </View>
-                    <Text style={styles.serviceName}>{service.name}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {role === "SEER" &&
+          activePage === "home" ? (
+            <>
               <View style={[styles.servicesContainer, styles.cardShadow]}>
-                <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
-                <Button
-                  mode="contained"
-                  style={styles.btn}
-                  icon={() => <Package size={18} color="white" />}
-                  onPress={() => router.push("/create-package")}>
-                  Tạo gói dịch vụ mới
-                </Button>
+                <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
+                <View style={styles.servicesGrid}>
+                  {popularServices.map((service, index) => (
+                    <View key={index} style={styles.serviceItem}>
+                      <View style={[styles.serviceIcon, { backgroundColor: service.bgColor }]}>
+                        <service.Icon color={service.color} size={24} />
+                      </View>
+                      <Text style={styles.serviceName}>{service.name}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            }
 
-          </>
+              {role === "SEER" &&
+                <View style={[styles.servicesContainer, styles.cardShadow]}>
+                  <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
+                  <Button
+                    mode="contained"
+                    style={styles.btn}
+                    icon={() => <Package size={18} color="white" />}
+                    onPress={() => router.push("/create-package")}>
+                    Tạo gói dịch vụ mới
+                  </Button>
+                </View>
+              }
+
+            </>
+          ) : (
+            <View style={{ paddingVertical: 8 }}>
+              <Text style={styles.servicesTitle}>Kết quả tìm kiếm</Text>
+            </View>
+          )
         }
-        ListEmptyComponent={<Text style={styles.emptyText}>Không có gói dịch vụ nào.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
       />
     </SafeAreaView>
   );
@@ -382,17 +534,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
         />
         <View style={styles.packageHeaderText}>
           <Text style={styles.seerName}>{servicePackage.seer} <Star size={16} color="#FFD700" fill="#FFD700" /> {servicePackage.rating}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.packageTime}>{servicePackage.time}</Text>
-            {servicePackage.displayCategory && (
-              <>
-                <Text> • </Text>
-                <View style={[styles.categoryTag, { backgroundColor: servicePackage.categoryBgColor }]}>
-                  <Text style={[styles.categoryText, { color: servicePackage.categoryColor }]}>{servicePackage.displayCategory}</Text>
-                </View>
-              </>
-            )}
-          </View>
+          <Text style={styles.packageTime}>{servicePackage.time}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => router.push({ pathname: "/report", params: { targetId: servicePackage.id, targetType: 'SERVICE_PACKAGE', targetName: servicePackage.title } })}>
@@ -401,6 +543,16 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
           <X size={24} color="gray" />
         </View>
       </View>
+
+      {servicePackage.categoryDisplays && servicePackage.categoryDisplays.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 4 }}>
+          {servicePackage.categoryDisplays.map((catDisplay: any, index: number) => (
+            <View key={index} style={[styles.categoryTag, { backgroundColor: catDisplay.background, marginRight: 4, marginBottom: 2 }]}>
+              <Text style={[styles.categoryText, { color: catDisplay.text }]}>{catDisplay.display}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
       <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>{servicePackage.content}</Text>
@@ -455,6 +607,47 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onBook
       <TouchableOpacity style={styles.bookButtonContainer} onPress={() => router.push({ pathname: "/book-package", params: { id: servicePackage.id, title: servicePackage.title, content: servicePackage.content, rating: servicePackage.rating, price: servicePackage.price, duration: servicePackage.duration, seer: servicePackage.seer, avatarUrl: servicePackage.avatarUrl } })}>
         <Text style={styles.bookButton}>Đặt lịch ngay</Text>
       </TouchableOpacity>
+    </TouchableOpacity>
+  );
+};
+
+type SeerCardProps = {
+  seer: any;
+};
+
+const SeerCard = ({ seer }: SeerCardProps) => {
+  const [avatarError, setAvatarError] = useState(false);
+  return (
+    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={() => {/* TODO: navigate to seer profile */}}>
+      <View style={styles.packageHeader}>
+        <Image
+          source={
+            avatarError || !seer.avatarUrl
+              ? require("@/assets/images/user-placeholder.png")
+              : { uri: seer.avatarUrl }
+          }
+          style={styles.avatar}
+          resizeMode="cover"
+          onError={(e) => {
+            console.log('Avatar image failed to load:', e.nativeEvent);
+            setAvatarError(true);
+          }}
+        />
+        <View style={styles.packageHeaderText}>
+          <Text style={styles.seerName}>{seer.name} <Star size={16} color="#FFD700" fill="#FFD700" /> {seer.rating}</Text>
+          <Text style={styles.seerDescription}>{seer.profileDescription}</Text>
+        </View>
+      </View>
+
+      {seer.specialityDisplays && seer.specialityDisplays.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 4 }}>
+          {seer.specialityDisplays.map((specDisplay: any, index: number) => (
+            <View key={index} style={[styles.categoryTag, { backgroundColor: specDisplay.background, marginRight: 4, marginBottom: 2 }]}>
+              <Text style={[styles.categoryText, { color: specDisplay.text }]}>{specDisplay.display}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -543,6 +736,12 @@ const styles = StyleSheet.create({
     color: 'gray',
     fontSize: 12,
     fontFamily: 'Inter',
+  },
+  seerDescription: {
+    color: 'gray',
+    fontSize: 14,
+    fontFamily: 'Inter',
+    marginTop: 4,
   },
   categoryTag: {
     paddingHorizontal: 8,

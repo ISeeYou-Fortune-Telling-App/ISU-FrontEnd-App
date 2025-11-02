@@ -202,10 +202,17 @@ export const deleteAccount = (userId, reason) => {
 export const getProfile = () => API.get("/account/me");
 export const updateProfile = (data) => API.patch("/account/me", data);
 export const getServicePackages = (params) => API.get("/public/service-packages", { params });
+export const getSeers = (params) => API.get("/public/seers", { params });
 export const getServicePackageDetail = (id) =>
   API.get("/service-packages/detail", { params: { id } });
-export const getServicePackageReviews = (id) =>
-  API.get(`/service-packages/${id}/reviews`, { params: { id } });
+export const getServicePackageInteractions = (packageId) =>
+  API.get(`/service-packages/${packageId}/interactions`);
+export const getServicePackageReviews = (id, params = {}) =>
+  API.get(`/service-packages/${id}/reviews`, { params });
+export const postServicePackageReview = (id, payload) =>
+  API.post(`/service-packages/${id}/reviews`, payload);
+export const getReviewReplies = (reviewId, params = {}) =>
+  API.get(`/service-packages/reviews/${reviewId}/replies`, { params });
 export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
 export const searchKnowledgeItems = (params) => {
   const queryParams = { ...params };

@@ -9,9 +9,10 @@ type TopBarProps = {
   placeholder?: string;
   showSearchIcon?: boolean;
   onSearchPress?: () => void;
+  isSearchButton?: boolean;
 };
 
-export default function TopBar({ placeholder = "Tìm kiếm...", showSearchIcon = false, onSearchPress }: TopBarProps) {
+export default function TopBar({ placeholder = "Tìm kiếm...", showSearchIcon = false, onSearchPress, isSearchButton = false }: TopBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   return (
     <View style={styles.topBarOuter}>
@@ -35,6 +36,11 @@ export default function TopBar({ placeholder = "Tìm kiếm...", showSearchIcon 
         {showSearchIcon ? (
           <TouchableOpacity onPress={onSearchPress} style={styles.iconButton} accessibilityRole="button">
             <Search size={22} color={Colors.white} />
+          </TouchableOpacity>
+        ) : isSearchButton ? (
+          <TouchableOpacity onPress={onSearchPress} style={[styles.searchBar, { justifyContent: 'flex-start' }]}>
+            <Search size={18} color={"rgba(255,255,255,0.8)"} />
+            <Text style={styles.searchBarText}>{placeholder}</Text>
           </TouchableOpacity>
         ) : (
           <View style={[styles.searchBar, isFocused ? styles.searchBarFocused : null]}>
@@ -99,26 +105,37 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    width: 280,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)'
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flex: 1,
+    marginLeft: 16,
+    height: 44,
   },
   searchBarFocused: {
-    borderColor: 'rgba(255,255,255,0.9)'
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
-  iconButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  searchBarText: {
+    color: "rgba(255,255,255,0.8)",
+    marginLeft: 8,
+    fontSize: 15,
   },
   textInput: {
-    backgroundColor: 'transparent',
-    height: 36,
-    fontSize: 15,
-    color: Colors.white,
     flex: 1,
+    color: Colors.white,
+    backgroundColor: "transparent",
+    fontSize: 15,
+    height: 28,
+    padding: 0,
+    margin: 0,
     marginLeft: 8,
+    borderBottomWidth: 0,
+    underlineColorAndroid: "transparent",
+    activeUnderlineColor: "transparent",
+    underlineColor: "transparent",
+  },
+  iconButton: {
+    padding: 8,
   },
 });

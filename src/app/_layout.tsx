@@ -103,6 +103,7 @@ export default function RootLayout() {
           <Stack.Screen name="my-packages" options={{ headerShown: false }} />
           <Stack.Screen name="package-detail" options={{ headerShown: false }} />
           <Stack.Screen name="transaction-history" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </PaperProvider>
