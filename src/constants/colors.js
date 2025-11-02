@@ -13,6 +13,7 @@ const Colors = {
   purple: "#7C3AED",
   pink :"#DB2777",
   yellow: "#F59E0B",
+  brightYellow: "#d8c200ff",
   borderGray: "#d1d5db",
   text_light: "#dee0e3ff",
   categoryColors: {

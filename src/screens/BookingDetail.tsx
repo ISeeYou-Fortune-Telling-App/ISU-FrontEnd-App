@@ -1,12 +1,13 @@
-import { getBookingDetail } from "@/src/services/api";
+import Colors from "@/src/constants/colors";
+import { cancelBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { router, useLocalSearchParams } from "expo-router";
+import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Text } from "react-native-paper";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
 
 
 export default function BookingDetailScreen() {
@@ -14,6 +15,12 @@ export default function BookingDetailScreen() {
     const bookingId = (params.bookingId ?? params.id) as string | undefined;
     const [loading, setLoading] = useState<boolean>(true);
     const [booking, setBooking] = useState<any | null>(null);
+    const [avatarError, setAvatarError] = useState(false);
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [role, setRole] = useState<string>("");
 
     const fetchBookingDetail = async (bookingId: string) => {
         try {
@@ -21,6 +28,7 @@ export default function BookingDetailScreen() {
             const res = await getBookingDetail(bookingId);
             const data = res?.data?.data ?? null;
             setBooking(data);
+            setReviews(data?.reviews ?? []);
         } catch (err) {
             console.error("Failed to fetch booking detail", err);
             Alert.alert("Lỗi", "Không thể tải chi tiết lịch hẹn");
@@ -29,7 +37,107 @@ export default function BookingDetailScreen() {
         }
     }
 
+    const handleSubmitReview = async () => {
+        if (!bookingId) return;
+        if (rating <= 0) {
+            Alert.alert("Vui lòng chọn số sao đánh giá");
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            const res = await submitBookingReview(bookingId, {
+                rating,
+                comment: comment?.trim() || undefined,
+            });
+            const newReview = res?.data?.data;
+            if (newReview) {
+                setReviews((prev) => [newReview, ...prev]);
+            }
+            Alert.alert("Thành công", "Cảm ơn bạn đã gửi đánh giá!");
+            setRating(0);
+            setComment("");
+        } catch (err) {
+            console.error("Error submitting review", err);
+            Alert.alert("Lỗi", "Không thể gửi đánh giá. Vui lòng thử lại.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleCancelBooking = async () => {
+        try {
+            const res = await cancelBooking(bookingId);
+            Alert.alert("Thành công", "Lịch hẹn đã được huỷ");
+        } catch (err) {
+            Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
+            console.error("Error cancelling booking", err);
+        }
+    }
+
+    const renderReviewCard = (review: any) => (
+        <View key={review.reviewId || review.reviewedAt} style={styles.reviewCard}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Image
+                    source={
+                        review.customer?.customerAvatar
+                            ? { uri: review.customer.customerAvatar }
+                            : require("@/assets/images/user-placeholder.png")
+                    }
+                    style={styles.reviewAvatar}
+                />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={styles.reviewName}>{review.customer?.customerName}</Text>
+                    <Text style={styles.reviewDate}>
+                        {dayjs(review.reviewedAt).format("DD/MM/YYYY HH:mm")}
+                    </Text>
+                </View>
+            </View>
+
+            <View style={{ flexDirection: "row", marginVertical: 6 }}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                    <MaterialIcons
+                        key={i}
+                        name={i <= Math.round(review.rating) ? "star" : "star-border"}
+                        size={20}
+                        color={i <= Math.round(review.rating) ? "#FFD700" : "#9CA3AF"}
+                    />
+                ))}
+            </View>
+
+            {review.comment ? (
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+            ) : null}
+        </View>
+    );
+
+    const renderStars = () => (
+        <View style={{ flexDirection: "row", marginVertical: 8 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+                <TouchableOpacity
+                    key={i}
+                    onPress={() => setRating(i)}
+                    disabled={submitting}
+                >
+                    <MaterialIcons
+                        name={i <= rating ? "star" : "star-border"}
+                        size={32}
+                        color={i <= rating ? "#FFD700" : "#9CA3AF"}
+                    />
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+
     useEffect(() => {
+        (async () => {
+            try {
+                const storedRole = await SecureStore.getItemAsync("userRole");
+                if (storedRole) setRole(storedRole);
+            } catch (e) {
+                console.warn("Unable to read userRole from SecureStore", e);
+            }
+        })();
         if (bookingId) {
             fetchBookingDetail(bookingId);
         } else {
@@ -39,169 +147,267 @@ export default function BookingDetailScreen() {
 
     return (
         <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-            <View style={styles.header}>
-                <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
-                <View style={styles.titleContainer}>
-                    <Text variant="titleLarge" style={styles.title}>Chi tiết lịch hẹn</Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{flex: 1}}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
+                    
+                <View style={styles.header}>
+                    <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
+                    <View style={styles.titleContainer}>
+                        <Text variant="titleLarge" style={styles.title}>Chi tiết lịch hẹn</Text>
+                    </View>
+                    <View style={styles.headerPlaceholder} />
                 </View>
-                <View style={styles.headerPlaceholder} />
-            </View>
 
-            <ScrollView
-                style={{ flex: 1 }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ padding: 12 }}
-            >
-                {loading ? (
-                    <View style={{ padding: 24, alignItems: 'center' }}>
-                        <ActivityIndicator size="large" color={Colors.primary} />
-                    </View>
-                ) : !booking ? (
-                    <View style={{ padding: 24, alignItems: 'center' }}>
-                        <Text style={{ marginBottom: 12 }}>Không tìm thấy lịch hẹn</Text>
-                        <TouchableOpacity
-                            style={[styles.secondaryButton, { paddingHorizontal: 24 }]}
-                            onPress={() => bookingId ? fetchBookingDetail(bookingId) : null}
-                        >
-                            <Text>Thử lại</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View>
-                        {/* Status card */}
-                        <View style={styles.statusCard}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <MaterialIcons name="schedule" size={20} color={Colors.primary} />
-                                    <View style={{ marginLeft: 8 }}>
-                                        <Text style={{ fontWeight: '700' }}>Trạng thái lịch hẹn</Text>
-                                        <Text style={{ color: '#6b7280' }}>Mã: {String(booking.id).slice(0, 8)}</Text>
-                                    </View>
-                                </View>
-                                <View style={[styles.smallBadge, booking.status === 'COMPLETED' ? { backgroundColor: '#dcfce7' } : { backgroundColor: '#fee2e2' }]}>
-                                    <Text style={{ fontWeight: '700', color: booking.status === 'COMPLETED' ? '#16a34a' : '#dc2626' }}>{booking.status === 'CONFIRMED' ? 'Chờ xác nhận' : booking.status}</Text>
-                                </View>
-                            </View>
-                            {booking.status === 'PENDING' && (
-                                <View style={styles.infoBox}>
-                                    <Text style={{ color: Colors.primary }}>Lịch hẹn đang chờ xác nhận. Bạn sẽ nhận được thông báo khi được duyệt.</Text>
-                                </View>
-                            )}
+                <ScrollView
+                    style={{ flex: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ padding: 12 }}
+                >
+                    {loading ? (
+                        <View style={{ padding: 24, alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color={Colors.primary} />
                         </View>
-
-                        {/* Seer info */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Thông tin thầy bói</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                                <Image source={booking.seer?.avatarUrl ? { uri: booking.seer.avatarUrl } : require('@/assets/images/user-placeholder.png')} style={styles.avatarLarge} />
-                                <View style={{ marginLeft: 12, flex: 1 }}>
-                                    <Text style={{ fontWeight: '700' }}>{booking.seer?.fullName}</Text>
-                                    <Text style={{ marginTop: 6, color: '#f59e0b' }}>⭐ {booking.seer?.avgRating ?? '-'}</Text>
-                                </View>
-                            </View>
+                    ) : !booking ? (
+                        <View style={{ padding: 24, alignItems: 'center' }}>
+                            <Text style={{ marginBottom: 12 }}>Không tìm thấy lịch hẹn</Text>
+                            <TouchableOpacity
+                                style={[styles.secondaryButton, { paddingHorizontal: 24 }]}
+                                onPress={() => bookingId ? fetchBookingDetail(bookingId) : null}
+                            >
+                                <Text>Thử lại</Text>
+                            </TouchableOpacity>
                         </View>
-
-                        {/* Booking detail */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Chi tiết lịch hẹn</Text>
-                            <Text style={{ fontWeight: '700', marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
-                            <Text style={{ marginTop: 8, color: '#374151' }}>{booking.servicePackage?.packageContent}</Text>
-
-                            <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
-                                {(booking.servicePackage?.categories || []).map((c: string, idx: number) => (
-                                    <View key={idx} style={[styles.tag]}>
-                                        <Text style={{ color: '#374151' }}>{c}</Text>
-                                    </View>
-                                ))}
-                            </View>
-
-                            <View style={{ flexDirection: 'row', marginTop: 12 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#6b7280' }}>Ngày</Text>
-                                    <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('dddd, DD/MM/YYYY')}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#6b7280' }}>Thời gian</Text>
-                                    <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('HH:mm')}</Text>
-                                </View>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', marginTop: 12 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#6b7280' }}>Giá tiền</Text>
-                                    <Text style={{ marginTop: 6, color: '#10B981', fontWeight: '700' }}>{booking.servicePackage?.price?.toLocaleString('vi-VN')} VND</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#6b7280' }}>Thời lượng</Text>
-                                    <Text style={{ marginTop: 6 }}>{booking.servicePackage?.durationMinutes} phút</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Customer note */}
-                        {booking.additionalNote ? (
-                            <View style={styles.card}>
-                                <Text style={styles.cardTitle}>Ghi chú từ Khách hàng</Text>
-                                <Text style={{ marginTop: 8, color: '#374151' }}>{booking.additionalNote}</Text>
-                            </View>
-                        ) : null}
-
-                        {/* Payment */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Thanh toán</Text>
-                            {booking.bookingPaymentInfos && booking.bookingPaymentInfos.length > 0 ? (
-                                (() => {
-                                    const p = booking.bookingPaymentInfos[0];
-                                    return (
-                                        <View style={{ marginTop: 8 }}>
-                                            <Text>Phương thức: {p.paymentMethod}</Text>
-                                            <Text style={{ marginTop: 6 }}>Trạng thái: <Text style={{ color: p.paymentStatus === 'COMPLETED' ? '#16a34a' : '#dc2626' }}>{p.paymentStatus === 'COMPLETED' ? 'Đã thanh toán' : p.paymentStatus}</Text></Text>
-                                            <Text style={{ marginTop: 6 }}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VND</Text>
+                    ) : (
+                        <View>
+                            {/* Status card */}
+                            <View style={styles.statusCard}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <MaterialIcons name="schedule" size={20} color={Colors.primary} />
+                                        <View style={{ marginLeft: 8 }}>
+                                            <Text style={{ fontWeight: '700' }}>Trạng thái lịch hẹn</Text>
+                                            <Text style={{ color: '#6b7280' }}>Mã: {String(booking.id).slice(0, 8)}</Text>
                                         </View>
-                                    );
-                                })()
-                            ) : (
-                                <Text style={{ marginTop: 8 }}>Chưa có thông tin thanh toán</Text>
-                            )}
-                        </View>
-
-                        {/* History */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Lịch sử</Text>
-                            <View style={{ marginTop: 8 }}>
-                                <Text> Lịch hẹn được tạo</Text>
-                                <Text style={{ color: '#6b7280', marginTop: 6 }}>{dayjs(booking.createdAt).format('HH:mm:ss DD/MM/YYYY')}</Text>
+                                    </View>
+                                    <View style={[styles.smallBadge, booking.status === "COMPLETED" ? { backgroundColor: '#dcfce7' } : booking.status === "CONFIRMED" ? { backgroundColor: '#e0e7ff' } : booking.status === "PENDING" ? { backgroundColor: '#faffe0ff' } : { backgroundColor: '#fee2e2' }]}>
+                                        <Text style={{ fontWeight: '700', color: booking.status === "COMPLETED" ? '#16a34a' : booking.status === 'CONFIRMED' ? Colors.primary : booking.status === "PENDING" ? Colors.brightYellow : '#dc2626' }}>
+                                            {booking.status === 'COMPLETED' && 'Hoàn thành'}
+                                            {booking.status === 'CONFIRMED' && 'Đã xác nhận'}
+                                            {booking.status === 'PENDING' && 'Chờ xác nhận'}
+                                            {booking.status === 'CANCELED' && 'Đã hủy'}
+                                            {booking.status === 'FAILED' && 'Thất bại'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {booking.status === 'PENDING' && (
+                                    <View style={styles.infoBox}>
+                                        <Text style={{ color: Colors.primary }}>Lịch hẹn đang chờ xác nhận. Bạn sẽ nhận được thông báo khi được duyệt.</Text>
+                                    </View>
+                                )}
                             </View>
-                        </View>
-                    </View>
-                )}
-            </ScrollView>
 
-            {/* Footer actions */}
-            <View style={styles.footer} pointerEvents="box-none">
-                <View style={styles.footerInner}>
-                    <TouchableOpacity
-                        style={styles.secondaryButton}
-                        onPress={() => {
-                            Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng');
-                        }}
-                    >
-                        <Text>Đổi lịch</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.dangerButton}
-                        onPress={() => {
-                            Alert.alert('Xác nhận', 'Bạn có chắc muốn huỷ lịch này?', [
-                                { text: 'Không' },
-                                { text: 'Có', onPress: () => router.back(), style: 'destructive' }
-                            ]);
-                        }}
-                    >
-                        <Text style={{ color: 'white', fontWeight: '700' }}>Hủy lịch</Text>
-                    </TouchableOpacity>
+                            {/* Seer info */}
+                            {role === "CUSTOMER" &&
+                                <View style={styles.card}>
+                                    <Text style={styles.cardTitle}>Thông tin thầy bói</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                        <Image
+                                            source={
+                                                avatarError || !booking.seer?.avatarUrl
+                                                    ? require('@/assets/images/user-placeholder.png')
+                                                    : { uri: booking.seer?.avatarUrl }
+                                            }
+                                            style={styles.avatarLarge}
+                                            onError={(e) => {
+                                                console.log('Avatar image failed to load:', e.nativeEvent);
+                                                setAvatarError(true);
+                                            }}
+                                        />
+                                        <View style={{ marginLeft: 12, flex: 1 }}>
+                                            <Text style={{ fontWeight: '700' }}>{booking.seer?.fullName}</Text>
+                                            <Text style={{ marginTop: 6, color: '#f59e0b' }}>⭐ {booking.seer?.avgRating ?? '-'}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            }
+
+                            {/* Customer info */}
+                            {role === "SEER" &&
+                                <View style={styles.card}>
+                                    <Text style={styles.cardTitle}>Thông tin khách hàng</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                        <Image
+                                            source={
+                                                avatarError || !booking.customer?.avatarUrl
+                                                    ? require('@/assets/images/user-placeholder.png')
+                                                    : { uri: booking.customer?.avatarUrl }
+                                            }
+                                            style={styles.avatarLarge}
+                                            onError={(e) => {
+                                                console.log('Avatar image failed to load:', e.nativeEvent);
+                                                setAvatarError(true);
+                                            }}
+                                        />
+                                        <View style={{ marginLeft: 12, flex: 1 }}>
+                                            <Text style={{ fontWeight: '700' }}>{booking.customer?.fullName}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            }
+
+                            {/* Booking detail */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Chi tiết lịch hẹn</Text>
+                                <Text style={{ fontWeight: '700', marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
+                                <Text style={{ marginTop: 8, color: '#374151' }}>{booking.servicePackage?.packageContent}</Text>
+
+                                <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
+                                    {(booking.servicePackage?.categories || []).map((c: string, idx: number) => (
+                                        <View key={idx} style={[styles.tag]}>
+                                            <Text style={{ color: '#374151' }}>{c}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#6b7280' }}>Ngày</Text>
+                                        <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('dddd, DD/MM/YYYY')}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#6b7280' }}>Thời gian</Text>
+                                        <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('HH:mm')}</Text>
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#6b7280' }}>Giá tiền</Text>
+                                        <Text style={{ marginTop: 6, color: '#10B981', fontWeight: '700' }}>{booking.servicePackage?.price?.toLocaleString('vi-VN')} VND</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#6b7280' }}>Thời lượng</Text>
+                                        <Text style={{ marginTop: 6 }}>{booking.servicePackage?.durationMinutes} phút</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Customer note */}
+                            {booking.additionalNote ? (
+                                <View style={styles.card}>
+                                    <Text style={styles.cardTitle}>Ghi chú</Text>
+                                    <Text style={{ marginTop: 8, color: '#374151' }}>{booking.additionalNote}</Text>
+                                </View>
+                            ) : null}
+
+                            {/* Payment */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Thanh toán</Text>
+                                {booking.bookingPaymentInfos && booking.bookingPaymentInfos.length > 0 ? (
+                                    (() => {
+                                        const p = booking.bookingPaymentInfos[0];
+                                        return (
+                                            <View style={{ marginTop: 8 }}>
+                                                <Text>Phương thức: {p.paymentMethod}</Text>
+                                                <Text style={{ marginTop: 6 }}>Trạng thái: <Text style={{ color: p.paymentStatus === 'COMPLETED' ? '#16a34a' : '#dc2626' }}>{p.paymentStatus === 'COMPLETED' ? 'Đã thanh toán' : p.paymentStatus}</Text></Text>
+                                                <Text style={{ marginTop: 6 }}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VND</Text>
+                                            </View>
+                                        );
+                                    })()
+                                ) : (
+                                    <Text style={{ marginTop: 8 }}>Chưa có thông tin thanh toán</Text>
+                                )}
+                            </View>
+
+                            {/* History */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Lịch sử</Text>
+                                <View style={{ marginTop: 8 }}>
+                                    <Text> Lịch hẹn được tạo</Text>
+                                    <Text style={{ color: '#6b7280', marginTop: 6 }}>{dayjs(booking.createdAt).format('HH:mm:ss DD/MM/YYYY')}</Text>
+                                </View>
+                            </View>
+
+                            {/* Review form + reviews */}
+                            {booking.status === "COMPLETED" && role === "CUSTOMER" && (
+                                <View style={[styles.card, { marginBottom: 10 }]}>
+                                    <Text style={styles.cardTitle}>Đánh giá</Text>
+                                    {renderStars()}
+                                    <View
+                                        style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            marginTop: 8,
+                                            backgroundColor: "#F3F4F6",
+                                            borderRadius: 10,
+                                            paddingHorizontal: 8,
+                                            paddingVertical: 4,
+                                        }}
+                                    >
+                                        <TextInput
+                                            style={{ flex: 1, padding: 8, marginRight: 8 }}
+                                            placeholder="Nhập đánh giá của bạn..."
+                                            value={comment}
+                                            editable={!submitting}
+                                            onChangeText={setComment}
+                                            multiline
+                                            mode="outlined"
+                                        />
+                                        <TouchableOpacity
+                                            disabled={submitting}
+                                            style={{
+                                                padding: 8,
+                                                borderRadius: 8,
+                                                backgroundColor: submitting ? "#9CA3AF" : "#2563EB",
+                                            }}
+                                            onPress={handleSubmitReview}
+                                        >
+                                            {submitting ? (
+                                                <ActivityIndicator color="#fff" />
+                                            ) : (
+                                                <MaterialIcons name="send" size={20} color="white" />
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Render all reviews */}
+                                    {reviews.length > 0 && (
+                                        <View style={{ marginTop: 16 }}>
+                                            {reviews.map((r) => renderReviewCard(r))}
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
+                        </View>
+                    )}
+                </ScrollView>
+
+                {/* Footer actions */}
+                <View style={styles.footer} pointerEvents="box-none">
+                    <View style={styles.footerInner}>
+                        {role === "SEER" && ["PENDING", "CONFIRMED"].includes(booking?.status) && <TouchableOpacity style={styles.secondaryButton} onPress={() => { Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng'); }}>
+                            <Text>Đổi lịch</Text>
+                        </TouchableOpacity>
+                        }
+                        {role === "CUSTOMER" && ["PENDING", "CONFIRMED"].includes(booking?.status) && <TouchableOpacity
+                            style={styles.dangerButton}
+                            onPress={() => {
+                                Alert.alert('Xác nhận', 'Bạn có chắc muốn huỷ lịch này?', [
+                                    { text: 'Không' },
+                                    { text: 'Có', style: 'destructive', onPress: () => handleCancelBooking() }
+                                ]);
+                            }}
+                        >
+                            <Text style={{ color: 'white', fontWeight: '700' }}>Hủy lịch</Text>
+                        </TouchableOpacity>
+                        }
+                    </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
 
         </SafeAreaView>
     );
@@ -303,10 +509,19 @@ const styles = StyleSheet.create({
     },
     dangerButton: {
         flex: 1,
-        marginLeft: 8,
         paddingVertical: 12,
         backgroundColor: '#ef4444',
         borderRadius: 10,
         alignItems: 'center',
     },
+    reviewCard: {
+        borderTopWidth: 1,
+        borderColor: "#E5E7EB",
+        paddingTop: 10,
+        marginTop: 10,
+    },
+    reviewAvatar: { width: 40, height: 40, borderRadius: 20 },
+    reviewName: { fontWeight: "600", color: "#111827" },
+    reviewDate: { fontSize: 12, color: "#6b7280" },
+    reviewComment: { marginTop: 6, color: "#374151" },
 });

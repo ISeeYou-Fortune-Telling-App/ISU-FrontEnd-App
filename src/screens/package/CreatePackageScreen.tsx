@@ -1,14 +1,17 @@
 import Colors from "@/src/constants/colors";
+import { createServicePackage, getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,8 +19,8 @@ import {
   View,
 } from "react-native";
 import { Menu, Text, TextInput } from "react-native-paper";
+import { RichEditor, RichToolbar, actions } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createServicePackage, getKnowledgeCategories } from "../../services/api";
 
 export default function CreatePackageScreen() {
   const [title, setTitle] = useState("");
@@ -27,16 +30,20 @@ export default function CreatePackageScreen() {
 
   const [priceRaw, setPriceRaw] = useState("");
   const [price, setPrice] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [content, setContent] = useState("");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
   const [image, setImage] = useState<any>(null);
+  const [availableTime, setAvailableTime] = useState<string[]>([]);
+
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const contentRef = useRef<RichEditor>(null);
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
-  // ✅ Fetch knowledge categories
   useEffect(() => {
     (async () => {
       try {
@@ -55,9 +62,13 @@ export default function CreatePackageScreen() {
       allowsEditing: true,
       quality: 0.7,
     });
-    if (!result.canceled) {
-      setImage(result.assets[0]);
-    }
+    if (!result.canceled) setImage(result.assets[0]);
+  };
+
+  const toggleAvailableTime = (d: string) => {
+    setAvailableTime((prev) =>
+      prev.includes(d) ? prev.filter((item) => item !== d) : [...prev, d]
+    );
   };
 
   const handleSubmit = async () => {
@@ -66,63 +77,62 @@ export default function CreatePackageScreen() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("packageTitle", title);
-    formData.append("packageContent", content);
-    formData.append("durationMinutes", parseInt(durationMinutes).toString());
-    formData.append("price", parseFloat(priceRaw).toString());
-    formData.append("categoryIds[]", selectedCategoryId); // ✅ Send as array<string>
-
-    if (image) {
-      const fileName = image.fileName || image.uri.split("/").pop() || "upload.jpg";
-      const match = /\.(\w+)$/.exec(fileName);
-      const type = match ? `image/${match[1]}` : "image/jpeg";
-
-      formData.append("image", {
-        uri: image.uri,
-        type,
-        name: fileName,
-      } as any);
-    }
-
     try {
+      setSubmitting(true);
+
+      const formData = new FormData();
+      formData.append("packageTitle", title);
+      formData.append("packageContent", content);
+      formData.append("durationMinutes", parseInt(durationMinutes).toString());
+      formData.append("price", parseFloat(priceRaw).toString());
+      formData.append("categoryIds[]", selectedCategoryId);
+
+      // availableTime.forEach((time) => {
+      //   formData.append("availableTime[]", time);
+      // });
+
+      if (image) {
+        const fileName = image.fileName || image.uri.split("/").pop() || "upload.jpg";
+        const match = /\.(\w+)$/.exec(fileName);
+        const type = match ? `image/${match[1]}` : "image/jpeg";
+        formData.append("image", {
+          uri: image.uri,
+          type,
+          name: fileName,
+        } as any);
+      }
+
       const seerIdValue = await SecureStore.getItemAsync("userId");
       if (!seerIdValue) {
         Alert.alert("Lỗi", "Không xác định được tài khoản. Vui lòng đăng nhập lại.");
         return;
       }
 
-      setSubmitting(true);
       await createServicePackage(seerIdValue, formData);
-      Alert.alert("Thành công", "Tạo gói dịch vụ thành công!");
-      router.push("/my-packages");
-    } catch (err: any) {
-      console.error("createServicePackage error:", err, err?.response?.data);
 
-      let message = "Không thể tạo gói dịch vụ. Hãy thử lại sau.";
-      const resp = err?.response?.data;
-      if (resp) {
-        if (typeof resp === "string") {
-          message = resp;
-        } else if (resp.message) {
-          message = resp.message;
-        } else if (resp.errors) {
-          try {
-            const errs = resp.errors;
-            if (typeof errs === "object") {
-              const flat = Object.keys(errs).map((k) => {
-                const v = errs[k];
-                if (Array.isArray(v)) return v.join(", ");
-                if (typeof v === "string") return v;
-                return JSON.stringify(v);
-              });
-              message = flat.join("\n");
-            }
-          } catch (e) {}
-        }
-      }
-      Alert.alert("Lỗi", message);
-    } finally {
+      // ✅ Show success animation
+      setSuccess(true);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }).start();
+
+      // Wait a bit before redirecting
+      setTimeout(() => {
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setSubmitting(false);
+          setSuccess(false);
+          router.replace("/my-packages");
+        });
+      }, 1500);
+    } catch (err: any) {
+      console.error("createServicePackage error:", err);
+      Alert.alert("Lỗi", "Không thể tạo gói dịch vụ. Hãy thử lại sau.");
       setSubmitting(false);
     }
   };
@@ -146,6 +156,7 @@ export default function CreatePackageScreen() {
         <ScrollView style={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Thông tin gói</Text>
+
             <TextInput
               placeholder="Tên gói"
               mode="outlined"
@@ -155,7 +166,6 @@ export default function CreatePackageScreen() {
               value={title}
             />
 
-            {/* ✅ Dynamic categories */}
             <Menu
               visible={menuVisible}
               onDismiss={closeMenu}
@@ -194,26 +204,36 @@ export default function CreatePackageScreen() {
               onChangeText={(text) => {
                 const digits = text.replace(/\D/g, "");
                 setPriceRaw(digits);
-                if (!digits) {
-                  setPrice("");
-                } else {
-                  const formatted = Number(digits).toLocaleString("vi-VN");
-                  setPrice(formatted);
-                }
+                if (!digits) setPrice("");
+                else setPrice(Number(digits).toLocaleString("vi-VN"));
               }}
               keyboardType="numeric"
             />
 
-            <TextInput
-              mode="outlined"
-              left={<TextInput.Icon icon="file-document-edit" />}
-              onChangeText={setContent}
-              value={content}
-              style={[styles.input]}
-              label="Mô tả ngắn"
-              multiline
-              numberOfLines={5}
-            />
+            <Text style={{ fontSize: 14, marginBottom: 8 }}>Mô tả ngắn</Text>
+            <View style={styles.richEditorContainer}>
+              <RichToolbar
+                editor={contentRef}
+                actions={[
+                  actions.setBold,
+                  actions.setItalic,
+                  actions.setUnderline,
+                  actions.insertBulletsList,
+                  actions.insertOrderedList,
+                  actions.insertLink,
+                ]}
+                iconTint="#000"
+                selectedIconTint="#2095F4"
+                style={{ backgroundColor: "#f0f0f0" }}
+              />
+              <RichEditor
+                ref={contentRef}
+                onChange={setContent}
+                placeholder="Mô tả ngắn"
+                initialHeight={150}
+                style={{ flex: 1 }}
+              />
+            </View>
 
             <TouchableOpacity style={styles.imageUpload} onPress={pickImage}>
               {image ? (
@@ -222,6 +242,21 @@ export default function CreatePackageScreen() {
                 <Text style={styles.uploadText}>+ Ảnh minh hoạ</Text>
               )}
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Thời gian rảnh</Text>
+            <View style={styles.durationContainer}>
+              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  style={[styles.timeBtn, availableTime.includes(d) && styles.durationSelected]}
+                  onPress={() => toggleAvailableTime(d)}
+                >
+                  <Text style={styles.durationText}>{d}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -248,19 +283,33 @@ export default function CreatePackageScreen() {
             />
           </View>
 
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitText}>Tạo gói dịch vụ</Text>
-            )}
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
+            <Text style={styles.submitText}>Tạo gói dịch vụ</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ⏳ Blocking modal with spinner or success animation */}
+      <Modal visible={submitting} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          {!success ? (
+            <View style={styles.modalBox}>
+              <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+              <Text style={styles.modalText}>Đang tạo gói dịch vụ...</Text>
+            </View>
+          ) : (
+            <Animated.View
+              style={[
+                styles.successBox,
+                { transform: [{ scale: scaleAnim }] },
+              ]}
+            >
+              <MaterialIcons name="check-circle" size={70} color="#16a34a" />
+              <Text style={styles.successText}>Tạo thành công!</Text>
+            </Animated.View>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -291,6 +340,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
   input: { borderRadius: 12, marginBottom: 12, fontSize: 14 },
+  richEditorContainer: {
+    minHeight: 200,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
   imageUpload: {
     height: 150,
     borderWidth: 1,
@@ -311,8 +368,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 8,
   },
-  durationSelected: { backgroundColor: "#1877F2", borderColor: "#1877F2" },
+  durationSelected: { backgroundColor: Colors.primary, borderColor: Colors.grayBackground },
   durationText: { color: "#000" },
+  timeBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    marginRight: 8,
+  },
   submitButton: {
     backgroundColor: "#16a34a",
     paddingVertical: 14,
@@ -321,4 +386,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   submitText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+
+  // ✅ Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    width: 220,
+  },
+  modalText: {
+    marginTop: 12,
+    color: "#000",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  successBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successText: {
+    marginTop: 8,
+    color: "#16a34a",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
 });

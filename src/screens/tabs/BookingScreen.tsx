@@ -375,18 +375,37 @@ const statusBadgeText: Record<BookingStatus, string> = {
 function BookingCard({ booking, role }: { booking: BookingResponse, role: string }) {
   const formattedDate = dayjs(booking.scheduledTime).format('DD/MM/YYYY');
   const formattedTime = dayjs(booking.scheduledTime).format('HH:mm');
+  const [avatarError, setAvatarError] = useState(false);
 
   return (
     <View style={styles.card}>
       <View style={styles.cardLeft}>
         {role === "SEER" ? (
           <Image
-            source={booking.customer.avatarUrl ? { uri: booking.customer.avatarUrl } : require('@/assets/images/user-placeholder.png')}
-            style={styles.avatar} />
+            source={
+              avatarError || !booking.customer.avatarUrl
+                ? require('@/assets/images/user-placeholder.png')
+                : { uri: booking.customer.avatarUrl }
+            }
+            style={styles.avatar}
+            onError={(e) => {
+              console.log('Avatar image failed to load:', e.nativeEvent);
+              setAvatarError(true);
+            }}
+          />
         ) : (
           <Image
-            source={booking.seer.avatarUrl ? { uri: booking.seer.avatarUrl } : require('@/assets/images/user-placeholder.png')}
-            style={styles.avatar} />
+            source={
+              avatarError || !booking.seer.avatarUrl
+                ? require('@/assets/images/user-placeholder.png')
+                : { uri: booking.seer.avatarUrl }
+            }
+            style={styles.avatar}
+            onError={(e) => {
+              console.log('Avatar image failed to load:', e.nativeEvent);
+              setAvatarError(true);
+            }}
+          />
         )}
         <View style={{ flex: 1 }}>
           {role === "SEER" ? (<Text style={styles.name}>{booking.customer.fullName}</Text>) : (<Text style={styles.name}>{booking.seer.fullName}</Text>)}
@@ -499,7 +518,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 50,
-    backgroundColor: "#d1d5db",
+    backgroundColor: Colors.background,
     marginRight: 10,
   },
   name: { fontSize: 15, fontFamily: "inter", fontWeight: "600", color: "#111" },

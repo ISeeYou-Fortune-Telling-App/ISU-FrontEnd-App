@@ -279,4 +279,10 @@ export const getMyBookings = (params) =>
 export const getBookingDetail = (id) =>
   API.get(`/bookings/${id}`);
 
+export const submitBookingReview = (id, data) =>
+  API.post(`/bookings/${id}/review`, data);
+
+export const cancelBooking = (id) =>
+  API.post(`/bookings/${id}/cancel`, {id});
+
 export default API;

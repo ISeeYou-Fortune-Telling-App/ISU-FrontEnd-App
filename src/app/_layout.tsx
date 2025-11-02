@@ -2,6 +2,7 @@ import * as Device from 'expo-device';
 import { useFonts } from "expo-font";
 import * as Notifications from 'expo-notifications';
 import { SplashScreen, Stack } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { PaperProvider } from "react-native-paper";
@@ -35,6 +36,7 @@ export async function registerForPushNotificationsAsync() {
     }
 
     token = (await Notifications.getExpoPushTokenAsync()).data;
+    await SecureStore.setItemAsync("expoPushToken", token);
     console.log('Expo Push Token:', token);
   } else {
     alert('Must use physical device for Push Notifications');
@@ -50,11 +52,6 @@ export async function registerForPushNotificationsAsync() {
   }
 
   return token;
-}
-
-function handleRegistrationError(errorMessage: string) {
-  alert(errorMessage);
-  throw new Error(errorMessage);
 }
 
 SplashScreen.preventAutoHideAsync();
@@ -82,6 +79,7 @@ export default function RootLayout() {
     <PaperProvider theme={theme}>
       <SafeAreaProvider>
         <Stack initialRouteName="auth">
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
           <Stack.Screen name="forgot-password" options={{ headerShown: false }} />

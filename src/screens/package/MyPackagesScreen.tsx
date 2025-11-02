@@ -1,56 +1,23 @@
 import Colors from "@/src/constants/colors";
 import { getMyPackages } from "@/src/services/api";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-type Category = {
-    id: string;
-    name: string;
-    description: string;
-};
-
-type PackageStatus = "AVAILABLE" | "REJECTED" | "HAVE_REPORT" | "HIDDEN";
-
-type ServicePackage = {
-    id: string;
-    packageTitle: string;
-    packageContent: string;
-    imageUrl: string;
-    durationMinutes: number;
-    price: number;
-    categories: Category[];
-    status: PackageStatus;
-    rejectionReason: string | null;
-    avgRating: number | null;
-    totalReviews: number;
-};
-
-const TABS = [
-    { key: "ALL", label: "Tất cả" },
-    { key: "AVAILABLE", label: "Đã duyệt" },
-    { key: "HIDDEN", label: "Chờ duyệt" },
-    { key: "REJECTED", label: "Bị từ chối", color: Colors.purple },
-];
-
-function getStatusBadge(status: PackageStatus) {
-    if (status === "AVAILABLE") return { label: "Đã duyệt", color: Colors.green, icon: "check-circle" };
-    if (status === "HIDDEN") return { label: "Chờ duyệt", color: Colors.yellow, icon: "clock-outline" };
-    if (status === "REJECTED") return { label: "Bị từ chối", color: Colors.purple, textColor: Colors.white, icon: "close-circle" };
-    return { label: status, color: Colors.gray };
-}
 
 export default function MyPackagesScreen() {
     const [loading, setLoading] = useState(true);
     const [packages, setPackages] = useState<ServicePackage[]>([]);
     const [tab, setTab] = useState("ALL");
 
-    useEffect(() => {
-        fetchPackages();
-    }, []);
-
+    useFocusEffect(
+        useCallback(() => {
+            fetchPackages();
+            return () => { };
+        }, [])
+    );
+    
     const fetchPackages = async () => {
         setLoading(true);
         try {
@@ -130,6 +97,42 @@ export default function MyPackagesScreen() {
     );
 }
 
+type Category = {
+    id: string;
+    name: string;
+    description: string;
+};
+
+type PackageStatus = "AVAILABLE" | "REJECTED" | "HAVE_REPORT" | "HIDDEN";
+
+type ServicePackage = {
+    id: string;
+    packageTitle: string;
+    packageContent: string;
+    imageUrl: string;
+    durationMinutes: number;
+    price: number;
+    categories: Category[];
+    status: PackageStatus;
+    rejectionReason: string | null;
+    avgRating: number | null;
+    totalReviews: number;
+};
+
+const TABS = [
+    { key: "ALL", label: "Tất cả" },
+    { key: "AVAILABLE", label: "Đã duyệt" },
+    { key: "HIDDEN", label: "Chờ duyệt" },
+    { key: "REJECTED", label: "Bị từ chối", color: Colors.error },
+];
+
+function getStatusBadge(status: PackageStatus) {
+    if (status === "AVAILABLE") return { label: "Đã duyệt", color: Colors.green, icon: "check-circle" };
+    if (status === "HIDDEN") return { label: "Chờ duyệt", color: Colors.yellow, icon: "clock-outline" };
+    if (status === "REJECTED") return { label: "Bị từ chối", color: Colors.purple, textColor: Colors.white, icon: "close-circle" };
+    return { label: status, color: Colors.gray };
+}
+
 function PackageCard({ pkg }: { pkg: ServicePackage }) {
     const badge = getStatusBadge(pkg.status);
     const categoryLabel = pkg.categories?.[0]?.name ?? "";
@@ -153,7 +156,7 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                 {categoryLabel ? (
                     <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{categoryLabel}</Text></View>
                 ) : null}
-                
+
                 <View style={[styles.statusBadge, { backgroundColor: badge.color, flexDirection: 'row', alignItems: 'center' }]}>
                     {badge.icon && (
                         <MaterialCommunityIcons name={badge.icon as any} size={16} color={badge.textColor || Colors.white} style={{ marginRight: 2 }} />
