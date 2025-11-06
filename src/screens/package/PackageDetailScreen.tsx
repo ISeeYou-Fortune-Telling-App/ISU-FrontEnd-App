@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { deleteServicePackage, getServicePackageDetail, getServicePackageReviews } from "@/src/services/api";
+import { deleteServicePackage, getPackageBookingReviews, getServicePackageDetail, getServicePackageReviews } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -18,10 +18,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function PackageDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [pkg, setPkg] = useState<any>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
+  const [avatarErrors, setAvatarErrors] = useState<{ [key: number]: boolean }>({});
 
 
   const handleDelete = async () => {
@@ -52,12 +54,17 @@ export default function PackageDetailScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [detailResp, reviewResp] = await Promise.all([
+        const params = {
+          packageId: id,
+        }
+        const [detailResp, CommentResp, ReviewResp] = await Promise.all([
           getServicePackageDetail(id),
           getServicePackageReviews(id),
+          getPackageBookingReviews(params)
         ]);
         setPkg(detailResp.data?.data);
-        setReviews(reviewResp.data?.data || []);
+        setComments(CommentResp.data?.data || []);
+        setReviews(ReviewResp.data?.data || []);
       } catch (err) {
         console.error("Failed to load package detail:", err);
       } finally {
@@ -113,7 +120,6 @@ export default function PackageDetailScreen() {
             }
             style={styles.image}
             onError={(e) => {
-              console.log('Cover image failed to load:', e.nativeEvent);
               setCoverError(true);
             }}
           />
@@ -140,7 +146,7 @@ export default function PackageDetailScreen() {
                 {pkg.avgRating ? pkg.avgRating.toFixed(1) : "-"}
               </Text>
               <Text style={styles.reviewCount}>
-                ({pkg.totalReviews ?? reviews.length} đánh giá)
+                ({pkg.totalReviews ?? comments.length} đánh giá)
               </Text>
             </View>
           </View>
@@ -156,7 +162,6 @@ export default function PackageDetailScreen() {
                 }
                 style={styles.seerAvatar}
                 onError={(e) => {
-                  console.log('Avatar image failed to load:', e.nativeEvent);
                   setAvatarError(true);
                 }}
               />
@@ -206,21 +211,38 @@ export default function PackageDetailScreen() {
             {reviews.length === 0 ? (
               <Text style={{ color: "#666" }}>Chưa có đánh giá nào</Text>
             ) : (
-              reviews.map((rev) => (
+              reviews.map((rev, index) => (
+                <ReviewItem key={index} rev={rev} />
+              ))
+            )}
+          </Card>
+
+          {/* Comments */}
+          <Card style={styles.reviewCard}>
+            <Text style={styles.infoTitle}>Bình luận ({comments.length})</Text>
+            {comments.length === 0 ? (
+              <Text style={{ color: "#666" }}>Chưa có bình luận nào</Text>
+            ) : (
+              comments.map((rev) => (
                 <View key={rev.reviewId} style={styles.reviewItem}>
                   <Image
                     source={
-                      rev.user?.avatarUrl
-                        ? { uri: rev.user.avatarUrl }
-                        : require("@/assets/images/user-placeholder.png")
+                      avatarErrors[rev.reviewId] || !rev.user?.avatarUrl
+                        ? require("@/assets/images/user-placeholder.png")
+                        : { uri: rev.user.avatarUrl }
                     }
                     style={styles.reviewAvatar}
+                    resizeMode="cover"
+                    onError={(e) => {
+                      console.log(`Avatar failed to load for review ${rev.reviewId}:`, e.nativeEvent);
+                      setAvatarErrors((prev) => ({ ...prev, [rev.reviewId]: true }));
+                    }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.reviewName}>
+                    <Text style={styles.reviewName} numberOfLines={1}>
                       {rev.user?.fullName ?? "Người dùng"}
                     </Text>
-                    <Text style={styles.reviewComment}>{rev.comment}</Text>
+                    <Text style={styles.reviewComment} numberOfLines={2}>{rev.comment}</Text>
                     <Text style={styles.reviewDate}>
                       {new Date(rev.createdAt).toLocaleDateString("vi-VN")}
                     </Text>
@@ -232,7 +254,19 @@ export default function PackageDetailScreen() {
 
           {/* Actions */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.editButton}>
+            <TouchableOpacity style={styles.editButton} onPress={() => router.push({
+              pathname: "/update-package",
+              params: {
+                packageId: pkg.packageId,
+                packageTitle: pkg.packageTitle,
+                packageContent: pkg.packageContent,
+                duration: pkg.durationMinutes,
+                packagePrice: pkg.price,
+                category: pkg.category,
+                imageUrl: pkg.imageUrl,
+                commission: pkg.commissionRate
+              },
+            })}>
               <Text style={styles.editText}>Chỉnh sửa</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.scheduleButton}>
@@ -248,6 +282,60 @@ export default function PackageDetailScreen() {
     </SafeAreaView>
   );
 }
+
+type Review = {
+  rating: number;
+  comment: string;
+  reviewedAt: string;
+  customer?: {
+    customerName: string;
+    customerAvatar: string;
+  }
+}
+
+interface ReviewItemProps {
+  rev: Review;
+}
+
+const ReviewItem: React.FC<ReviewItemProps> = ({ rev }) => {
+  const [avatarError, setAvatarError] = useState(false);
+
+  return (
+    <View style={styles.reviewItem}>
+      <Image
+        source={
+          avatarError || !rev.customer?.customerAvatar
+            ? require("@/assets/images/user-placeholder.png")
+            : { uri: rev.customer.customerAvatar }
+        }
+        style={styles.reviewAvatar}
+        resizeMode="cover"
+        onError={() => setAvatarError(true)}
+      />
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={styles.reviewName} numberOfLines={1}>{rev.customer?.customerName ?? "Người dùng"}</Text>
+          <View style={{ flexDirection: "row", marginLeft: 5 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <MaterialIcons
+                key={i}
+                name={i <= rev.rating ? "star" : "star-border"}
+                size={16}
+                color={i <= rev.rating ? "#FFD700" : "#9CA3AF"}
+              />
+            ))}
+          </View>
+        </View>
+
+        <Text style={styles.reviewComment} numberOfLines={2}>{rev.comment}</Text>
+        <Text style={styles.reviewDate}>
+          {new Date(rev.reviewedAt).toLocaleDateString("vi-VN")}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.grayBackground },
@@ -289,19 +377,19 @@ const styles = StyleSheet.create({
   packageTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 4 },
   ratingRow: { flexDirection: "row", alignItems: "center" },
   ratingText: { fontWeight: "bold", marginLeft: 4 },
-  reviewCount: { color: "#666", marginLeft: 4 },
+  reviewCount: { color: "#666", fontSize: 12, fontFamily: "inter", marginLeft: 4 },
   seerCard: { marginBottom: 16, padding: 16 },
   seerRow: { flexDirection: "row", alignItems: "center" },
   seerAvatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12, borderWidth: 1, borderColor: Colors.grayBackground },
-  seerName: { fontWeight: "600" },
-  seerRating: { color: "#666" },
+  seerName: { fontWeight: "bold", fontSize: 17 },
+  seerRating: { color: "#666", fontFamily: "inter", fontSize: 14 },
   infoCard: { marginBottom: 16, padding: 16 },
-  infoTitle: { fontWeight: "600", marginBottom: 8 },
+  infoTitle: { fontWeight: "bold", fontSize: 16, marginBottom: 8 },
   infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  infoLabel: { flex: 1, marginLeft: 8, color: "#333" },
-  infoValue: { fontWeight: "600", color: "#000" },
+  infoLabel: { flex: 1, marginLeft: 8, color: "#333", fontFamily: "inter" },
+  infoValue: { fontWeight: "600", color: "#000", fontFamily: "inter" },
   descCard: { marginBottom: 16, padding: 16 },
-  descText: { color: "#333", marginTop: 6, lineHeight: 20 },
+  descText: { color: "#333", marginTop: 6, lineHeight: 20, fontFamily: "inter" },
 
   // ✅ Reviews
   reviewCard: { marginBottom: 16, padding: 16 },
@@ -310,10 +398,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 12,
   },
-  reviewAvatar: { width: 40, height: 40, borderRadius: 50, marginRight: 10 },
+  reviewAvatar: { width: 40, height: 40, borderRadius: 50, marginRight: 10, borderWidth: 1, borderColor: Colors.grayBackground },
   reviewName: { fontWeight: "600" },
-  reviewComment: { color: "#333", marginTop: 2 },
-  reviewDate: { fontSize: 12, color: "#888", marginTop: 2 },
+  reviewComment: { color: "#333", marginTop: 2, fontFamily: "inter", fontSize: 13 },
+  reviewDate: { fontSize: 11, color: "#888", marginTop: 2, fontFamily: "inter" },
 
   actionsRow: {
     flexDirection: "row",
@@ -344,6 +432,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  editText: { fontWeight: "600", color: Colors.black },
-  scheduleText: { fontWeight: "600", color: Colors.white },
+  editText: { fontFamily: "inter", color: Colors.black },
+  scheduleText: { fontFamily: "inter", color: Colors.white },
 });

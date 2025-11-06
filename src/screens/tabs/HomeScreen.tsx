@@ -157,10 +157,12 @@ export default function HomeScreen() {
                 price: `${detail.price.toLocaleString("vi-VN")} VNĐ`,
                 duration: `${detail.durationMinutes} phút`,
                 imageUrl: detail.imageUrl,
-                likes: p.likeCount, // Placeholder
-                dislikes: p.dislikeCount, // Placeholder
+                likes: p.likeCount,
+                dislikes: p.dislikeCount,
                 comments: '0 bình luận', // Placeholder
                 avatarUrl: detail.seer.avatarUrl,
+                isLike: p.isLike,
+                isDislike: p.isDislike,
               };
             } catch (detailErr) {
               console.error(`Error fetching details for package ${p.id}:`, detailErr);
@@ -461,6 +463,9 @@ export default function HomeScreen() {
               onDislike={handleDislike}
               isLiking={Boolean(likeInFlight[item.id])}
               onBooking={() => router.push({ pathname: "/book-package", params: { id: item.id, title: item.title, content: item.content, rating: item.rating, price: item.price, duration: item.duration, seer: item.seer, avatarUrl: item.avatarUrl } })}
+              userRole={role}
+              isLike={item.isLike}
+              isDislike={item.isDislike}
             />
           )
         )}
@@ -550,30 +555,33 @@ type ServicePackageCardProps = {
   onDislike?: (id: string) => void;
   isLiking?: boolean;
   onBooking?: (id: string, title: string, content: string, rating: number, price: string, duration: string, seer: string, avatarUrl: string) => void;
+  userRole?: string;
+  isLike: boolean;
+  isDislike: boolean;
 };
 
-const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDislike, onBooking }: ServicePackageCardProps) => {
+const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDislike, onBooking, userRole, isLike, isDislike }: ServicePackageCardProps) => {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
-  const [interaction, setInteraction] = useState("");
+  const [int, setInt] = useState(isLike ? "LIKE" : isDislike ? "DISLIKE" : "");
 
   function handleInteraction(interactionType: string) {
     if (interactionType === "LIKE") {
       onLike ? onLike(servicePackage.id) : null;
-      setInteraction("");
+      if (["", "DISLIKE"].includes(int)) setInt("LIKE");
+      else setInt("");
     }
     else if (interactionType === "DISLIKE") {
       onDislike ? onDislike(servicePackage.id) : null;
-      setInteraction("");
+      if (["", "LIKE"].includes(int)) setInt("DISLIKE");
+      else setInt("");
     }
     else {
       onLike ? onLike(servicePackage.id) : null;
-      setInteraction("LIKE");
+      setInt("LIKE");
     }
   }
-  // const isLiked = servicePackage.userInteraction === "LIKE";
-  // const isDisliked = servicePackage.userInteraction === "DISLIKE";
 
   return (
     <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={onToggle}>
@@ -588,7 +596,6 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
           style={styles.avatar}
           resizeMode="cover"
           onError={(e) => {
-            console.log("Avatar image failed to load:", e.nativeEvent);
             setAvatarError(true);
           }}
         />
@@ -648,7 +655,6 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
         }
         style={styles.packageImage}
         onError={(e) => {
-          console.log("Cover image failed to load:", e.nativeEvent);
           setCoverError(true);
         }}
       />
@@ -683,8 +689,8 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
         <TouchableOpacity
           style={[
             styles.actionButton,
-            (["LIKE", "DISLIKE"].includes(interaction)) && {
-              backgroundColor: interaction === "LIKE" ? "#E7F3FF" : "#FFF7E0",
+            (int === "LIKE" || int === "DISLIKE") && {
+              backgroundColor: int === "LIKE" ? "#E7F3FF" : "#FFF7E0",
               borderRadius: 10,
               paddingVertical: 6,
               paddingHorizontal: 10,
@@ -692,9 +698,9 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
           ]}
           onPress={
             () => {
-              if (interaction === "DISLIKE") {
+              if (int === "DISLIKE") {
                 handleInteraction("DISLIKE");
-              } else if (interaction === "LIKE") {
+              } else if (int === "LIKE") {
                 handleInteraction("LIKE");
               }
               else {
@@ -704,15 +710,19 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
           }
           onLongPress={() => setShowPopup(true)}
         >
-          <ThumbsUp
+          {(int === "LIKE" || int === "") && <ThumbsUp
             size={20}
-            color={interaction === "LIKE" ? "#1877F2" : interaction === "DISLIKE" ? Colors.brightYellow : "gray"}
-          />
-          {interaction === "LIKE" ?
+            color={int === "LIKE" ? "#1877F2" : "gray"}
+          />}
+          {int === "DISLIKE" && <ThumbsDown
+            size={20}
+            color={Colors.brightYellow}
+          />}
+          {int === "LIKE" ?
             <Text
               style={[styles.actionText, { color: "#1877F2" }]}>
               Thích
-            </Text> : interaction === "DISLIKE" ?
+            </Text> : int === "DISLIKE" ?
               <Text
                 style={[styles.actionText, { color: Colors.brightYellow }]}>
                 Không thích
@@ -765,14 +775,18 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
               style={{
                 alignItems: "center",
                 marginHorizontal: 10,
-                backgroundColor: interaction === "LIKE" ? "#E7F3FF" : "transparent",
+                backgroundColor: int === "LIKE" ? "#E7F3FF" : "transparent",
                 borderRadius: 8,
                 padding: 4,
               }}
               onPress={() => {
                 setShowPopup(false);
-                onLike && onLike(servicePackage.id);
-                interaction !== "LIKE" ? setInteraction("LIKE") : setInteraction("")
+                if (int === "LIKE") {
+                  handleInteraction("LIKE");
+                }
+                else {
+                  handleInteraction("");
+                }
               }}
             >
               <ThumbsUp size={26} color="#1877F2" />
@@ -783,14 +797,13 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
               style={{
                 alignItems: "center",
                 marginHorizontal: 10,
-                backgroundColor: interaction === "DISLIKE" ? "#FFF7E0" : "transparent",
+                backgroundColor: int === "DISLIKE" ? "#FFF7E0" : "transparent",
                 borderRadius: 8,
                 padding: 4,
               }}
               onPress={() => {
                 setShowPopup(false);
-                onDislike && onDislike(servicePackage.id);
-                interaction !== "DISLIKE" ? setInteraction("DISLIKE") : setInteraction("")
+                handleInteraction("DISLIKE");
               }}
             >
               <ThumbsDown size={26} color="#FBCB0A" />
@@ -801,7 +814,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
       )}
 
       {/* --- BOOK BUTTON --- */}
-      <TouchableOpacity
+      {userRole !== "SEER" && <TouchableOpacity
         style={styles.bookButtonContainer}
         onPress={() =>
           router.push({
@@ -820,7 +833,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
         }
       >
         <Text style={styles.bookButton}>Đặt lịch ngay</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
     </TouchableOpacity>
   );
 };

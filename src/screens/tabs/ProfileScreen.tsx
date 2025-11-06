@@ -143,6 +143,14 @@ export default function ProfileScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingOverlay} pointerEvents="none">
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
 
@@ -156,50 +164,41 @@ export default function ProfileScreen() {
         <Settings size={32} color={Colors.black} onPress={() => router.push("/profile-setting")} />
       </View>
 
-
-      <View style={styles.coverWrapper}>
-        <Image
-          source={
-            coverError || !coverUrl
-              ? require("@/assets/images/placeholder.png")
-              : { uri: coverUrl }
-          }
-          style={styles.cover}
-          onError={(e) => {
-            console.log('Cover image failed to load:', e.nativeEvent);
-            setCoverError(true);
-          }}
-        />
-      </View>
-
-      <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
-        <View style={[styles.container, styles.headerContainer]}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.coverWrapper}>
           <Image
             source={
-              avatarError || !avatarUrl
-                ? require('@/assets/images/user-placeholder.png')
-                : { uri: avatarUrl }
+              coverError || !coverUrl
+                ? require("@/assets/images/placeholder.png")
+                : { uri: coverUrl }
             }
-            style={styles.avatar}
+            style={styles.cover}
             onError={(e) => {
-              console.log('Avatar image failed to load:', e.nativeEvent);
-              setAvatarError(true);
+              console.log('Cover image failed to load:', e.nativeEvent);
+              setCoverError(true);
             }}
           />
-          <Text style={styles.name}>{fullName}</Text>
-          {role === "SEER" && <StatusDropdown value={status} onChange={handleStatusChange} />}
-          <Text style={{ fontFamily: "inter", marginTop: 10 }}>{description}</Text>
         </View>
-      </View>
 
-      {loading && (
-        <View style={styles.loadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color={Colors.primary} />
+        <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
+          <View style={[styles.container, styles.headerContainer]}>
+            <Image
+              source={
+                avatarError || !avatarUrl
+                  ? require('@/assets/images/user-placeholder.png')
+                  : { uri: avatarUrl }
+              }
+              style={styles.avatar}
+              onError={(e) => {
+                console.log('Avatar image failed to load:', e.nativeEvent);
+                setAvatarError(true);
+              }}
+            />
+            <Text style={styles.name}>{fullName}</Text>
+            {role === "SEER" && <StatusDropdown value={status} onChange={handleStatusChange} />}
+            <Text style={{ fontFamily: "inter", marginTop: 10 }}>{description}</Text>
+          </View>
         </View>
-      )}
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}>
 
         {role === "CUSTOMER" && <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />}
         {role === "CUSTOMER" && <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />}
@@ -212,8 +211,6 @@ export default function ProfileScreen() {
             rejected={packageRejectedCount}
           />
         )}
-
-        <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 
         <TouchableOpacity
           style={[styles.actionCard, styles.cardShadow]}
@@ -228,6 +225,8 @@ export default function ProfileScreen() {
             <Text style={styles.actionSubtitle}>Theo dõi các thanh toán gần đây của bạn</Text>
           </View>
         </TouchableOpacity>
+
+        <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 
       </ScrollView>
 
@@ -487,6 +486,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#555",
     marginTop: 4,
+    fontFamily: "inter",
   },
 
 
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 15,
     marginHorizontal: 10,
-    marginBottom: 10,
+    marginBottom: 15,
     padding: 16,
     // borderWidth: 1,
     // borderColor: Colors.primary,
@@ -559,8 +559,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginHorizontal: 10,
-    marginTop: 5,
-    marginBottom: 20,
+    marginBottom: 15,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e2e8f0",
     gap: 12,
@@ -582,6 +581,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 13,
     color: "#64748b",
+    fontFamily: "inter",
   },
   cardShadow: {
     shadowColor: Colors.black,
@@ -618,6 +618,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     marginTop: 4,
     fontSize: 13,
+    fontFamily: "inter",
   },
   serviceInner: {
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -641,6 +642,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.85)',
     marginTop: 4,
+    fontFamily: "inter",
   },
   serviceFooter: {
     marginTop: 12,
@@ -650,6 +652,6 @@ const styles = StyleSheet.create({
   serviceFooterText: {
     color: 'rgba(255,255,255,0.95)',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: "inter",
   },
 })

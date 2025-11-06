@@ -391,7 +391,6 @@ function BookingCard({ booking, role }: { booking: BookingResponse, role: string
             }
             style={styles.avatar}
             onError={(e) => {
-              console.log('Avatar image failed to load:', e.nativeEvent);
               setAvatarError(true);
             }}
           />
@@ -404,14 +403,13 @@ function BookingCard({ booking, role }: { booking: BookingResponse, role: string
             }
             style={styles.avatar}
             onError={(e) => {
-              console.log('Avatar image failed to load:', e.nativeEvent);
               setAvatarError(true);
             }}
           />
         )}
         <View style={{ flex: 1 }}>
-          {role === "SEER" ? (<Text style={styles.name}>{booking.customer.fullName}</Text>) : (<Text style={styles.name}>{booking.seer.fullName}</Text>)}
-          <Text style={styles.desc}>{booking.servicePackage.packageTitle}</Text>
+          {role === "SEER" ? (<Text style={styles.name} numberOfLines={1}>{booking.customer.fullName}</Text>) : (<Text style={styles.name} numberOfLines={1}>{booking.seer.fullName}</Text>)}
+          <Text style={styles.desc} numberOfLines={2}>{booking.servicePackage.packageTitle}</Text>
           <View style={styles.row}>
             <Ionicons name="calendar-outline" size={14} color="#555" />
             <Text style={styles.infoText}>{formattedDate}</Text>
@@ -524,9 +522,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   name: { fontSize: 15, fontFamily: "inter", fontWeight: "600", color: "#111" },
-  desc: { fontSize: 13, fontFamily: "inter", color: "#555", marginBottom: 4 },
+  desc: { fontSize: 13, fontFamily: "inter", color: "#333", marginBottom: 4 },
   row: { flexDirection: "row", alignItems: "center" },
-  infoText: { fontSize: 12, color: "#333", marginLeft: 4 },
+  infoText: { fontSize: 12, color: "#666", marginLeft: 4, fontFamily: "inter" },
 
   badgeWrapper: { marginLeft: 8 },
   badge: {

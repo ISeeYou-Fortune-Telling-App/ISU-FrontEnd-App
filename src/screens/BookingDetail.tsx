@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,8 +19,9 @@ export default function BookingDetailScreen() {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState("");
     const [submitting, setSubmitting] = useState(false);
-    const [reviews, setReviews] = useState<any[]>([]);
+    const [review, setReview] = useState<any | null>(null);
     const [role, setRole] = useState<string>("");
+    const [redirectUrl, setRedirectUrl] = useState("");
 
     const fetchBookingDetail = async (bookingId: string) => {
         try {
@@ -28,7 +29,7 @@ export default function BookingDetailScreen() {
             const res = await getBookingDetail(bookingId);
             const data = res?.data?.data ?? null;
             setBooking(data);
-            setReviews(data?.reviews ?? []);
+            setReview(data?.review);
         } catch (err) {
             console.error("Failed to fetch booking detail", err);
             Alert.alert("Lỗi", "Không thể tải chi tiết lịch hẹn");
@@ -51,9 +52,7 @@ export default function BookingDetailScreen() {
                 comment: comment?.trim() || undefined,
             });
             const newReview = res?.data?.data;
-            if (newReview) {
-                setReviews((prev) => [newReview, ...prev]);
-            }
+            if (newReview) setReview(newReview);
             Alert.alert("Thành công", "Cảm ơn bạn đã gửi đánh giá!");
             setRating(0);
             setComment("");
@@ -81,30 +80,19 @@ export default function BookingDetailScreen() {
     }
 
     const renderReviewCard = (review: any) => (
-        <View key={review.reviewId || review.reviewedAt} style={styles.reviewCard}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Image
-                    source={
-                        review.customer?.customerAvatar
-                            ? { uri: review.customer.customerAvatar }
-                            : require("@/assets/images/user-placeholder.png")
-                    }
-                    style={styles.reviewAvatar}
-                />
-                <View style={{ marginLeft: 10, flex: 1 }}>
-                    <Text style={styles.reviewName}>{review.customer?.customerName}</Text>
+        <View style={styles.reviewCard}>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.reviewDate}>
                         {dayjs(review.reviewedAt).format("DD/MM/YYYY HH:mm")}
                     </Text>
                 </View>
-            </View>
 
             <View style={{ flexDirection: "row", marginVertical: 6 }}>
                 {[1, 2, 3, 4, 5].map((i) => (
                     <MaterialIcons
                         key={i}
                         name={i <= Math.round(review.rating) ? "star" : "star-border"}
-                        size={20}
+                        size={32}
                         color={i <= Math.round(review.rating) ? "#FFD700" : "#9CA3AF"}
                     />
                 ))}
@@ -154,9 +142,9 @@ export default function BookingDetailScreen() {
         <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{flex: 1}}
+                style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
-                    
+
                 <View style={styles.header}>
                     <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
                     <View style={styles.titleContainer}>
@@ -191,10 +179,10 @@ export default function BookingDetailScreen() {
                             <View style={styles.statusCard}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <MaterialIcons name="schedule" size={20} color={Colors.primary} />
+                                        <MaterialIcons name="schedule" size={22} color={Colors.primary} />
                                         <View style={{ marginLeft: 8 }}>
                                             <Text style={{ fontWeight: '700' }}>Trạng thái lịch hẹn</Text>
-                                            <Text style={{ color: '#6b7280' }}>Mã: {String(booking.id).slice(0, 8)}</Text>
+                                            <Text style={{ color: '#6b7280', fontFamily: "inter" }}>Mã: {String(booking.id).slice(0, 8)}</Text>
                                         </View>
                                     </View>
                                     <View style={[styles.smallBadge, booking.status === "COMPLETED" ? { backgroundColor: '#dcfce7' } : booking.status === "CONFIRMED" ? { backgroundColor: '#e0e7ff' } : booking.status === "PENDING" ? { backgroundColor: '#faffe0ff' } : { backgroundColor: '#fee2e2' }]}>
@@ -209,7 +197,7 @@ export default function BookingDetailScreen() {
                                 </View>
                                 {booking.status === 'PENDING' && (
                                     <View style={styles.infoBox}>
-                                        <Text style={{ color: Colors.primary }}>Lịch hẹn đang chờ xác nhận. Bạn sẽ nhận được thông báo khi được duyệt.</Text>
+                                        <Text style={{ color: Colors.primary, fontFamily: "inter" }}>Lịch hẹn đang chờ xác nhận. Bạn sẽ nhận được thông báo khi được duyệt.</Text>
                                     </View>
                                 )}
                             </View>
@@ -233,7 +221,7 @@ export default function BookingDetailScreen() {
                                         />
                                         <View style={{ marginLeft: 12, flex: 1 }}>
                                             <Text style={{ fontWeight: '700' }}>{booking.seer?.fullName}</Text>
-                                            <Text style={{ marginTop: 6, color: '#f59e0b' }}>⭐ {booking.seer?.avgRating ?? '-'}</Text>
+                                            <Text style={{ marginTop: 6, color: '#f59e0b', fontFamily: "inter" }}>⭐ {booking.seer?.avgRating ?? '-'}</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -266,36 +254,36 @@ export default function BookingDetailScreen() {
                             {/* Booking detail */}
                             <View style={styles.card}>
                                 <Text style={styles.cardTitle}>Chi tiết lịch hẹn</Text>
-                                <Text style={{ fontWeight: '700', marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
-                                <Text style={{ marginTop: 8, color: '#374151' }}>{booking.servicePackage?.packageContent}</Text>
+                                <Text style={{ fontWeight: '700', fontSize: 15, marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
+                                <Text style={{ marginTop: 8, color: '#374151', fontFamily: "inter" }}>{booking.servicePackage?.packageContent}</Text>
 
                                 <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
                                     {(booking.servicePackage?.categories || []).map((c: string, idx: number) => (
                                         <View key={idx} style={[styles.tag]}>
-                                            <Text style={{ color: '#374151' }}>{c}</Text>
+                                            <Text style={{ color: '#374151', fontFamily: "inter" }}>{c}</Text>
                                         </View>
                                     ))}
                                 </View>
 
                                 <View style={{ flexDirection: 'row', marginTop: 12 }}>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ color: '#6b7280' }}>Ngày</Text>
-                                        <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('dddd, DD/MM/YYYY')}</Text>
+                                        <Text style={styles.infoTitle}>Ngày</Text>
+                                        <Text style={styles.infoContent}>{dayjs(booking.scheduledTime).format('dddd, DD/MM/YYYY')}</Text>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ color: '#6b7280' }}>Thời gian</Text>
-                                        <Text style={{ marginTop: 6 }}>{dayjs(booking.scheduledTime).format('HH:mm')}</Text>
+                                        <Text style={styles.infoTitle}>Thời gian</Text>
+                                        <Text style={styles.infoContent}>{dayjs(booking.scheduledTime).format('HH:mm')}</Text>
                                     </View>
                                 </View>
 
                                 <View style={{ flexDirection: 'row', marginTop: 12 }}>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ color: '#6b7280' }}>Giá tiền</Text>
+                                        <Text style={styles.infoTitle}>Giá tiền</Text>
                                         <Text style={{ marginTop: 6, color: '#10B981', fontWeight: '700' }}>{booking.servicePackage?.price?.toLocaleString('vi-VN')} VND</Text>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ color: '#6b7280' }}>Thời lượng</Text>
-                                        <Text style={{ marginTop: 6 }}>{booking.servicePackage?.durationMinutes} phút</Text>
+                                        <Text style={styles.infoTitle}>Thời lượng</Text>
+                                        <Text style={styles.infoContent}>{booking.servicePackage?.durationMinutes} phút</Text>
                                     </View>
                                 </View>
                             </View>
@@ -304,7 +292,7 @@ export default function BookingDetailScreen() {
                             {booking.additionalNote ? (
                                 <View style={styles.card}>
                                     <Text style={styles.cardTitle}>Ghi chú</Text>
-                                    <Text style={{ marginTop: 8, color: '#374151' }}>{booking.additionalNote}</Text>
+                                    <Text style={styles.infoText}>{booking.additionalNote}</Text>
                                 </View>
                             ) : null}
 
@@ -316,9 +304,23 @@ export default function BookingDetailScreen() {
                                         const p = booking.bookingPaymentInfos[0];
                                         return (
                                             <View style={{ marginTop: 8 }}>
-                                                <Text>Phương thức: {p.paymentMethod}</Text>
-                                                <Text style={{ marginTop: 6 }}>Trạng thái: <Text style={{ color: p.paymentStatus === 'COMPLETED' ? '#16a34a' : '#dc2626' }}>{p.paymentStatus === 'COMPLETED' ? 'Đã thanh toán' : p.paymentStatus}</Text></Text>
-                                                <Text style={{ marginTop: 6 }}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VND</Text>
+                                                <Text style={styles.infoText}>Phương thức: {p.paymentMethod}</Text>
+                                                <Text style={styles.infoText}>Trạng thái: <Text style={[styles.infoText, {
+                                                    color: p.paymentStatus === "COMPLETED" ? '#16a34a' :
+                                                        p.paymentStatus === "FAILED" ? '#dc2626' :
+                                                            p.paymentStatus === "REFUNDED" ? Colors.gray :
+                                                                Colors.brightYellow
+                                                }]}>
+                                                    {
+                                                        p.paymentStatus === "COMPLETED" ? 'Đã thanh toán' :
+                                                            p.paymentStatus === "FAILED" ? 'Đã thất bại' :
+                                                                p.paymentStatus === "REFUNDED" ? 'Đã hoàn tiền' :
+                                                                    'Chờ thanh toán'
+                                                    }</Text></Text>
+                                                <Text style={styles.infoText}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VNĐ</Text>
+                                                {(p.paymentStatus === "PENDING" && p.approvalUrl) && <TouchableOpacity style={styles.paymentButton} onPress={() => { Linking.openURL(p.approvalUrl) }}>
+                                                    <Text style={{ color: Colors.white, fontFamily: "inter" }}>Thanh toán</Text>
+                                                </TouchableOpacity>}
                                             </View>
                                         );
                                     })()
@@ -337,7 +339,7 @@ export default function BookingDetailScreen() {
                             </View>
 
                             {/* Review form + reviews */}
-                            {booking.status === "COMPLETED" && role === "CUSTOMER" && (
+                            {booking.status === "COMPLETED" && role === "CUSTOMER" && !review && (
                                 <View style={[styles.card, { marginBottom: 10 }]}>
                                     <Text style={styles.cardTitle}>Đánh giá</Text>
                                     {renderStars()}
@@ -377,16 +379,16 @@ export default function BookingDetailScreen() {
                                             )}
                                         </TouchableOpacity>
                                     </View>
-
-                                    {/* Render all reviews */}
-                                    {reviews.length > 0 && (
-                                        <View style={{ marginTop: 16 }}>
-                                            {reviews.map((r) => renderReviewCard(r))}
-                                        </View>
-                                    )}
                                 </View>
                             )}
 
+                            {/* Render review */}
+                            {review && (
+                                <View style={[styles.card, { marginBottom: 10 }]}>
+                                    <Text style={styles.cardTitle}>Đánh giá</Text>
+                                    {renderReviewCard(review)}
+                                </View>
+                            )}
                         </View>
                     )}
                 </ScrollView>
@@ -473,7 +475,8 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         color: '#6b7280',
-        fontWeight: '700'
+        fontWeight: "bold",
+        fontSize: 16
     },
     avatarLarge: {
         width: 64,
@@ -511,21 +514,33 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e5e7eb',
     },
+    paymentButton: {
+        flex: 1,
+        paddingVertical: 12,
+        backgroundColor: Colors.green,
+        borderRadius: 10,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        marginTop: 10
+    },
     dangerButton: {
         flex: 1,
         paddingVertical: 12,
         backgroundColor: '#ef4444',
         borderRadius: 10,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
     },
     reviewCard: {
-        borderTopWidth: 1,
-        borderColor: "#E5E7EB",
-        paddingTop: 10,
         marginTop: 10,
     },
     reviewAvatar: { width: 40, height: 40, borderRadius: 20 },
     reviewName: { fontWeight: "600", color: "#111827" },
     reviewDate: { fontSize: 12, color: "#6b7280" },
-    reviewComment: { marginTop: 6, color: "#374151" },
+    reviewComment: { marginTop: 6, color: "#374151", fontFamily: "inter" },
+    infoTitle: { color: '#6b7280', fontFamily: "inter" },
+    infoContent: { marginTop: 6, fontFamily: "inter", fontSize: 12 },
+    infoText: { marginTop: 8, color: '#374151', fontFamily: "inter" }
 });

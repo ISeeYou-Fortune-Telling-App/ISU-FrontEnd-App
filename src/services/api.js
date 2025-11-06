@@ -236,6 +236,9 @@ export const getCustomerPayments = (params) =>
 export const getSeerPayments = (params) =>
   API.get("/bookings/seer/payments", { params });
 
+export const getPackageBookingReviews = (params) =>
+  API.get("/bookings/seer/reviews", { params });
+
 export const getChatMessages = (conversationId, params) =>
   API.get(`/chat/conversations/${conversationId}/messages`, { params });
 
@@ -296,8 +299,8 @@ export const createServicePackage = (seerId, data) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-export const updateServicePackage = (id, seerId, data) =>
-  API.put(`/service-packages?id=${id}&seerId=${seerId}`, data, {
+export const updateServicePackage = (id, data) =>
+  API.put(`/service-packages?id=${id}`, data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 

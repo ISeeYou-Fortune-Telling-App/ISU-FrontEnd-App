@@ -1,4 +1,5 @@
 import Colors from "@/src/constants/colors";
+import { logoutUser } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -33,8 +34,8 @@ export default function SettingScreen() {
                             text: "Đăng xuất",
                             style: "destructive",
                             onPress: async () => {
-                                // const token = await SecureStore.getItemAsync("expoPushToken") || "";
-                                // await logoutUser(token);
+                                const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
+                                await logoutUser(fcmToken);
                                 await SecureStore.deleteItemAsync("authToken");
                                 await SecureStore.deleteItemAsync("refreshToken");
                                 await SecureStore.deleteItemAsync("userRole");

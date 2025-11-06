@@ -2,6 +2,7 @@ import Colors from "@/src/constants/colors";
 import { getMyPackages } from "@/src/services/api";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
+import { Clock } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -73,7 +74,7 @@ export default function MyPackagesScreen() {
                         >
                             <Text style={[styles.tabLabel, tab === t.key && { color: t.color ? Colors.white : Colors.white }]}>{t.label}</Text>
                             <View style={[styles.tabCount, tab === t.key && styles.tabCountActive, t.color && tab === t.key ? { backgroundColor: t.color } : {}]}>
-                                <Text style={{ color: tab === t.key ? Colors.white : Colors.primary, fontWeight: "bold" }}>{tabCounts[t.key]}</Text>
+                                <Text style={{ color: tab === t.key ? Colors.white : Colors.primary, fontFamily: "inter" }}>{tabCounts[t.key]}</Text>
                             </View>
                         </TouchableOpacity>
                     )}
@@ -148,7 +149,6 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                     }
                     style={styles.cardImage}
                     onError={(e) => {
-                        console.log('Cover image failed to load:', e.nativeEvent);
                         setCoverError(true);
                     }}
                 />
@@ -165,7 +165,7 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                 </View>
             </View>
             <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{pkg.packageTitle}</Text>
+                <Text style={styles.cardTitle} numberOfLines={1}>{pkg.packageTitle}</Text>
                 <Text style={styles.cardDesc} numberOfLines={2}>{pkg.packageContent}</Text>
                 {pkg.status === "REJECTED" && pkg.rejectionReason && (
                     <View style={styles.rejectReasonBox}>
@@ -173,8 +173,12 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                     </View>
                 )}
                 <View style={styles.cardMetaRow}>
-                    <Text style={styles.cardPrice}>${pkg.price.toLocaleString()} VNĐ</Text>
-                    <Text style={styles.cardDuration}>{pkg.durationMinutes} phút</Text>
+                    <Text style={styles.cardPrice}>{pkg.price.toLocaleString()} ₫</Text>
+                    <View style={{flexDirection: "row", alignItems: "center"}}>
+                        <Clock size={16} color={Colors.gray}/>
+                        <Text style={styles.cardDuration}>{pkg.durationMinutes} phút</Text>
+                    </View>
+                    
                 </View>
                 {(pkg.status === "AVAILABLE" || pkg.status === "HIDDEN") && (
                     <View style={styles.cardRatingRow}>
@@ -239,7 +243,7 @@ const styles = StyleSheet.create({
     },
     tabLabel: {
         color: Colors.primary,
-        fontWeight: "600",
+        fontFamily: "inter",
         fontSize: 15,
         marginRight: 6,
     },
@@ -290,7 +294,7 @@ const styles = StyleSheet.create({
     },
     categoryBadgeText: {
         color: Colors.white,
-        fontWeight: "600",
+        fontFamily: "inter",
         fontSize: 13,
     },
     statusBadge: {
@@ -335,6 +339,7 @@ const styles = StyleSheet.create({
     cardDesc: {
         color: Colors.gray,
         fontSize: 14,
+        fontFamily: "inter",
         marginBottom: 8,
     },
     cardMetaRow: {
@@ -345,13 +350,14 @@ const styles = StyleSheet.create({
     },
     cardPrice: {
         color: Colors.green,
-        fontWeight: "bold",
+        fontFamily: "inter",
         fontSize: 15,
-        marginRight: 12,
     },
     cardDuration: {
         color: Colors.gray,
         fontSize: 14,
+        marginLeft: 3,
+        fontFamily: "inter",
     },
     cardRatingRow: {
         flexDirection: "row",
@@ -360,13 +366,14 @@ const styles = StyleSheet.create({
     },
     cardRating: {
         color: Colors.yellow,
-        fontWeight: "bold",
+        fontFamily: "inter",
         fontSize: 15,
         marginLeft: 4,
     },
     cardReviewCount: {
         color: Colors.gray,
-        fontSize: 13,
+        fontSize: 12,
         marginLeft: 4,
+        fontFamily: "inter",
     },
 });

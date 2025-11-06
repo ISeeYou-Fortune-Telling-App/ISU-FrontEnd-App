@@ -162,7 +162,8 @@ export default function AuthScreen() {
 
         try {
             setSubmitting(true);
-            const fcmToken = await SecureStore.getItemAsync("expoPushToken") || "";
+            const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
+            console.log('Uploaded FCM Token: ', fcmToken);
             const response = await loginUser({ email, password, fcmToken });
             const payload = response?.data?.data;
 
