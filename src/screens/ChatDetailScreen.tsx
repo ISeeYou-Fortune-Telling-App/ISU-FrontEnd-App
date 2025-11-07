@@ -53,7 +53,9 @@ const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB cap to keep uploads reli
 const MAX_VIDEO_DURATION_MS = 3 * 60 * 1000; // 3 minutes max duration
 
 const normalizeStatus = (status?: string | null): MessageStatus => {
-  switch ((status ?? "").toLowerCase()) {
+  const normalized = (status ?? "").toString().toLowerCase();
+
+  switch (normalized) {
     case "sending":
     case "pending":
       return "sending";
@@ -63,9 +65,9 @@ const normalizeStatus = (status?: string | null): MessageStatus => {
       return "read";
     case "failed":
     case "error":
+      return "failed";
     case "removed":
     case "deleted":
-      return "failed";
     case "recalled":
       return "sent";
     case "unread":
@@ -84,8 +86,12 @@ const mapApiMessage = (item: any, currentUserId: string | null): ChatMessage => 
     typeof item?.createdAt === "number"
       ? item.createdAt
       : new Date(item?.createdAt ?? item?.timestamp ?? Date.now()).getTime();
+  const statusRaw = (item?.status ?? item?.messageStatus ?? "")
+    ?.toString()
+    .toLowerCase();
 
-  const isRecalled = Boolean(item?.recalled ?? item?.isRecalled);
+  const isRecalled =
+    statusRaw === "deleted" || Boolean(item?.recalled ?? item?.isRecalled);
 
   const attachments: Attachment[] = [];
 
@@ -190,7 +196,12 @@ export default function ChatDetailScreen() {
       try {
         setLoadError(null);
         const [messagesResponse, conversationResponse] = await Promise.all([
-          getChatMessages(conversationId),
+          getChatMessages(conversationId, {
+            page: 1,
+            limit: 100,
+            sortType: "asc",
+            sortBy: "createdAt",
+          }),
           getChatConversation(conversationId),
         ]);
 
