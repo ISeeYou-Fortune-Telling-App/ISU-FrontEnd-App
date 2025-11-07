@@ -18,7 +18,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
+  Modal,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -40,6 +42,8 @@ type KnowledgeReference = {
   category?: string;
   confidence?: number;
   sourceUrl?: string;
+  knowledgeId?: string;
+  type?: "knowledge" | "external";
 };
 
 type AIMessage = {
@@ -51,6 +55,15 @@ type AIMessage = {
   processingTime?: number | null;
   references?: KnowledgeReference[];
 };
+
+const TOP_K_OPTIONS = [5, 20, 40] as const;
+const TOP_K_DESCRIPTIONS: Record<(typeof TOP_K_OPTIONS)[number], string> = {
+  5: "Chuẩn xác",
+  20: "Cân bằng",
+  40: "Sáng tạo",
+};
+
+const DEFAULT_TOP_K = 20;
 
 const INITIAL_MESSAGES: AIMessage[] = [
   {
@@ -89,6 +102,120 @@ const normalizeConfidence = (value: any): number | undefined => {
     return undefined;
   }
   return value;
+};
+
+const mergeKnowledgeReferences = (
+  primary: KnowledgeReference[],
+  secondary: KnowledgeReference[],
+): KnowledgeReference[] => {
+  const merged = new Map<string, KnowledgeReference>();
+
+  const addReference = (reference: KnowledgeReference) => {
+    if (!reference) {
+      return;
+    }
+    const key = reference.knowledgeId ?? reference.id ?? reference.title;
+    if (!key) {
+      return;
+    }
+
+    if (!merged.has(key)) {
+      merged.set(key, reference);
+      return;
+    }
+
+    const existing = merged.get(key)!;
+    merged.set(key, {
+      ...existing,
+      ...reference,
+      confidence: reference.confidence ?? existing.confidence,
+      snippet: reference.snippet ?? existing.snippet,
+      category: reference.category ?? existing.category,
+      sourceUrl: reference.sourceUrl ?? existing.sourceUrl,
+    });
+  };
+
+  primary.forEach(addReference);
+  secondary.forEach(addReference);
+
+  return Array.from(merged.values());
+};
+
+const parseDocumentReference = (raw: string): KnowledgeReference | null => {
+  if (!raw) {
+    return null;
+  }
+
+  const sanitized = raw.replace(/^[-–•\s]+/, "").trim();
+  if (!sanitized) {
+    return null;
+  }
+
+  const fileSegment = sanitized.split("/").pop() ?? sanitized;
+  const withoutExtension = fileSegment.replace(/\.txt$/i, "").trim();
+
+  if (!withoutExtension) {
+    return null;
+  }
+
+  const underscoreIndex = withoutExtension.indexOf("_");
+  if (underscoreIndex === -1) {
+    return null;
+  }
+
+  const knowledgeId = withoutExtension.slice(0, underscoreIndex).trim();
+  const rawTitle = withoutExtension.slice(underscoreIndex + 1).trim();
+  const title = rawTitle.replace(/_/g, " ").trim() || "Tài liệu tham khảo";
+
+  if (!knowledgeId) {
+    return null;
+  }
+
+  return {
+    id: knowledgeId,
+    knowledgeId,
+    title,
+    category: "Kho tri thức",
+    type: "knowledge",
+  };
+};
+
+const extractKnowledgeReferencesFromAnswer = (
+  answer: string,
+): { cleanedAnswer: string; references: KnowledgeReference[] } => {
+  if (!answer) {
+    return { cleanedAnswer: "", references: [] };
+  }
+
+  let working = stripSseArtifacts(answer).replace(/\r\n/g, "\n");
+
+  const references: KnowledgeReference[] = [];
+  const dcMatches = Array.from(working.matchAll(/\[DC\]\s*([^\n]+)/gi));
+  dcMatches.forEach((match) => {
+    const parsed = parseDocumentReference(match[1]);
+    if (parsed) {
+      references.push(parsed);
+    }
+  });
+
+  working = working.replace(/\[KG\][^\n]*(\n|$)/gi, (_, newline) => (newline ? "\n" : ""));
+  working = working.replace(/\[DC\][^\n]*(\n|$)/gi, (_, newline) => (newline ? "\n" : ""));
+  working = working.replace(/^\s{0,3}#{1,6}\s*references?\s*$/gim, "");
+  working = working.replace(/^-{3,}\s*$/gm, "");
+
+  const cleanedAnswer = working
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line, index, array) => {
+      if (line.trim().length === 0) {
+        return index === 0 ? false : array[index - 1].trim().length !== 0;
+      }
+      return true;
+    })
+    .join("\n")
+    .trim();
+
+  return { cleanedAnswer, references };
 };
 
 const normalizeReferences = (raw: any): KnowledgeReference[] => {
@@ -177,9 +304,10 @@ const normalizeReferences = (raw: any): KnowledgeReference[] => {
         category,
         confidence,
         sourceUrl,
+        type: sourceUrl ? "external" : undefined,
       };
     })
-    .filter((item): item is KnowledgeReference => Boolean(item));
+    .filter((item: KnowledgeReference | null): item is KnowledgeReference => Boolean(item));
 };
 
 const formatConfidence = (value?: number): string | null => {
@@ -217,6 +345,8 @@ export default function AIChatScreen() {
   const [selectedImages, setSelectedImages] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [topK, setTopK] = useState<(typeof TOP_K_OPTIONS)[number]>(DEFAULT_TOP_K);
+  const [topKPickerVisible, setTopKPickerVisible] = useState<boolean>(false);
   const streamingControllerRef = useRef<AbortController | null>(null);
 
   const scrollToEnd = useCallback(() => {
@@ -229,24 +359,34 @@ export default function AIChatScreen() {
     };
   }, []);
 
-  const handleOpenReference = useCallback(async (url: string) => {
-    if (!url) {
-      return;
-    }
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        Alert.alert("Không thể mở nguồn", "Liên kết tham khảo không khả dụng.");
+  const handleReferencePress = useCallback(
+    async (reference: KnowledgeReference) => {
+      if (reference.knowledgeId) {
+        router.push({ pathname: "/knowledge-detail", params: { knowledgeId: reference.knowledgeId } } as never);
         return;
       }
 
-      await Linking.openURL(url);
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Không thể mở nguồn", "Vui lòng thử lại sau.");
-    }
-  }, []);
+      const targetUrl = reference.sourceUrl;
+      if (!targetUrl) {
+        Alert.alert("Không thể mở nguồn", "Nguồn tham khảo chưa sẵn sàng.");
+        return;
+      }
+
+      try {
+        const supported = await Linking.canOpenURL(targetUrl);
+        if (!supported) {
+          Alert.alert("Không thể mở nguồn", "Liên kết tham khảo không khả dụng.");
+          return;
+        }
+
+        await Linking.openURL(targetUrl);
+      } catch (error) {
+        console.error(error);
+        Alert.alert("Không thể mở nguồn", "Vui lòng thử lại sau.");
+      }
+    },
+    [router],
+  );
 
   const handlePickImages = useCallback(async () => {
     try {
@@ -367,7 +507,8 @@ export default function AIChatScreen() {
     const combinedQuestion = combinedQuestionParts.join("\n\n");
 
     const assistantId = `assistant-${Date.now() + 1}`;
-    let streamedContent = "";
+    let rawStreamedContent = "";
+    let latestParsedStream = { cleanedAnswer: "", references: [] as KnowledgeReference[] };
     let streamFailed = false;
 
     const placeholderMessage: AIMessage = {
@@ -384,8 +525,7 @@ export default function AIChatScreen() {
       await streamChatWithAI(
         {
           question: combinedQuestion,
-          topK: 20,
-          forceReindex: false,
+          topK,
         },
         {
           onStart: (controller) => {
@@ -399,9 +539,19 @@ export default function AIChatScreen() {
             if (!cleanedChunk) {
               return;
             }
-            streamedContent += cleanedChunk;
+            rawStreamedContent += cleanedChunk;
+            const parsed = extractKnowledgeReferencesFromAnswer(rawStreamedContent);
+            latestParsedStream = parsed;
             setMessages((prev) =>
-              prev.map((item) => (item.id === assistantId ? { ...item, content: streamedContent } : item)),
+              prev.map((item) =>
+                item.id === assistantId
+                  ? {
+                      ...item,
+                      content: parsed.cleanedAnswer,
+                      references: parsed.references.length > 0 ? parsed.references : item.references,
+                    }
+                  : item,
+              ),
             );
           },
           onError: () => {
@@ -417,41 +567,55 @@ export default function AIChatScreen() {
       streamFailed = true;
     }
 
-    if (streamFailed || streamedContent.trim().length === 0) {
+    if (streamFailed || rawStreamedContent.trim().length === 0) {
       try {
         const response = await chatWithAI({
           question: combinedQuestion,
-          topK: 20,
-          forceReindex: false,
+          topK,
         });
 
-        const payload = response?.data?.data;
-        const references = normalizeReferences(
-          payload?.references ??
-            payload?.knowledgeBaseReferences ??
-            payload?.sources ??
-            payload?.documents ??
-            payload?.matches ??
-            payload?.results ??
-            payload?.citations ??
-            payload?.contexts ??
-            payload,
+        const payloadRoot = response?.data?.data ?? response?.data ?? response;
+        const rawAnswer =
+          typeof payloadRoot?.answer === "string" && payloadRoot.answer.trim().length > 0
+            ? payloadRoot.answer
+            : "";
+
+        const parsedFromAnswer = extractKnowledgeReferencesFromAnswer(rawAnswer);
+        const normalizedReferences = normalizeReferences(
+          payloadRoot?.references ??
+            payloadRoot?.knowledgeBaseReferences ??
+            payloadRoot?.sources ??
+            payloadRoot?.documents ??
+            payloadRoot?.matches ??
+            payloadRoot?.results ??
+            payloadRoot?.citations ??
+            payloadRoot?.contexts ??
+            payloadRoot,
         );
 
-        const rawAnswer =
-          typeof payload?.answer === "string" && payload?.answer.trim().length > 0
-            ? payload.answer
-            : undefined;
-        const sanitizedAnswer = rawAnswer ? stripSseArtifacts(rawAnswer) : undefined;
+        const combinedReferences = mergeKnowledgeReferences(
+          parsedFromAnswer.references,
+          normalizedReferences,
+        );
+
+        const sanitizedAnswerRaw = parsedFromAnswer.cleanedAnswer || rawAnswer;
+        const sanitizedAnswer = sanitizedAnswerRaw
+          ? stripSseArtifacts(sanitizedAnswerRaw).trim()
+          : "";
 
         const fallbackMessage: AIMessage = {
           id: assistantId,
           role: "assistant",
           createdAt: Date.now(),
           content:
-            sanitizedAnswer ??
-            "Xin lỗi, hiện tại mình chưa thể phản hồi yêu cầu này. Bạn hãy thử lại sau nhé!",
-          references: references.length > 0 ? references : undefined,
+            sanitizedAnswer.length > 0
+              ? sanitizedAnswer
+              : "Xin lỗi, hiện tại mình chưa thể phản hồi yêu cầu này. Bạn hãy thử lại sau nhé!",
+          references: combinedReferences.length > 0 ? combinedReferences : undefined,
+          processingTime:
+            typeof payloadRoot?.processingTime === "number"
+              ? payloadRoot.processingTime
+              : undefined,
         };
 
         setMessages((prev) => prev.map((item) => (item.id === assistantId ? fallbackMessage : item)));
@@ -476,7 +640,18 @@ export default function AIChatScreen() {
       setMessages((prev) =>
         prev.map((item) =>
           item.id === assistantId
-            ? { ...item, content: streamedContent, createdAt: Date.now() }
+            ? {
+                ...item,
+                content:
+                  latestParsedStream.cleanedAnswer.trim().length > 0
+                    ? latestParsedStream.cleanedAnswer.trim()
+                    : stripSseArtifacts(rawStreamedContent).trim(),
+                references:
+                  latestParsedStream.references.length > 0
+                    ? latestParsedStream.references
+                    : item.references,
+                createdAt: Date.now(),
+              }
             : item,
         ),
       );
@@ -485,7 +660,7 @@ export default function AIChatScreen() {
     streamingControllerRef.current = null;
     setIsStreaming(false);
     setIsSending(false);
-  }, [input, isSending, isStreaming, scrollToEnd, selectedImages]);
+  }, [input, isSending, isStreaming, scrollToEnd, selectedImages, topK]);
 
   const renderMessage = useCallback(
     ({ item }: { item: AIMessage }) => {
@@ -528,13 +703,13 @@ export default function AIChatScreen() {
                     return (
                       <TouchableOpacity
                         key={reference.id}
-                        activeOpacity={reference.sourceUrl ? 0.85 : 1}
-                        style={[styles.referenceCard, !reference.sourceUrl && styles.referenceCardDisabled]}
-                        onPress={() => {
-                          if (reference.sourceUrl) {
-                            handleOpenReference(reference.sourceUrl);
-                          }
-                        }}
+                        activeOpacity={0.85}
+                        style={[
+                          styles.referenceCard,
+                          reference.knowledgeId ? styles.referenceCardKnowledge : null,
+                          !reference.knowledgeId && !reference.sourceUrl && styles.referenceCardDisabled,
+                        ]}
+                        onPress={() => handleReferencePress(reference)}
                       >
                         <View style={styles.referenceIcon}>
                           <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
@@ -559,7 +734,9 @@ export default function AIChatScreen() {
                             ) : null}
                           </View>
                         </View>
-                        {reference.sourceUrl ? (
+                        {reference.knowledgeId ? (
+                          <Ionicons name="arrow-forward-circle-outline" size={18} color={Colors.primary} />
+                        ) : reference.sourceUrl ? (
                           <Ionicons name="open-outline" size={16} color={Colors.primary} />
                         ) : null}
                       </TouchableOpacity>
@@ -577,7 +754,7 @@ export default function AIChatScreen() {
         </View>
       );
     },
-    [handleOpenReference],
+    [handleReferencePress],
   );
 
   const canSend = useMemo(
@@ -610,6 +787,18 @@ export default function AIChatScreen() {
               Phân tích thông minh, tham chiếu kho tri thức của ISU.
             </Text>
           </View>
+        </View>
+        <View style={styles.topKControlRow}>
+          <TouchableOpacity
+            style={styles.topKButton}
+            onPress={() => setTopKPickerVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="options-outline" size={16} color={Colors.primary} />
+            <Text style={styles.topKButtonText}>
+              {`Độ sáng tạo: ${topK} (${TOP_K_DESCRIPTIONS[topK] ?? "Tùy chỉnh"})`}
+            </Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -689,6 +878,59 @@ export default function AIChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={topKPickerVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setTopKPickerVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setTopKPickerVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="options-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.modalTitle}>Chọn độ sáng tạo</Text>
+                </View>
+                {TOP_K_OPTIONS.map((option) => {
+                  const isActive = option === topK;
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.modalOption, isActive && styles.modalOptionActive]}
+                      activeOpacity={0.9}
+                      onPress={() => {
+                        setTopK(option);
+                        setTopKPickerVisible(false);
+                      }}
+                    >
+                      <View style={styles.modalOptionInfo}>
+                        <Text style={[styles.modalOptionValue, isActive && styles.modalOptionValueActive]}>
+                          {option}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.modalOptionDescription,
+                            isActive && styles.modalOptionDescriptionActive,
+                          ]}
+                        >
+                          {TOP_K_DESCRIPTIONS[option]}
+                        </Text>
+                      </View>
+                      {isActive ? (
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                      ) : (
+                        <Ionicons name="ellipse-outline" size={20} color={Colors.gray} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -765,6 +1007,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "rgba(255,255,255,0.85)",
     lineHeight: 18,
+  },
+  topKControlRow: {
+    marginTop: 16,
+    alignItems: "flex-start",
+  },
+  topKButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  topKButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.white,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -864,6 +1124,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     backgroundColor: "rgba(24, 119, 242, 0.08)",
+  },
+  referenceCardKnowledge: {
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.primary,
   },
   referenceCardDisabled: {
     opacity: 0.7,
@@ -1032,5 +1297,64 @@ const styles = StyleSheet.create({
     backgroundColor: "#cbd5f5",
     shadowOpacity: 0,
     elevation: 0,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    padding: 20,
+    gap: 12,
+    shadowColor: "rgba(15,23,42,0.25)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.primary,
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: "#f8fafc",
+  },
+  modalOptionActive: {
+    backgroundColor: "rgba(24,119,242,0.12)",
+  },
+  modalOptionInfo: {
+    gap: 4,
+  },
+  modalOptionValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark_gray,
+  },
+  modalOptionValueActive: {
+    color: Colors.primary,
+  },
+  modalOptionDescription: {
+    fontSize: 12,
+    color: Colors.gray,
+  },
+  modalOptionDescriptionActive: {
+    color: Colors.primary,
   },
 });

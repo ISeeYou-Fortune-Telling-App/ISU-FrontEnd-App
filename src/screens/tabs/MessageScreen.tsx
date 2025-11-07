@@ -29,6 +29,18 @@ type Conversation = {
   avatarUrl?: string | null;
 };
 
+type PagingState = {
+  page: number;
+  totalPages: number;
+  limit: number;
+};
+
+const DEFAULT_PAGING: PagingState = {
+  page: -1,
+  totalPages: 1,
+  limit: 20,
+};
+
 const formatTimestamp = (value?: string | number | Date | null): string => {
   if (!value) {
     return "";
@@ -121,6 +133,25 @@ const normalizeConversations = (items: any[], currentUserId: string | null): Con
       return timeB - timeA;
     });
 
+const mergeConversations = (
+  existing: Conversation[],
+  incoming: Conversation[],
+): Conversation[] => {
+  if (!incoming.length) {
+    return existing;
+  }
+
+  const merged = new Map<string, Conversation>();
+  existing.forEach((item) => merged.set(item.id, item));
+  incoming.forEach((item) => merged.set(item.id, item));
+
+  return Array.from(merged.values()).sort((a, b) => {
+    const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
+    const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
+    return timeB - timeA;
+  });
+};
+
 export default function MessageScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
@@ -131,6 +162,10 @@ export default function MessageScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [paging, setPaging] = useState<PagingState>(DEFAULT_PAGING);
+
+  const resolvedLimit = paging.limit > 0 ? paging.limit : DEFAULT_PAGING.limit;
 
   useEffect(() => {
     let active = true;
@@ -153,21 +188,67 @@ export default function MessageScreen() {
   }, []);
 
   const fetchConversations = useCallback(
-    async (options: { silent?: boolean; refreshing?: boolean } = {}) => {
-      const { silent = false, refreshing = false } = options;
+    async (
+      options: {
+        page?: number;
+        append?: boolean;
+        silent?: boolean;
+        refreshing?: boolean;
+      } = {},
+    ) => {
+      const {
+        page = 1,
+        append = false,
+        silent = false,
+        refreshing = false,
+      } = options;
 
-      if (refreshing) {
+      if (!append && page === 1) {
+        setPaging(DEFAULT_PAGING);
+      }
+
+      if (append) {
+        setIsLoadingMore(true);
+      } else if (refreshing) {
         setIsRefreshing(true);
       } else if (!silent) {
         setIsLoading(true);
       }
 
       try {
-        setLoadError(null);
-        const response = await getChatConversations();
+        if (!append) {
+          setLoadError(null);
+        }
+
+        const response = await getChatConversations({
+          page,
+          limit: resolvedLimit,
+          sortType: "desc",
+          sortBy: "createdAt",
+        });
+
         const payload = response?.data?.data;
         const list = Array.isArray(payload) ? payload : [];
-        setConversations(normalizeConversations(list, currentUserId));
+        const normalized = normalizeConversations(list, currentUserId);
+
+        setConversations((prev) =>
+          append ? mergeConversations(prev, normalized) : normalized,
+        );
+
+        const pagingInfo = response?.data?.paging;
+        const nextPaging: PagingState = {
+          page:
+            typeof pagingInfo?.page === "number" ? pagingInfo.page : page - 1,
+          totalPages:
+            typeof pagingInfo?.totalPages === "number"
+              ? pagingInfo.totalPages
+              : Math.max(page, 1),
+          limit:
+            typeof pagingInfo?.limit === "number"
+              ? pagingInfo.limit
+              : resolvedLimit,
+        };
+        setPaging(nextPaging);
       } catch (error: any) {
         console.error(error);
         const message =
@@ -176,25 +257,27 @@ export default function MessageScreen() {
           "Không thể tải danh sách cuộc trò chuyện. Vui lòng thử lại.";
         setLoadError(message);
       } finally {
-        if (refreshing) {
+        if (append) {
+          setIsLoadingMore(false);
+        } else if (refreshing) {
           setIsRefreshing(false);
         } else if (!silent) {
           setIsLoading(false);
         }
       }
     },
-    [currentUserId],
+    [currentUserId, resolvedLimit],
   );
 
   useFocusEffect(
     useCallback(() => {
-      fetchConversations();
+      fetchConversations({ page: 1 });
     }, [fetchConversations]),
   );
 
   useEffect(() => {
     if (currentUserId) {
-      fetchConversations({ silent: true });
+      fetchConversations({ page: 1, silent: true });
     }
   }, [currentUserId, fetchConversations]);
 
@@ -219,6 +302,23 @@ export default function MessageScreen() {
     },
     [router],
   );
+
+  const handleLoadMore = useCallback(() => {
+    if (isLoading || isLoadingMore || isRefreshing || searchQuery.trim()) {
+      return;
+    }
+
+    if (paging.page < 0 || paging.totalPages <= 0) {
+      return;
+    }
+
+    if (paging.page + 1 >= paging.totalPages) {
+      return;
+    }
+
+    const nextPage = paging.page + 2;
+    fetchConversations({ page: nextPage, append: true, silent: true });
+  }, [fetchConversations, isLoading, isLoadingMore, isRefreshing, paging, searchQuery]);
 
   const renderConversation = useCallback(
     ({ item }: { item: Conversation }) => (
@@ -284,7 +384,7 @@ export default function MessageScreen() {
       </View>
 
       {loadError && !isLoading ? (
-        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchConversations()}>
+        <TouchableOpacity style={styles.errorBanner} onPress={() => fetchConversations({ page: 1 })}>
           <Ionicons name="warning-outline" size={18} color="#b91c1c" />
           <Text style={styles.errorBannerText}>{loadError}</Text>
           <Text style={styles.errorBannerHint}>Nhấn để thử lại</Text>
@@ -337,13 +437,22 @@ export default function MessageScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => fetchConversations({ refreshing: true })}
+            onRefresh={() => fetchConversations({ page: 1, refreshing: true })}
             tintColor={Colors.primary}
             colors={[Colors.primary]}
           />
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.6}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.footerLoading}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : null
+        }
       />
     </SafeAreaView>
   );
@@ -542,6 +651,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 48,
     gap: 12,
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
   emptyText: {
     fontSize: 14,

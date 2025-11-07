@@ -223,6 +223,7 @@ export const searchKnowledgeItems = (params) => {
   return API.get("/knowledge-items/search", { params: queryParams });
 };
 export const getKnowledgeCategories = (params) => API.get("/knowledge-categories", { params });
+export const getKnowledgeItemDetail = (id) => API.get(`/knowledge-items/${id}`);
 
 export const getChatConversations = (params) =>
   API.get("/chat/conversations", { params });
@@ -243,29 +244,51 @@ export const getChatMessages = (conversationId, params) =>
   API.get(`/chat/conversations/${conversationId}/messages`, { params });
 
 export const sendChatMessage = (conversationId, payload) => {
-  const config =
-    typeof FormData !== "undefined" && payload instanceof FormData
-      ? { headers: { "Content-Type": "multipart/form-data" } }
-      : undefined;
+  const canUseFormData = typeof FormData !== "undefined";
 
-  let body = payload;
+  if (canUseFormData) {
+    let formData;
 
-  if (typeof FormData !== "undefined" && payload instanceof FormData) {
-    const hasConversationId =
-      typeof payload.get === "function"
-        ? Boolean(payload.get("conversationId"))
-        : Array.isArray(payload?._parts)
-          ? payload._parts.some((part) => Array.isArray(part) && part[0] === "conversationId")
+    if (payload instanceof FormData) {
+      formData = payload;
+    } else {
+      formData = new FormData();
+
+      if (payload && typeof payload === "object") {
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value === null || value === undefined) {
+            return;
+          }
+
+          if (typeof value === "object" && value?.uri) {
+            formData.append(key, value);
+          } else {
+            formData.append(key, String(value));
+          }
+        });
+      }
+    }
+
+    const hasConversationIdField =
+      typeof formData.get === "function"
+        ? Boolean(formData.get("conversationId"))
+        : Array.isArray(formData?._parts)
+          ? formData._parts.some(
+              (part) => Array.isArray(part) && part[0] === "conversationId" && part[1],
+            )
           : false;
 
-    if (!hasConversationId && conversationId) {
-      payload.append("conversationId", conversationId);
+    if (!hasConversationIdField && conversationId) {
+      formData.append("conversationId", String(conversationId));
     }
-  } else {
-    body = { ...(payload ?? {}), conversationId };
+
+    return API.post("/chat/messages", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
   }
 
-  return API.post("/chat/messages", body, config);
+  const body = { ...(payload ?? {}), conversationId };
+  return API.post("/chat/messages", body);
 };
 
 export const markConversationMessagesRead = (conversationId) =>
