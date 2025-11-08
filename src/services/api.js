@@ -223,7 +223,7 @@ export const searchKnowledgeItems = (params) => {
   return API.get("/core/knowledge-items/search", { params: queryParams });
 };
 export const getKnowledgeCategories = (params) => API.get("/core/knowledge-categories", { params });
-export const getKnowledgeItemDetail = (id) => API.get(`/knowledge-items/${id}`);
+export const getKnowledgeItemDetail = (id) => API.get(`/core/knowledge-items/${id}`);
 
 export const getChatConversations = (params) =>
   API.get("/core/chat/conversations", { params });
@@ -282,7 +282,7 @@ export const sendChatMessage = (conversationId, payload) => {
       formData.append("conversationId", String(conversationId));
     }
 
-    return API.post("/chat/messages", formData, {
+    return API.post("/core/chat/messages", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   }
