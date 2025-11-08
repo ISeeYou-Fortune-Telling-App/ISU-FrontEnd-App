@@ -215,7 +215,6 @@ export default function BookingDetailScreen() {
                                             }
                                             style={styles.avatarLarge}
                                             onError={(e) => {
-                                                console.log('Avatar image failed to load:', e.nativeEvent);
                                                 setAvatarError(true);
                                             }}
                                         />

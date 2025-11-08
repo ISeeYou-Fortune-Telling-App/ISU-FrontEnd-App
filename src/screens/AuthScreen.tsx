@@ -121,12 +121,14 @@ export default function AuthScreen() {
     const [gender, setGender] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [option, setOption] = useState<AuthOption>("login");
-    const [secure, setSecure] = useState(true);
-    const [secure2, setSecure2] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+    const [secure, setSecure] = useState<boolean>(true);
+    const [secure2, setSecure2] = useState<boolean>(true);
+    const [submitting, setSubmitting] = useState<boolean>(false);
     const router = useRouter();
-    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
     const [menuVisible, setMenuVisible] = useState<boolean>(false);
+    const [regSent, setRegSent] = useState<boolean>(false);
+    const [otp, setOtp] = useState<string>("");
 
     const openMenu = () => setMenuVisible(true);
     const closeMenu = () => setMenuVisible(false);
@@ -245,6 +247,7 @@ export default function AuthScreen() {
 
         setZodiac(computedZodiac);
         setError(null);
+        setRegSent(true);
 
         Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ.", [
             {
@@ -493,6 +496,25 @@ export default function AuthScreen() {
                                 <Button mode="contained" style={styles.btnLogin} onPress={handleRegister}>
                                     Đăng ký
                                 </Button>
+
+                                {regSent &&
+                                    <>
+                                        <TextInput
+                                            label="OTP"
+                                            keyboardType="numeric"
+                                            placeholder="Nhập mã OTP"
+                                            mode="outlined"
+                                            style={styles.textInput}
+                                            left={<TextInput.Icon icon="phone" />}
+                                            onChangeText={setOtp}
+                                            value={otp}
+                                        />
+                                        <Button mode="contained" style={styles.btnLogin}>
+                                            Gửi
+                                        </Button>
+                                    </>
+                                }
+
                                 <Button
                                     mode="contained"
                                     style={styles.btnFortuneTeller}

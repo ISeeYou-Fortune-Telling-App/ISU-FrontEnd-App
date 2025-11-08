@@ -1,3 +1,4 @@
+// CreatePackageScreen.tsx
 import Colors from "@/src/constants/colors";
 import { createServicePackage, getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -18,14 +19,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Menu, Text, TextInput } from "react-native-paper";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { Text, TextInput } from "react-native-paper";
 import { RichEditor, RichToolbar, actions } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CreatePackageScreen() {
   const [title, setTitle] = useState("");
-  const [categoryLabel, setCategoryLabel] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
 
   const [priceRaw, setPriceRaw] = useState("");
@@ -33,21 +34,40 @@ export default function CreatePackageScreen() {
   const [content, setContent] = useState("");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
   const [image, setImage] = useState<any>(null);
-  const [availableTime, setAvailableTime] = useState<string[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<
+    { weekDate: number; availableFrom: string; availableTo: string }[]
+  >([]);
 
-  const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const contentRef = useRef<RichEditor>(null);
 
-  const openMenu = () => setMenuVisible(true);
-  const closeMenu = () => setMenuVisible(false);
+  // Date/time picker state
+  const [isPickerVisible, setPickerVisible] = useState(false);
+  const [pickerField, setPickerField] = useState<"from" | "to">("from");
+
+  // Active day editing state (weekDate number). null means no active day.
+  const [activeDay, setActiveDay] = useState<number | null>(null);
+  // Temporary editing values for the active day (or used when adding a new day)
+  const [tempFrom, setTempFrom] = useState("09:00:00");
+  const [tempTo, setTempTo] = useState("18:00:00");
+
+  // map labels -> numbers (T2->2 ... CN->8)
+  const dayMap: Record<string, number> = {
+    T2: 2,
+    T3: 3,
+    T4: 4,
+    T5: 5,
+    T6: 6,
+    T7: 7,
+    CN: 8,
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        const resp = await getKnowledgeCategories({ page: 1, limit: 15 });
+        const resp = await getKnowledgeCategories({ page: 1, limit: 50 });
         setCategories(resp.data?.data || []);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
@@ -65,14 +85,110 @@ export default function CreatePackageScreen() {
     if (!result.canceled) setImage(result.assets[0]);
   };
 
-  const toggleAvailableTime = (d: string) => {
-    setAvailableTime((prev) =>
-      prev.includes(d) ? prev.filter((item) => item !== d) : [...prev, d]
-    );
+  // Toggle category selection (multiple) - chips UI
+  const toggleCategory = (cat: any) => {
+    setSelectedCategoryIds((prev) => {
+      const exists = prev.includes(cat.id);
+      if (exists) return prev.filter((id) => id !== cat.id);
+      return [...prev, cat.id];
+    });
   };
 
+  // Helpers for weekday selection / status
+  const isDaySelected = (label: string) => {
+    const day = dayMap[label];
+    return availableTimeSlots.some((s) => s.weekDate === day);
+  };
+
+  const isDayActive = (label: string) => {
+    const day = dayMap[label];
+    return activeDay === day;
+  };
+
+  // When pressing a day: only activate/deactivate it for editing.
+  // Do NOT add to availableTimeSlots yet.
+  const onPressDay = (label: string) => {
+    const weekDate = dayMap[label];
+    if (activeDay === weekDate) {
+      // deactivate
+      setActiveDay(null);
+    } else {
+      // activate for editing: load temp values from existing slot or defaults
+      const existing = availableTimeSlots.find((p) => p.weekDate === weekDate);
+      if (existing) {
+        setTempFrom(existing.availableFrom);
+        setTempTo(existing.availableTo);
+      } else {
+        setTempFrom("09:00:00");
+        setTempTo("18:00:00");
+      }
+      setActiveDay(weekDate);
+    }
+  };
+
+  // show picker for either from/to (only when editing)
+  const showPicker = (field: "from" | "to") => {
+    if (activeDay === null) {
+      Alert.alert("Chọn ngày", "Vui lòng chọn 1 ngày để chỉnh giờ.");
+      return;
+    }
+    setPickerField(field);
+    setPickerVisible(true);
+  };
+
+  const hidePicker = () => {
+    setPickerVisible(false);
+  };
+
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+
+  const handleConfirm = (date: Date) => {
+    hidePicker();
+    const hh = pad(date.getHours());
+    const mm = pad(date.getMinutes());
+    const val = `${hh}:${mm}:00`;
+    if (pickerField === "from") {
+      setTempFrom(val);
+    } else {
+      setTempTo(val);
+    }
+  };
+
+  // Apply the tempFrom/tempTo to the activeDay slot (commit)
+  const applyTimesToActiveDay = () => {
+    if (activeDay === null) {
+      Alert.alert("Không có ngày", "Không có ngày đang chỉnh.");
+      return;
+    }
+    if (!tempFrom || !tempTo) {
+      Alert.alert("Thiếu giờ", "Vui lòng chọn giờ bắt đầu và kết thúc.");
+      return;
+    }
+    setAvailableTimeSlots((prev) => {
+      const exists = prev.some((p) => p.weekDate === activeDay);
+      if (exists) {
+        return prev.map((p) => (p.weekDate === activeDay ? { ...p, availableFrom: tempFrom, availableTo: tempTo } : p));
+      } else {
+        return [...prev, { weekDate: activeDay, availableFrom: tempFrom, availableTo: tempTo }];
+      }
+    });
+    // done editing
+    setActiveDay(null);
+  };
+
+  const cancelEditingActiveDay = () => {
+    setActiveDay(null);
+  };
+
+  const removeCommittedDay = (weekDate: number) => {
+    setAvailableTimeSlots((prev) => prev.filter((p) => p.weekDate !== weekDate));
+    if (activeDay === weekDate) setActiveDay(null);
+  };
+
+  const displayTime = (t: string) => (t ? t.slice(0, 5) : "");
+
   const handleSubmit = async () => {
-    if (!title || !content || !priceRaw || !durationMinutes || !selectedCategoryId || !image) {
+    if (!title || !content || !priceRaw || !durationMinutes || selectedCategoryIds.length === 0 || !image) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
       return;
     }
@@ -83,13 +199,16 @@ export default function CreatePackageScreen() {
       const formData = new FormData();
       formData.append("packageTitle", title);
       formData.append("packageContent", content);
-      formData.append("durationMinutes", parseInt(durationMinutes).toString());
-      formData.append("price", parseFloat(priceRaw).toString());
-      formData.append("categoryIds[]", selectedCategoryId);
+      formData.append("durationMinutes", durationMinutes);
+      formData.append("price", priceRaw);
 
-      // availableTime.forEach((time) => {
-      //   formData.append("availableTime[]", time);
-      // });
+      // multiple category ids
+      selectedCategoryIds.forEach((id) => formData.append("categoryIds[]", id));
+
+      // append availableTimeSlots as JSON strings (backend must accept)
+      availableTimeSlots.forEach((time) => {
+        formData.append("availableTimeSlots[]", JSON.stringify(time));
+      });
 
       if (image) {
         const fileName = image.fileName || image.uri.split("/").pop() || "upload.jpg";
@@ -139,10 +258,7 @@ export default function CreatePackageScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <View style={styles.header}>
           <MaterialIcons name="arrow-back" size={28} color="black" onPress={() => router.back()} />
           <View style={styles.titleContainer}>
@@ -166,39 +282,31 @@ export default function CreatePackageScreen() {
               value={title}
             />
 
-            <Menu
-              visible={menuVisible}
-              onDismiss={closeMenu}
-              anchor={
-                <TextInput
-                  placeholder="Thể loại (ví dụ: Tarot, Chỉ tay...)"
-                  mode="outlined"
-                  style={styles.input}
-                  value={categoryLabel}
-                  left={<TextInput.Icon icon="bio" />}
-                  right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                  onTouchStart={openMenu}
-                  editable={false}
-                />
-              }
-            >
-              {categories.map((cat) => (
-                <Menu.Item
-                  key={cat.id}
-                  onPress={() => {
-                    setSelectedCategoryId(cat.id);
-                    setCategoryLabel(cat.name);
-                    closeMenu();
-                  }}
-                  title={cat.name}
-                />
-              ))}
-            </Menu>
+            <Text style={{ marginBottom: 8, fontWeight: "600" }}>Thể loại</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {categories.map((cat) => {
+                const selected = selectedCategoryIds.includes(cat.id);
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => toggleCategory(cat)}
+                    style={[
+                      styles.chip,
+                      selected ? styles.chipSelected : styles.chipUnselected,
+                    ]}
+                  >
+                    <Text style={selected ? styles.chipTextSelected : styles.chipTextUnselected}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
             <TextInput
               mode="outlined"
               style={styles.input}
-              left={<TextInput.Icon icon="cash" />}
+              left={<TextInput.Icon icon="currency-usd" />}
               placeholder="Giá gói (VND)"
               value={price}
               onChangeText={(text) => {
@@ -208,6 +316,7 @@ export default function CreatePackageScreen() {
                 else setPrice(Number(digits).toLocaleString("vi-VN"));
               }}
               keyboardType="numeric"
+              maxLength={11}
             />
 
             <Text style={{ fontSize: 14, marginBottom: 8 }}>Mô tả ngắn</Text>
@@ -246,23 +355,97 @@ export default function CreatePackageScreen() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Thời gian rảnh</Text>
+            <Text style={{ marginBottom: 8 }}>Chọn ngày để chỉnh giờ. Chỉ khi nhấn "Áp dụng giờ cho ngày này" sẽ lưu ngày vào slots.</Text>
+
             <View style={styles.durationContainer}>
-              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.timeBtn, availableTime.includes(d) && styles.durationSelected]}
-                  onPress={() => toggleAvailableTime(d)}
-                >
-                  <Text style={styles.durationText}>{d}</Text>
-                </TouchableOpacity>
-              ))}
+              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => {
+                const selected = isDaySelected(d);
+                const active = isDayActive(d);
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[
+                      styles.timeBtn,
+                      selected && styles.timeBtnSelected,
+                      active && styles.timeBtnActive,
+                    ]}
+                    onPress={() => onPressDay(d)}
+                  >
+                    <Text style={[styles.durationText, active ? { color: "#fff", fontWeight: "700" } : undefined]}>
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ marginBottom: 6 }}>Giờ (chỉ chỉnh khi 1 ngày đang active)</Text>
+
+              <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                <TouchableOpacity
+                  style={styles.timeInputTouchable}
+                  onPress={() => showPicker("from")}
+                >
+                  <Text style={styles.timeInputLabel}>Rảnh từ</Text>
+                  <Text style={styles.timeInputValue}>{activeDay ? displayTime(tempFrom) : "--:--"}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.timeInputTouchable}
+                  onPress={() => showPicker("to")}
+                >
+                  <Text style={styles.timeInputLabel}>Cho đến</Text>
+                  <Text style={styles.timeInputValue}>{activeDay ? displayTime(tempTo) : "--:--"}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Apply / Cancel buttons shown only when editing a day */}
+              {activeDay !== null && (
+                <View style={{ flexDirection: "row", marginTop: 12 }}>
+                  <TouchableOpacity style={styles.applyBtn} onPress={applyTimesToActiveDay}>
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>Áp dụng giờ cho ngày này</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.cancelBtn} onPress={cancelEditingActiveDay}>
+                    <Text style={{ color: "#333" }}>Hủy</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Show a list of currently selected days+times for reference */}
+            {availableTimeSlots.length > 0 && (
+              <View style={{ marginTop: 14 }}>
+                <Text style={{ fontWeight: "600", marginBottom: 8 }}>Ngày đã chọn</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {availableTimeSlots
+                    .slice()
+                    .sort((a, b) => a.weekDate - b.weekDate)
+                    .map((s) => {
+                      // find label from dayMap inverse
+                      const label = Object.keys(dayMap).find((k) => dayMap[k] === s.weekDate) || s.weekDate.toString();
+                      return (
+                        <View key={s.weekDate} style={styles.selectedSummary}>
+                          <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Text style={{ fontWeight: "700", marginRight: 8 }}>{label}</Text>
+                            <TouchableOpacity onPress={() => removeCommittedDay(s.weekDate)}>
+                              <MaterialIcons name="close" size={16} color="#999" />
+                            </TouchableOpacity>
+                          </View>
+                          <Text>{displayTime(s.availableFrom)} - {displayTime(s.availableTo)}</Text>
+                        </View>
+                      );
+                    })}
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Thời lượng (phút)</Text>
             <View style={styles.durationContainer}>
-              {[15, 30, 45, 60].map((d) => (
+              {[15, 30, 45, 60, 90, 120].map((d) => (
                 <TouchableOpacity
                   key={d}
                   style={[styles.durationBtn, durationMinutes === d.toString() && styles.durationSelected]}
@@ -280,6 +463,7 @@ export default function CreatePackageScreen() {
               value={durationMinutes}
               onChangeText={setDurationMinutes}
               keyboardType="numeric"
+              maxLength={3}
             />
           </View>
 
@@ -298,18 +482,22 @@ export default function CreatePackageScreen() {
               <Text style={styles.modalText}>Đang tạo gói dịch vụ...</Text>
             </View>
           ) : (
-            <Animated.View
-              style={[
-                styles.successBox,
-                { transform: [{ scale: scaleAnim }] },
-              ]}
-            >
+            <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
               <MaterialIcons name="check-circle" size={70} color="#16a34a" />
               <Text style={styles.successText}>Tạo thành công!</Text>
             </Animated.View>
           )}
         </View>
       </Modal>
+
+      {/* Time picker */}
+      <DateTimePickerModal
+        isVisible={isPickerVisible}
+        mode="time"
+        onConfirm={handleConfirm}
+        onCancel={hidePicker}
+        is24Hour={true}
+      />
     </SafeAreaView>
   );
 }
@@ -359,6 +547,26 @@ const styles = StyleSheet.create({
   },
   uploadText: { color: "#666" },
   imagePreview: { width: "100%", height: "100%", borderRadius: 6 },
+
+  // category chips
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  chipSelected: {
+    backgroundColor: Colors.primary || "#1877F2",
+    borderColor: Colors.primary || "#1877F2",
+  },
+  chipUnselected: {
+    backgroundColor: "#fff",
+  },
+  chipTextSelected: { color: "#fff", fontWeight: "700" },
+  chipTextUnselected: { color: "#333" },
+
   durationContainer: { flexDirection: "row", marginVertical: 10 },
   durationBtn: {
     paddingVertical: 8,
@@ -370,6 +578,7 @@ const styles = StyleSheet.create({
   },
   durationSelected: { backgroundColor: Colors.primary, borderColor: Colors.grayBackground },
   durationText: { color: "#000" },
+
   timeBtn: {
     paddingVertical: 8,
     paddingHorizontal: 13,
@@ -377,7 +586,54 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 6,
     marginRight: 8,
+    backgroundColor: "#fff",
   },
+  timeBtnSelected: {
+    backgroundColor: "#f59e0b22",
+    borderColor: "#f59e0b",
+  },
+  timeBtnActive: {
+    backgroundColor: Colors.primary || "#1877F2",
+    borderColor: Colors.primary || "#1877F2",
+  },
+
+  timeInputTouchable: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+  },
+  timeInputLabel: { fontSize: 12, color: "#666" },
+  timeInputValue: { fontSize: 16, marginTop: 6 },
+
+  applyBtn: {
+    backgroundColor: Colors.primary || "#1877F2",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  cancelBtn: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    justifyContent: "center",
+  },
+
+  selectedSummary: {
+    backgroundColor: "#f7fafc",
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    minWidth: 120,
+    alignItems: "flex-start",
+  },
+
   submitButton: {
     backgroundColor: "#16a34a",
     paddingVertical: 14,

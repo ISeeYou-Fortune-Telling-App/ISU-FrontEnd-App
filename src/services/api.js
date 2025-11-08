@@ -143,7 +143,7 @@ API.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const refreshResponse = await API.get("/auth/refresh", {
+      const refreshResponse = await API.get("/core/auth/refresh", {
         skipAuth: true,
         headers: {
           Authorization: `Bearer ${refreshToken}`,
@@ -186,9 +186,9 @@ API.interceptors.response.use(
   },
 );
 
-export const loginUser = (data) => API.post("/auth/login", data);
-export const logoutUser = (firebaseToken) => API.get("/auth/logout", { firebaseToken });
-export const registerUser = (data) => API.post("/auth/register", data);
+export const loginUser = (data) => API.post("/core/auth/login", data);
+export const logoutUser = (firebaseToken) => API.get("/core/auth/logout", { firebaseToken });
+export const registerUser = (data) => API.post("/core/auth/register", data);
 export const deleteAccount = (userId, reason) => {
   if (!userId) {
     return Promise.reject(new Error("Missing userId"));
@@ -198,49 +198,49 @@ export const deleteAccount = (userId, reason) => {
     ? { data: { reason } }
     : undefined;
 
-  return API.delete(`/account/${userId}`, config);
+  return API.delete(`/core/account/${userId}`, config);
 };
-export const getProfile = () => API.get("/account/me");
-export const updateProfile = (data) => API.patch("/account/me", data);
-export const getServicePackages = (params) => API.get("/public/service-packages", { params });
-export const getSeers = (params) => API.get("/public/seers", { params });
+export const getProfile = () => API.get("/core/account/me");
+export const updateProfile = (data) => API.patch("/core/account/me", data);
+export const getServicePackages = (params) => API.get("/core/public/service-packages", { params });
+export const getSeers = (params) => API.get("/core/public/seers", { params });
 export const getServicePackageDetail = (id) =>
-  API.get("/service-packages/detail", { params: { id } });
+  API.get("/core/service-packages/detail", { params: { id } });
 export const getServicePackageInteractions = (packageId) =>
-  API.get(`/service-packages/${packageId}/interactions`);
+  API.get(`/core/service-packages/${packageId}/interactions`);
 export const getServicePackageReviews = (id, params = {}) =>
-  API.get(`/service-packages/${id}/reviews`, { params });
+  API.get(`/core/service-packages/${id}/reviews`, { params });
 export const postServicePackageReview = (id, payload) =>
-  API.post(`/service-packages/${id}/reviews`, payload);
+  API.post(`/core/service-packages/${id}/reviews`, payload);
 export const getReviewReplies = (reviewId, params = {}) =>
-  API.get(`/service-packages/reviews/${reviewId}/replies`, { params });
-export const getKnowledgeItems = (params) => API.get("/knowledge-items", { params });
+  API.get(`/core/service-packages/reviews/${reviewId}/replies`, { params });
+export const getKnowledgeItems = (params) => API.get("/core/knowledge-items", { params });
 export const searchKnowledgeItems = (params) => {
   const queryParams = { ...params };
   if (queryParams.categoryIds && Array.isArray(queryParams.categoryIds)) {
     queryParams.categoryIds = queryParams.categoryIds.join(',');
   }
-  return API.get("/knowledge-items/search", { params: queryParams });
+  return API.get("/core/knowledge-items/search", { params: queryParams });
 };
-export const getKnowledgeCategories = (params) => API.get("/knowledge-categories", { params });
+export const getKnowledgeCategories = (params) => API.get("/core/knowledge-categories", { params });
 
 export const getChatConversations = (params) =>
-  API.get("/chat/conversations", { params });
+  API.get("/core/chat/conversations", { params });
 
 export const getChatConversation = (conversationId) =>
-  API.get(`/chat/conversations/${conversationId}`);
+  API.get(`/core/chat/conversations/${conversationId}`);
 
 export const getCustomerPayments = (params) =>
-  API.get("/bookings/my-payments", { params });
+  API.get("/core/bookings/my-payments", { params });
 
 export const getSeerPayments = (params) =>
-  API.get("/bookings/seer/payments", { params });
+  API.get("/core/bookings/seer/payments", { params });
 
 export const getPackageBookingReviews = (params) =>
-  API.get("/bookings/seer/reviews", { params });
+  API.get("/core/bookings/seer/reviews", { params });
 
 export const getChatMessages = (conversationId, params) =>
-  API.get(`/chat/conversations/${conversationId}/messages`, { params });
+  API.get(`/core/chat/conversations/${conversationId}/messages`, { params });
 
 export const sendChatMessage = (conversationId, payload) => {
   const config =
@@ -265,70 +265,72 @@ export const sendChatMessage = (conversationId, payload) => {
     body = { ...(payload ?? {}), conversationId };
   }
 
-  return API.post("/chat/messages", body, config);
+  return API.post("/core/chat/messages", body, config);
 };
 
 export const markConversationMessagesRead = (conversationId) =>
-  API.post(`/chat/conversations/${conversationId}/mark-read`);
+  API.post(`/core/chat/conversations/${conversationId}/mark-read`);
 
 export const deleteChatMessage = (messageId) =>
-  API.delete(`/chat/messages/${messageId}`);
+  API.delete(`/core/chat/messages/${messageId}`);
 
 export const recallChatMessage = (messageId) =>
-  API.post(`/chat/messages/${messageId}/recall`);
+  API.post(`/core/chat/messages/${messageId}/recall`);
 
 export const createReport = (payload) => {
-  return API.post("/reports", payload, {
+  return API.post("/core/reports", payload, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
-export const chatWithAI = (payload) => API.post("/ai-chat/query", payload);
+export const chatWithAI = (payload) => API.post("/core/ai-chat/query", payload);
 
 export const updateUserStatus = (id, status) =>
-  API.patch(`/account/${id}/status`, null, { params: { id, status } });
+  API.patch(`/core/account/${id}/status`, null, { params: { id, status } });
 
 export const interactWithServicePackage = (packageId, payload) =>
-  API.post(`/service-packages/${packageId}/interact`, payload);
+  API.post(`/core/service-packages/${packageId}/interact`, payload);
 
 export const createBooking = (servicePackageId, payload) =>
-  API.post(`/bookings/${servicePackageId}`, payload);
+  API.post(`/core/bookings/${servicePackageId}`, payload);
 
 export const createServicePackage = (seerId, data) =>
-  API.post(`/service-packages?seerId=${seerId}`, data, {
+  API.post(`/core/service-packages?seerId=${seerId}`, data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
 export const updateServicePackage = (id, data) =>
-  API.put(`/service-packages?id=${id}`, data, {
+  API.put(`/core/service-packages?id=${id}`, data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
 export const deleteServicePackage = (id) =>
-  API.delete(`/service-packages/${id}`);
+  API.delete(`/core/service-packages/${id}`);
 
 export const getMyPackages = (params) =>
-  API.get("/service-packages/my-packages", { params });
+  API.get("/core/service-packages/my-packages", { params });
 
 export const forgotPassword = (email) =>
-  API.post("/auth/forgot-password", { email });
+  API.post("/core/auth/forgot-password", { email });
 
 export const resendOTP = (email) =>
-  API.post("/auth/resend-otp", { email });
+  API.post("/core/auth/resend-otp", { email });
 
 export const verifyForgotPassword = (data) =>
-  API.post("/auth/forgot-password/verify", data);
+  API.post("/core/auth/forgot-password/verify", data);
 
 export const getMyBookings = (params) =>
-  API.get("/bookings/my-bookings", { params });
+  API.get("/core/bookings/my-bookings", { params });
 
 export const getBookingDetail = (id) =>
-  API.get(`/bookings/${id}`);
+  API.get(`/core/bookings/${id}`);
 
 export const submitBookingReview = (id, data) =>
-  API.post(`/bookings/${id}/review`, data);
+  API.post(`/core/bookings/${id}/review`, data);
 
 export const cancelBooking = (id) =>
-  API.post(`/bookings/${id}/cancel`, { id });
+  API.post(`/core/bookings/${id}/cancel`, { id });
 
 export default API;
+// /notification
+// /report 

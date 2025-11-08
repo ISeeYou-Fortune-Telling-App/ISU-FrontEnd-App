@@ -234,7 +234,6 @@ export default function PackageDetailScreen() {
                     style={styles.reviewAvatar}
                     resizeMode="cover"
                     onError={(e) => {
-                      console.log(`Avatar failed to load for review ${rev.reviewId}:`, e.nativeEvent);
                       setAvatarErrors((prev) => ({ ...prev, [rev.reviewId]: true }));
                     }}
                   />
