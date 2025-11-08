@@ -105,6 +105,7 @@ export default function RootLayout() {
           <Stack.Screen name="service-package-reviews" options={{ headerShown: false }} />
           <Stack.Screen name="book-package" options={{ headerShown: false }} />
           <Stack.Screen name="booking-detail" options={{ headerShown: false }} />
+          <Stack.Screen name="knowledge-detail" options={{ headerShown: false }} />
           <Stack.Screen name="my-packages" options={{ headerShown: false }} />
           <Stack.Screen name="package-detail" options={{ headerShown: false }} />
           <Stack.Screen name="transaction-history" options={{ headerShown: false }} />
