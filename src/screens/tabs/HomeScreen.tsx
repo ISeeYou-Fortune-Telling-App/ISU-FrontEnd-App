@@ -433,15 +433,24 @@ export default function HomeScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" isSearchButton={true} onSearchPress={() => router.push('/search')} />
       {activePage === "search" && (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-          <SegmentedButtons
-            value={searchType}
-            onValueChange={setSearchType}
-            buttons={[
-              { value: 'packages', label: 'Gói dịch vụ' },
-              { value: 'seers', label: 'Thầy bói' },
-            ]}
-          />
+        <View style={[styles.servicesContainer, styles.cardShadow, { marginHorizontal: 10, marginTop: 10, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TouchableOpacity onPress={() => router.replace({ pathname: '/(tabs)/home', params: {} })} style={styles.iconButton}>
+              <X size={22} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={[styles.servicesTitle, { marginBottom: 0 }]}>Kết quả tìm kiếm</Text>
+            <View style={{ width: 22 }} />
+          </View>
+          <View style={{ paddingVertical: 8 }}>
+            <SegmentedButtons
+              value={searchType}
+              onValueChange={setSearchType}
+              buttons={[
+                { value: 'packages', label: 'Gói dịch vụ' },
+                { value: 'seers', label: 'Thầy bói' },
+              ]}
+            />
+          </View>
         </View>
       )}
       <FlatList
@@ -514,9 +523,7 @@ export default function HomeScreen() {
 
             </>
           ) : (
-            <View style={{ paddingVertical: 8 }}>
-              <Text style={styles.servicesTitle}>Kết quả tìm kiếm</Text>
-            </View>
+            <View style={{ paddingVertical: 8 }} />
           )
         }
         ListEmptyComponent={<Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
@@ -1124,5 +1131,8 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderWidth: 1,
     borderColor: Colors.borderGray
+  },
+  iconButton: {
+    padding: 8,
   }
 });

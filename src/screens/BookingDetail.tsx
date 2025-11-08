@@ -332,9 +332,57 @@ export default function BookingDetailScreen() {
                             <View style={styles.card}>
                                 <Text style={styles.cardTitle}>Lịch sử</Text>
                                 <View style={{ marginTop: 8 }}>
-                                    <Text> Lịch hẹn được tạo</Text>
-                                    <Text style={{ color: '#6b7280', marginTop: 6 }}>{dayjs(booking.createdAt).format('HH:mm:ss DD/MM/YYYY')}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a', marginRight: 8 }} />
+                                        <Text> Lịch hẹn được tạo</Text>
+                                    </View>
+                                    <Text style={{ color: '#6b7280', marginTop: 6, marginLeft: 16 }}>{dayjs(booking.createdAt).format('HH:mm:ss DD/MM/YYYY')}</Text>
                                 </View>
+                                {booking.bookingPaymentInfos && booking.bookingPaymentInfos.length > 0 && (
+                                    <View style={{ marginTop: 16 }}>
+                                        {booking.bookingPaymentInfos.map((payment: any, index: number) => (
+                                            <View key={index} style={{ marginTop: index > 0 ? 12 : 0, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb' }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <View style={{ 
+                                                        width: 8, 
+                                                        height: 8, 
+                                                        borderRadius: 4, 
+                                                        backgroundColor: payment.paymentStatus === "COMPLETED" || payment.paymentStatus === "CONFIRMED" ? '#16a34a' :
+                                                            payment.paymentStatus === "FAILED" || payment.paymentStatus === "CANCELED" ? '#dc2626' :
+                                                                payment.paymentStatus === "PENDING" ? '#d97706' : '#374151',
+                                                        marginRight: 8 
+                                                    }} />
+                                                    <Text>Chuyển {payment.amount?.toLocaleString('vi-VN')} qua {payment.paymentMethod}</Text>
+                                                </View>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 16 }}>
+                                                    <View style={[styles.smallBadge, {
+                                                        backgroundColor: payment.paymentStatus === "COMPLETED" || payment.paymentStatus === "CONFIRMED" ? '#dcfce7' :
+                                                            payment.paymentStatus === "FAILED" || payment.paymentStatus === "CANCELED" ? '#fee2e2' :
+                                                                payment.paymentStatus === "PENDING" ? '#fef3c7' : '#f3f4f6'
+                                                    }]}>
+                                                        <Text style={{
+                                                            fontWeight: '700',
+                                                            color: payment.paymentStatus === "COMPLETED" || payment.paymentStatus === "CONFIRMED" ? '#16a34a' :
+                                                                payment.paymentStatus === "FAILED" || payment.paymentStatus === "CANCELED" ? '#dc2626' :
+                                                                    payment.paymentStatus === "PENDING" ? '#d97706' : '#374151'
+                                                        }}>
+                                                            {payment.paymentStatus === 'COMPLETED' && 'Đã thanh toán'}
+                                                            {payment.paymentStatus === 'CONFIRMED' && 'Đã xác nhận'}
+                                                            {payment.paymentStatus === 'FAILED' && 'Thất bại'}
+                                                            {payment.paymentStatus === 'CANCELED' && 'Đã hủy'}
+                                                            {payment.paymentStatus === 'PENDING' && 'Chờ thanh toán'}
+                                                            {payment.paymentStatus === 'REFUNDED' && 'Đã hoàn tiền'}
+                                                        </Text>
+                                                    </View>
+                                                    {payment.failureReason && (
+                                                        <Text style={{ marginLeft: 8, color: '#dc2626', fontSize: 12 }}>{payment.failureReason}</Text>
+                                                    )}
+                                                </View>
+                                                <Text style={{ color: '#6b7280', marginTop: 6, marginLeft: 16 }}>{dayjs(payment.paymentTime).format('HH:mm:ss DD/MM/YYYY')}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
 
                             {/* Review form + reviews */}
