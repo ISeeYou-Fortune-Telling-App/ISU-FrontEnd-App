@@ -2,10 +2,10 @@ import Colors from "@/src/constants/colors";
 import { cancelBooking, confirmBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import dayjs from "dayjs";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -158,20 +158,35 @@ export default function BookingDetailScreen() {
         </View>
     );
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const storedRole = await SecureStore.getItemAsync("userRole");
-                if (storedRole) setRole(storedRole);
-            } catch (e) {
-                console.warn("Unable to read userRole from SecureStore", e);
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                try {
+                    const storedRole = await SecureStore.getItemAsync("userRole");
+                    if (storedRole) setRole(storedRole);
+                } catch (e) {
+                    console.warn("Unable to read userRole from SecureStore", e);
+                }
+            })();
+            if (bookingId) {
+                fetchBookingDetail(bookingId);
+            } else {
+                setLoading(false);
             }
-        })();
-        if (bookingId) {
-            fetchBookingDetail(bookingId);
-        } else {
-            setLoading(false);
-        }
+        }, [bookingId])
+    );
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active' && bookingId) {
+                // App has come to the foreground, refresh booking data
+                fetchBookingDetail(bookingId);
+            }
+        });
+
+        return () => {
+            subscription?.remove();
+        };
     }, [bookingId]);
 
     return (

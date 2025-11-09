@@ -1,11 +1,12 @@
 import Colors from "@/src/constants/colors";
+import { theme } from "@/src/constants/theme";
 import { createBooking } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Button, Menu, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function BookPackageScreen() {
@@ -140,13 +141,14 @@ export default function BookPackageScreen() {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}>
-        <View style={styles.header}>
-          <MaterialIcons name="arrow-back" size={28} color="black" onPress={() => router.back()} />
-          <View style={styles.titleContainer}>
+    <PaperProvider theme={theme}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}>
+          <View style={styles.header}>
+            <MaterialIcons name="arrow-back" size={28} color="black" onPress={() => router.back()} />
+            <View style={styles.titleContainer}>
             <Text variant="titleLarge" style={styles.title}>Đặt gói</Text>
           </View>
           <View style={{ width: 28 }} />
@@ -301,6 +303,7 @@ export default function BookPackageScreen() {
       </Modal>
 
     </SafeAreaView>
+    </PaperProvider>
   );
 }
 
