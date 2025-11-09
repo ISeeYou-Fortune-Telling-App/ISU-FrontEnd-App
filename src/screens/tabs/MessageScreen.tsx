@@ -12,6 +12,7 @@ import {
   Image,
   ImageBackground,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,6 +35,16 @@ type PagingState = {
   totalPages: number;
   limit: number;
 };
+
+type ConversationStatusFilter = null | "WAITING" | "ACTIVE" | "ENDED" | "CANCELLED";
+
+const STATUS_FILTERS: { label: string; value: ConversationStatusFilter }[] = [
+  { label: "Tất cả", value: null },
+  { label: "Chờ mở", value: "WAITING" },
+  { label: "Đang diễn ra", value: "ACTIVE" },
+  { label: "Đã kết thúc", value: "ENDED" },
+  { label: "Đã hủy", value: "CANCELLED" },
+];
 
 const DEFAULT_PAGING: PagingState = {
   page: -1,
@@ -164,6 +175,7 @@ export default function MessageScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [paging, setPaging] = useState<PagingState>(DEFAULT_PAGING);
+  const [selectedStatus, setSelectedStatus] = useState<ConversationStatusFilter>(null);
 
   const resolvedLimit = paging.limit > 0 ? paging.limit : DEFAULT_PAGING.limit;
 
@@ -194,6 +206,7 @@ export default function MessageScreen() {
         append?: boolean;
         silent?: boolean;
         refreshing?: boolean;
+        statusOverride?: ConversationStatusFilter;
       } = {},
     ) => {
       const {
@@ -201,7 +214,10 @@ export default function MessageScreen() {
         append = false,
         silent = false,
         refreshing = false,
+        statusOverride,
       } = options;
+      const statusFilter =
+        typeof statusOverride !== "undefined" ? statusOverride : selectedStatus;
 
       if (!append && page === 1) {
         setPaging(DEFAULT_PAGING);
@@ -225,6 +241,7 @@ export default function MessageScreen() {
           limit: resolvedLimit,
           sortType: "desc",
           sortBy: "createdAt",
+          ...(statusFilter ? { status: statusFilter } : {}),
         });
 
         const payload = response?.data?.data;
@@ -266,7 +283,7 @@ export default function MessageScreen() {
         }
       }
     },
-    [currentUserId, resolvedLimit],
+    [currentUserId, resolvedLimit, selectedStatus],
   );
 
   useFocusEffect(
@@ -292,6 +309,14 @@ export default function MessageScreen() {
         (item.lastMessage ?? "").toLowerCase().includes(keyword),
     );
   }, [conversations, searchQuery]);
+
+  const handleSelectStatus = useCallback(
+    (value: ConversationStatusFilter) => {
+      setSelectedStatus(value);
+      fetchConversations({ page: 1, statusOverride: value });
+    },
+    [fetchConversations],
+  );
 
   const handleOpenConversation = useCallback(
     (conversation: Conversation) => {
@@ -381,6 +406,37 @@ export default function MessageScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+      </View>
+      <View style={styles.statusFilterWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statusFilterContent}
+        >
+          {STATUS_FILTERS.map((filter) => {
+            const isActive = selectedStatus === filter.value;
+            return (
+              <TouchableOpacity
+                key={filter.label}
+                style={[
+                  styles.statusChip,
+                  isActive && styles.statusChipActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => handleSelectStatus(filter.value)}
+              >
+                <Text
+                  style={[
+                    styles.statusChipText,
+                    isActive && styles.statusChipTextActive,
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {loadError && !isLoading ? (
@@ -513,6 +569,35 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: Colors.black,
+  },
+  statusFilterWrapper: {
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  statusFilterContent: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  statusChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
+  },
+  statusChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  statusChipText: {
+    fontSize: 13,
+    color: "#475569",
+    fontFamily: "inter",
+    fontWeight: "500",
+  },
+  statusChipTextActive: {
+    color: Colors.white,
   },
   errorBanner: {
     flexDirection: "row",
