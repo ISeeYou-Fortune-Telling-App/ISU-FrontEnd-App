@@ -1,8 +1,9 @@
 import { firebase } from "@react-native-firebase/messaging";
 import * as Device from 'expo-device';
 import { useFonts } from "expo-font";
+import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
-import { SplashScreen, Stack } from "expo-router";
+import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { Platform } from "react-native";
@@ -62,10 +63,59 @@ export async function registerForPushNotificationsAsync() {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const router = useRouter();
   const [fontsLoaded] = useFonts({
     inter: require("@/assets/fonts/Inter-VariableFont.ttf"),
     segoeui: require("@/assets/fonts/SVN-SegoeUI.ttf")
   });
+
+  useEffect(() => {
+    const handleDeepLink = (url: string) => {
+      const { hostname, path, queryParams } = Linking.parse(url);
+
+      console.log('Deep link received:', { hostname, path, queryParams, url });
+
+      // Handle custom deep links
+      if (hostname === 'homescreen') {
+        router.replace('/(tabs)/home');
+      } else if (hostname === 'bookings') {
+        router.replace('/(tabs)/booking');
+      } else if (hostname === 'profile') {
+        router.replace('/(tabs)/profile');
+      } else if (hostname === 'payment-success') {
+        // Handle payment success
+        const bookingId = queryParams?.bookingId as string;
+        if (bookingId) {
+          router.replace(`/booking-detail?bookingId=${bookingId}`);
+        } else {
+          router.replace('/(tabs)/booking');
+        }
+      } else if (hostname === 'payment-cancel') {
+        router.replace('/(tabs)/booking');
+      } else {
+        // Default to home screen for unknown links
+        router.replace('/(tabs)/home');
+      }
+    };
+
+    // Handle initial URL (when app is opened from deep link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('Initial URL:', url);
+        handleDeepLink(url);
+      }
+    });
+
+    // Handle deep links when app is already running
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log('URL event:', url);
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [router]);
 
   useEffect(() => {
     //PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
