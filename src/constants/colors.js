@@ -9,6 +9,7 @@ const Colors = {
   error: "#B00020",
   white: "#ffffff",
   black: "#000000",
+  lightBlue: "#e0e7ff",
 
   // Core status/action colors
   green: "#00ce00ff",           // Used in price tags

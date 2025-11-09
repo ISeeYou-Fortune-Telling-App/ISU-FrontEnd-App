@@ -274,8 +274,8 @@ export const sendChatMessage = (conversationId, payload) => {
         ? Boolean(formData.get("conversationId"))
         : Array.isArray(formData?._parts)
           ? formData._parts.some(
-              (part) => Array.isArray(part) && part[0] === "conversationId" && part[1],
-            )
+            (part) => Array.isArray(part) && part[0] === "conversationId" && part[1],
+          )
           : false;
 
     if (!hasConversationIdField && conversationId) {
@@ -353,6 +353,17 @@ export const submitBookingReview = (id, data) =>
 
 export const cancelBooking = (id) =>
   API.post(`/core/bookings/${id}/cancel`, { id });
+
+export const confirmBooking = (id, data) =>
+  API.post(`/core/bookings/${id}/seer-confirm`, data);
+
+// export const getNotifications = (params) => API.get("/notification", { params });
+
+// export const getMyNotifications = (params) => API.get("/notification/me", { params });
+
+// export const deleteNotification = (id) => API.delete(`/notification/${id}`);
+
+// export const markNotificationAsRead = (id) => API.patch(`/notification/${id}/read`);
 
 export default API;
 // /notification

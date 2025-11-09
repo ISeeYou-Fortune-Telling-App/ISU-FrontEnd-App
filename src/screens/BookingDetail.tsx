@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { cancelBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
+import { cancelBooking, confirmBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { router, useLocalSearchParams } from "expo-router";
@@ -79,13 +79,49 @@ export default function BookingDetailScreen() {
         }
     }
 
+    const handleSeerCancelBooking = async () => {
+        try {
+            const status = {
+                status: "CANCELED"
+            }
+            const res = await confirmBooking(bookingId, status);
+            Alert.alert("Thành công", "Lịch hẹn đã được huỷ", [
+                {
+                    text: "OK",
+                    onPress: () => router.back(),
+                },
+            ]);
+        } catch (err) {
+            Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
+            console.error("Error cancelling booking", err);
+        }
+    }
+
+    const handleConfirmBooking = async () => {
+        try {
+            const status = {
+                status: "CONFIRMED"
+            }
+            const res = await confirmBooking(bookingId, status);
+            Alert.alert("Thành công", "Lịch hẹn đã xác nhận", [
+                {
+                    text: "OK",
+                    onPress: () => router.back(),
+                },
+            ]);
+        } catch (err) {
+            Alert.alert("Lỗi", "Không thể xác nhận lịch hẹn. Vui lòng thử lại.");
+            console.error("Error confirming booking", err);
+        }
+    }
+
     const renderReviewCard = (review: any) => (
         <View style={styles.reviewCard}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.reviewDate}>
-                        {dayjs(review.reviewedAt).format("DD/MM/YYYY HH:mm")}
-                    </Text>
-                </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.reviewDate}>
+                    {dayjs(review.reviewedAt).format("DD/MM/YYYY HH:mm")}
+                </Text>
+            </View>
 
             <View style={{ flexDirection: "row", marginVertical: 6 }}>
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -317,7 +353,7 @@ export default function BookingDetailScreen() {
                                                                     'Chờ thanh toán'
                                                     }</Text></Text>
                                                 <Text style={styles.infoText}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VNĐ</Text>
-                                                {(p.paymentStatus === "PENDING" && p.approvalUrl) && <TouchableOpacity style={styles.paymentButton} onPress={() => { Linking.openURL(p.approvalUrl) }}>
+                                                {(p.paymentStatus === "PENDING" && p.approvalUrl && role == "CUSTOMER") && <TouchableOpacity style={styles.paymentButton} onPress={() => { Linking.openURL(p.approvalUrl) }}>
                                                     <Text style={{ color: Colors.white, fontFamily: "inter" }}>Thanh toán</Text>
                                                 </TouchableOpacity>}
                                             </View>
@@ -395,21 +431,45 @@ export default function BookingDetailScreen() {
                 {/* Footer actions */}
                 <View style={styles.footer} pointerEvents="box-none">
                     <View style={styles.footerInner}>
-                        {role === "SEER" && ["PENDING", "CONFIRMED"].includes(booking?.status) && <TouchableOpacity style={styles.secondaryButton} onPress={() => { Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng'); }}>
-                            <Text>Đổi lịch</Text>
-                        </TouchableOpacity>
+                        {role === "SEER" && ["PENDING", "CONFIRMED"].includes(booking?.status) &&
+                            <>
+                                <TouchableOpacity style={styles.secondaryButton} onPress={() => { Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng'); }}>
+                                    <Text>Đổi lịch</Text>
+                                </TouchableOpacity>
+
+                                {booking.status === "PENDING" &&
+                                    <TouchableOpacity style={styles.secondaryButton} onPress={() => {
+                                        Alert.alert('Xác nhận', 'Bạn có chắc chắn không?', [
+                                            { text: 'Không', style: "cancel" },
+                                            { text: 'Có', style: "default", onPress: () => handleConfirmBooking() }
+                                        ]);
+                                    }}>
+                                        <Text>Xác nhận lịch</Text>
+                                    </TouchableOpacity>
+                                }
+
+                                <TouchableOpacity style={styles.dangerButton} onPress={() => {
+                                    Alert.alert('Xác nhận', 'Bạn có chắc muốn huỷ lịch này?', [
+                                        { text: 'Không', style: "cancel" },
+                                        { text: 'Có', style: "default", onPress: () => handleSeerCancelBooking() }
+                                    ]);
+                                }}>
+                                    <Text>Huỷ lịch</Text>
+                                </TouchableOpacity>
+                            </>
                         }
-                        {role === "CUSTOMER" && ["PENDING", "CONFIRMED"].includes(booking?.status) && <TouchableOpacity
-                            style={styles.dangerButton}
-                            onPress={() => {
-                                Alert.alert('Xác nhận', 'Bạn có chắc muốn huỷ lịch này?', [
-                                    { text: 'Không' },
-                                    { text: 'Có', style: 'destructive', onPress: () => handleCancelBooking() }
-                                ]);
-                            }}
-                        >
-                            <Text style={{ color: 'white', fontWeight: '700' }}>Hủy lịch</Text>
-                        </TouchableOpacity>
+                        {role === "CUSTOMER" && ["PENDING", "CONFIRMED"].includes(booking?.status) &&
+                            <TouchableOpacity
+                                style={styles.dangerButton}
+                                onPress={() => {
+                                    Alert.alert('Xác nhận', 'Bạn có chắc muốn huỷ lịch này?', [
+                                        { text: 'Không' },
+                                        { text: 'Có', style: 'destructive', onPress: () => handleCancelBooking() }
+                                    ]);
+                                }}
+                            >
+                                <Text style={{ color: 'white', fontWeight: '700' }}>Hủy lịch</Text>
+                            </TouchableOpacity>
                         }
                     </View>
                 </View>

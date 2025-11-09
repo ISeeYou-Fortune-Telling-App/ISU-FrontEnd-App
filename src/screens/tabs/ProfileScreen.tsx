@@ -1,4 +1,3 @@
-import StatusDropdown from "@/src/components/StatusDropdown";
 import Colors from "@/src/constants/colors";
 import { getMyPackages, getProfile, updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -195,8 +194,26 @@ export default function ProfileScreen() {
               }}
             />
             <Text style={styles.name}>{fullName}</Text>
-            {role === "SEER" && <StatusDropdown value={status} onChange={handleStatusChange} />}
-            <Text style={{ fontFamily: "inter", marginTop: 10 }}>{description}</Text>
+            {role === "SEER" &&
+              <View style={{ flexDirection: "row", padding: 10, borderRadius: 30, borderWidth: 1, borderColor: Colors.grayBackground, alignItems: "center" }}>
+                <View style={{
+                  padding: 6, marginRight: 5, borderRadius: 50,
+                  backgroundColor:
+                    status == "ACTIVE" ? Colors.green :
+                      status == "VERIFIED" ? Colors.primary :
+                        status == "BLOCKED" ? Colors.error :
+                          Colors.gray
+                }} />
+                <Text style={{ fontFamily: "inter" }}>{
+                  status == "ACTIVE" ? "ĐANG HOẠT ĐỘNG" :
+                  status == "INACTIVE" ? "KHÔNG HOẠT ĐỘNG" :
+                  status == "VERIFIED" ? "DÃ XÁC MINH" :
+                  status == "UNVERIFIED" ? "CHƯA XÁC MINH" :
+                  "BỊ CHẶN"
+                }</Text>
+              </View>
+            }
+            <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10 }}>{description}</Text>
           </View>
         </View>
 

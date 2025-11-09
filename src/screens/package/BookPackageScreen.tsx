@@ -2,8 +2,8 @@ import Colors from "@/src/constants/colors";
 import { createBooking } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,10 +20,12 @@ export default function BookPackageScreen() {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [note, setNote] = useState<string>("");
-  const [bookingLoading, setBookingLoading] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [snackbarVisible, setSnackbarVisible] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>("");
   const [avatarError, setAvatarError] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
@@ -94,7 +96,7 @@ export default function BookPackageScreen() {
       return;
     }
 
-    setBookingLoading(true);
+    setSubmitting(true);
     try {
       const payload = {
         scheduledTime: scheduledDateISO,
@@ -105,26 +107,35 @@ export default function BookPackageScreen() {
       const res = await createBooking(id as string, payload);
       const redirectUrl = res?.data?.data?.redirectUrl;
 
-      // setSnackbarMsg("Đặt lịch thành công");
-      // setSnackbarVisible(true);
-      Alert.alert("Thành công", "Đặt lịch thành công", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(tabs)/booking"),
-        },
-      ]);
+      setSuccess(true);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }).start();
 
       if (redirectUrl) {
-        // open payment/approval page if provided by backend
         Linking.openURL(redirectUrl);
       }
+
+      setTimeout(() => {
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setSubmitting(false);
+          setSuccess(false);
+          router.replace("/(tabs)/booking");
+        });
+      }, 1500);
 
     } catch (error) {
       const msg = (error as any)?.response?.data?.message || "Đặt lịch thất bại";
       setSnackbarMsg(msg);
       setSnackbarVisible(true);
     } finally {
-      setBookingLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -261,7 +272,7 @@ export default function BookPackageScreen() {
           <Button
             mode="contained"
             onPress={handleBook}
-            loading={bookingLoading}
+            loading={submitting}
             style={styles.bookButton}
             contentStyle={{ height: 48 }}
           >
@@ -271,6 +282,24 @@ export default function BookPackageScreen() {
 
         <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)}>{snackbarMsg}</Snackbar>
       </KeyboardAvoidingView>
+
+      {/* ⏳ Blocking modal with spinner or success animation */}
+      <Modal visible={submitting} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          {!success ? (
+            <View style={styles.modalBox}>
+              <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+              <Text style={styles.modalText}>Đang đặt lịch...</Text>
+            </View>
+          ) : (
+            <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
+              <MaterialIcons name="check-circle" size={70} color="#16a34a" />
+              <Text style={styles.successText}>Đặt lịch thành công!</Text>
+            </Animated.View>
+          )}
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -391,5 +420,39 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 12,
     margin: 10,
-  }
+  },
+  // ✅ Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    width: 220,
+  },
+  modalText: {
+    marginTop: 12,
+    color: "#000",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  successBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successText: {
+    marginTop: 8,
+    color: "#16a34a",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
 })
