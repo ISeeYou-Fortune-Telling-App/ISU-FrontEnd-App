@@ -1,7 +1,8 @@
 import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, Text, TextInput } from "react-native-paper";
@@ -20,6 +21,21 @@ export default function SeerRegistrationScreen() {
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Clear any previous registration data when starting new registration
+  useEffect(() => {
+    const clearPreviousData = async () => {
+      try {
+        await SecureStore.deleteItemAsync("tempCertificates");
+        await SecureStore.deleteItemAsync("seerRegistrationStep1");
+        await SecureStore.deleteItemAsync("seerRegistrationStep2");
+      } catch (error) {
+        console.error("Error clearing previous data:", error);
+      }
+    };
+
+    clearPreviousData();
+  }, []);
+
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
@@ -33,6 +49,56 @@ export default function SeerRegistrationScreen() {
   const handleConfirmDate = (date: Date) => {
     setDob(formatDate(date));
     setShowDatePicker(false);
+  };
+
+  const handleNext = async () => {
+    // Validation
+    if (!fullName.trim()) {
+      alert("Vui lòng nhập họ và tên");
+      return;
+    }
+    if (!email.trim()) {
+      alert("Vui lòng nhập email");
+      return;
+    }
+    if (!phone.trim()) {
+      alert("Vui lòng nhập số điện thoại");
+      return;
+    }
+    if (!dob) {
+      alert("Vui lòng chọn ngày sinh");
+      return;
+    }
+    if (!password) {
+      alert("Vui lòng nhập mật khẩu");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    // Convert date format to ISO
+    const dateParts = dob.split("/");
+    const isoDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}T00:00:00`;
+
+    // Save data to SecureStore
+    const step1Data = {
+      fullName: fullName.trim(),
+      email: email.trim(),
+      phoneNumber: phone.trim(),
+      birthDate: isoDate,
+      gender,
+      password,
+      passwordConfirm: confirmPassword,
+    };
+
+    try {
+      await SecureStore.setItemAsync("seerRegistrationStep1", JSON.stringify(step1Data));
+      router.push("/seer-registration-step2" as any);
+    } catch (error) {
+      alert("Có lỗi xảy ra. Vui lòng thử lại.");
+    }
   };
 
 
@@ -185,7 +251,7 @@ export default function SeerRegistrationScreen() {
         <Button
           mode="contained"
           style={styles.nextButton}
-          onPress={() => router.push("/seer-registration-step2" as any)}
+          onPress={handleNext}
         >
           Tiếp tục
         </Button>

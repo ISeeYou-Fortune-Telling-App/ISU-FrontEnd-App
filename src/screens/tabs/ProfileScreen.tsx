@@ -213,7 +213,10 @@ export default function ProfileScreen() {
                 }</Text>
               </View>
             }
-            <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10 }}>{description}</Text>
+            {description?.length > 0 ? 
+              <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10 }}>{description}</Text> :
+              <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10, color: Colors.gray }}>Chưa có mô tả.</Text>
+            }
           </View>
         </View>
 

@@ -206,7 +206,13 @@ export default function BookingDetailScreen() {
                 keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
 
                 <View style={styles.header}>
-                    <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
+                    <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => {
+                        if (router.canGoBack()) {
+                            router.back();
+                        } else {
+                            router.replace("/(tabs)/booking" as any);
+                        }
+                    }} />
                     <View style={styles.titleContainer}>
                         <Text variant="titleLarge" style={styles.title}>Chi tiết lịch hẹn</Text>
                     </View>

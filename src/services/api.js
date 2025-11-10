@@ -198,7 +198,7 @@ export const searchKnowledgeItems = (params) => {
   }
   return API.get("/core/knowledge-items/search", { params: queryParams });
 };
-export const getKnowledgeCategories = (params) => API.get("/core/knowledge-categories", { params });
+export const getKnowledgeCategories = (params) => API.get("/core/public/knowledge-categories", { params });
 export const getKnowledgeItemDetail = (id) => API.get(`/core/knowledge-items/${id}`);
 
 export const getChatConversations = (params) =>
@@ -338,6 +338,66 @@ export const confirmBooking = (id, data) =>
 
 export const createChatSessionByBooking = (bookingId) =>
   ChatAPI.post(`/chat/conversations/booking/${bookingId}`);
+export const registerSeer = (data) => {
+  console.log("registerSeer called with data:", data);
+  const formData = new FormData();
+
+  // Add basic fields
+  const basicFields = ['email', 'password', 'fullName', 'birthDate', 'gender', 'phoneNumber', 'profileDescription'];
+  basicFields.forEach(field => {
+    if (data[field] !== null && data[field] !== undefined && data[field] !== '') {
+      formData.append(field, String(data[field]));
+    }
+  });
+
+  // Add specialityIds (array)
+  if (data.specialityIds && Array.isArray(data.specialityIds)) {
+    data.specialityIds.forEach(id => {
+      formData.append('specialityIds', id);
+    });
+  }
+
+  // Add certificates (nested structure)
+  if (data.certificates && Array.isArray(data.certificates)) {
+    data.certificates.forEach((cert, index) => {
+      if (cert.certificateName) {
+        formData.append(`certificates[${index}].certificateName`, cert.certificateName);
+      }
+      if (cert.certificateDescription) {
+        formData.append(`certificates[${index}].certificateDescription`, cert.certificateDescription);
+      }
+      if (cert.issuedBy) {
+        formData.append(`certificates[${index}].issuedBy`, cert.issuedBy);
+      }
+      if (cert.issuedAt) {
+        formData.append(`certificates[${index}].issuedAt`, cert.issuedAt);
+      }
+      if (cert.expirationDate) {
+        formData.append(`certificates[${index}].expirationDate`, cert.expirationDate);
+      }
+      if (cert.certificateFile) {
+        formData.append(`certificates[${index}].certificateFile`, cert.certificateFile);
+      }
+      // Add categoryIds for certificates
+      if (cert.categoryIds && Array.isArray(cert.categoryIds)) {
+        cert.categoryIds.forEach(categoryId => {
+          formData.append(`certificates[${index}].categoryIds`, categoryId);
+        });
+      }
+    });
+  }
+
+  console.log("FormData entries:");
+  for (let [key, value] of formData.entries()) {
+    console.log(key, value);
+  }
+
+  return API.post("/core/auth/seer/register", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const verifyEmail = (data) => API.post("/core/auth/verify-email", data);
 
 // export const getNotifications = (params) => API.get("/notification", { params });
 

@@ -1,6 +1,6 @@
 import TopBar from "@/src/components/TopBar";
 import Colors from "@/src/constants/colors";
-import { getSeers, getServicePackageDetail, getServicePackages, interactWithServicePackage } from "@/src/services/api";
+import { getKnowledgeCategories, getSeers, getServicePackageDetail, getServicePackages, interactWithServicePackage } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -63,6 +63,8 @@ export default function HomeScreen() {
   const [likeInFlight, setLikeInFlight] = useState<Record<string, boolean>>({});
   const tabBarHeight = useBottomTabBarHeight();
   const pageSize = 15;
+  const [categories, setCategories] = useState<Array<{ id: string, name: string, description: string }>>([]);
+  const [selectedCategory, setSelectedCategory] = useState<{ id: string, name: string, description: string } | null>(null);
 
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -84,7 +86,7 @@ export default function HomeScreen() {
     }
   }, [searchParams]);
 
-  const fetchServicePackages = useCallback(async (page: number = 1) => {
+  const fetchServicePackages = useCallback(async (page: number = 1, filterCategoryId?: string) => {
     if (page === 1) {
       setServicePackages([]);
       setLoading(true);
@@ -93,7 +95,6 @@ export default function HomeScreen() {
     }
     setError(null);
     try {
-      // Check if user is authenticated
       const token = await SecureStore.getItemAsync("authToken");
       const isDemoMode = token === "demo-token";
 
@@ -104,15 +105,21 @@ export default function HomeScreen() {
 
       if (isDemoMode) {
         if (page === 1) {
-          setServicePackages(demoServicePackages);
+          if (filterCategoryId && categories.length > 0) {
+            const cat = categories.find(c => c.id === filterCategoryId);
+            if (cat) {
+              const filtered = demoServicePackages.filter(p => (p.categories || []).some((pc: any) => pc.name === cat.name));
+              setServicePackages(filtered);
+            } else {
+              setServicePackages(demoServicePackages);
+            }
+          } else {
+            setServicePackages(demoServicePackages);
+          }
         }
         setCurrentPage(page);
-        setHasMore(false); // Demo has only 1 page
-        if (page === 1) {
-          setLoading(false);
-        } else {
-          setLoadingMore(false);
-        }
+        setHasMore(false);
+        if (page === 1) setLoading(false); else setLoadingMore(false);
         return;
       }
 
@@ -126,12 +133,11 @@ export default function HomeScreen() {
         searchText: searchParamsRef.current?.searchText as string || undefined,
         minTime: searchParamsRef.current?.minTime ? parseInt(searchParamsRef.current.minTime as string) : undefined,
         maxTime: searchParamsRef.current?.maxTime ? parseInt(searchParamsRef.current.maxTime as string) : undefined,
-        packageCategoryIds: searchParamsRef.current?.packageCategoryIds ? (Array.isArray(searchParamsRef.current.packageCategoryIds) ? searchParamsRef.current.packageCategoryIds : [searchParamsRef.current.packageCategoryIds]) : undefined,
+        packageCategoryIds: filterCategoryId ? [filterCategoryId] : (searchParamsRef.current?.packageCategoryIds ? (Array.isArray(searchParamsRef.current.packageCategoryIds) ? searchParamsRef.current.packageCategoryIds : [searchParamsRef.current.packageCategoryIds]) : undefined),
         seerSpecialityIds: searchParamsRef.current?.seerSpecialityIds ? (Array.isArray(searchParamsRef.current.seerSpecialityIds) ? searchParamsRef.current.seerSpecialityIds : [searchParamsRef.current.seerSpecialityIds]) : undefined,
         status: searchParamsRef.current?.status as string || "AVAILABLE",
       };
 
-      // Remove undefined values
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
 
       const response = await getServicePackages(params);
@@ -159,14 +165,13 @@ export default function HomeScreen() {
                 imageUrl: detail.imageUrl,
                 likes: p.likeCount,
                 dislikes: p.dislikeCount,
-                comments: '0 bình luận', // Placeholder
+                comments: `${p.totalReviews} bình luận`,
                 avatarUrl: detail.seer.avatarUrl,
                 isLike: p.isLike,
                 isDislike: p.isDislike,
               };
             } catch (detailErr) {
               console.error(`Error fetching details for package ${p.id}:`, detailErr);
-              // Return package with available data even if detail fetch failed
               return {
                 id: p.id,
                 seer: 'Không có thông tin',
@@ -184,16 +189,13 @@ export default function HomeScreen() {
                 imageUrl: p.imageUrl,
                 likes: p.likeCount,
                 dislikes: p.dislikeCount,
-                comments: '0 bình luận',
+                comments: `${p.totalReviews} bình luận`,
               };
             }
           })
         );
-        if (page === 0) {
-          setServicePackages(packagesWithDetails);
-        } else {
-          setServicePackages(prev => [...prev, ...packagesWithDetails]);
-        }
+        if (page === 1) setServicePackages(packagesWithDetails);
+        else setServicePackages(prev => [...prev, ...packagesWithDetails]);
         setCurrentPage(page);
         setHasMore(page < response.data.paging.totalPages && response.data.data.length === pageSize);
       }
@@ -208,13 +210,9 @@ export default function HomeScreen() {
         setError("Không thể tải gói dịch vụ. Vui lòng thử lại sau.");
       }
     } finally {
-      if (page === 1) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
+      if (page === 1) setLoading(false); else setLoadingMore(false);
     }
-  }, [router]);
+  }, [router]); // <- removed `categories` from dependency list
 
   const fetchSeers = useCallback(async (page: number = 1) => {
     if (page === 1) {
@@ -305,23 +303,28 @@ export default function HomeScreen() {
   const loadMore = useCallback(() => {
     if (hasMore && !loadingMore) {
       if (searchType === "packages") {
-        fetchServicePackages(currentPage + 1);
+        fetchServicePackages(currentPage + 1, selectedCategory?.id);
       } else {
         fetchSeers(currentPage + 1);
       }
     }
-  }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers]);
+  }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers, selectedCategory]);
 
   useFocusEffect(
     useCallback(() => {
       setCurrentPage(1);
       setHasMore(true);
-      if (searchType === "packages") {
-        fetchServicePackages(1);
-      } else {
-        fetchSeers(1);
-      }
-    }, [searchType, fetchServicePackages, fetchSeers])
+      // load categories and the initial packages/seers
+      (async () => {
+        await fetchCategories();
+        if (searchType === "packages") {
+          // if user had selected a category keep it, otherwise normal load
+          await fetchServicePackages(1, selectedCategory?.id);
+        } else {
+          await fetchSeers(1);
+        }
+      })();
+    }, [searchType, fetchServicePackages, fetchSeers, selectedCategory])
   );
 
   useEffect(() => {
@@ -407,6 +410,47 @@ export default function HomeScreen() {
     }
   };
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const resp = await getKnowledgeCategories({ page: 1, limit: 200 });
+      const payload = resp?.data?.data || [];
+      const arr = Array.isArray(payload) ? payload : [];
+      const mapped = arr.map((c: any) => ({ id: String(c.id), name: c.name, description: c.description }));
+      setCategories(mapped);
+      return mapped; // <-- return the mapped list
+    } catch (e) {
+      console.error('Failed to fetch categories', e);
+      return [];
+    }
+  }, []);
+
+  // when user taps a category chip
+  const handleSelectCategory = async (categoryName: string) => {
+    let cat = categories.find(c => c.name === categoryName);
+    if (!cat) {
+      // fetch categories and use the freshly returned list
+      const fresh = await fetchCategories();
+      cat = fresh.find((c: any) => c.name === categoryName);
+      if (!cat) {
+        // fail silently if category truly doesn't exist
+        return;
+      }
+    }
+    setSelectedCategory(cat);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchServicePackages(1, cat.id);
+  };
+
+
+  const clearSelectedCategory = () => {
+    setSelectedCategory(null);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchServicePackages(1);
+    router.replace({ pathname: '/(tabs)/home', params: {} })
+  };
+
   if (loading) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -435,11 +479,11 @@ export default function HomeScreen() {
       {activePage === "search" && (
         <View style={[styles.servicesContainer, styles.cardShadow, { marginHorizontal: 10, marginTop: 10, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ width: 34 }} />
+            <Text style={[styles.servicesTitle, { marginBottom: 0 }]}>Kết quả tìm kiếm</Text>
             <TouchableOpacity onPress={() => router.replace({ pathname: '/(tabs)/home', params: {} })} style={styles.iconButton}>
               <X size={22} color={Colors.primary} />
             </TouchableOpacity>
-            <Text style={[styles.servicesTitle, { marginBottom: 0 }]}>Kết quả tìm kiếm</Text>
-            <View style={{ width: 22 }} />
           </View>
           <View style={{ paddingVertical: 8 }}>
             <SegmentedButtons
@@ -453,6 +497,32 @@ export default function HomeScreen() {
           </View>
         </View>
       )}
+
+      {/* If a category is selected show small card with description and X to clear */}
+      {activePage === "home" && selectedCategory && (
+        <View style={[styles.servicesContainer, styles.cardShadow, { marginHorizontal: 10, marginTop: 10, paddingVertical: 12 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={[
+                styles.selectedCategoryIcon,
+                { backgroundColor: getCategoryStyle(selectedCategory.name).background }
+              ]}>
+                {getCategoryIcon(selectedCategory.name, getCategoryStyle(selectedCategory.name).text)}
+              </View>
+
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={[styles.servicesTitle, { marginBottom: 4 }, { color: popularServices.find((c) => c.name == selectedCategory.name)?.color }]}>{selectedCategory.name}</Text>
+                <Text style={{ color: Colors.gray, fontFamily: "inter" }}>{selectedCategory.description}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity onPress={clearSelectedCategory} style={styles.iconButton}>
+              <X size={20} color="gray" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <FlatList
         data={activePage === "search" && searchType === "seers" ? seers : servicePackages}
         renderItem={({ item }) => (
@@ -491,46 +561,67 @@ export default function HomeScreen() {
             </View>
           ) : null
         }
-        ListHeaderComponent={
-          activePage === "home" ? (
-            <>
-              <View style={[styles.servicesContainer, styles.cardShadow]}>
-                <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
-                <View style={styles.servicesGrid}>
-                  {popularServices.map((service, index) => (
-                    <View key={index} style={styles.serviceItem}>
-                      <View style={[styles.serviceIcon, { backgroundColor: service.bgColor }]}>
-                        <service.Icon color={service.color} size={24} />
-                      </View>
-                      <Text style={styles.serviceName}>{service.name}</Text>
+        ListHeaderComponent={activePage === "home" ? (
+          <>
+            {!selectedCategory && <View style={[styles.servicesContainer, styles.cardShadow]}>
+              <Text style={styles.servicesTitle}>Dịch vụ phổ biến 🔥</Text>
+              <View style={styles.servicesGrid}>
+                {popularServices.map((service, index) => (
+                  <TouchableOpacity key={index} style={styles.serviceItem} onPress={() => handleSelectCategory(service.name)}>
+                    <View style={[styles.serviceIcon, { backgroundColor: service.bgColor }]}>
+                      <service.Icon color={service.color} size={24} />
                     </View>
-                  ))}
-                </View>
+                    <Text style={styles.serviceName}>{service.name}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+            </View>}
 
-              {role === "SEER" &&
-                <View style={[styles.servicesContainer, styles.cardShadow]}>
-                  <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
-                  <Button
-                    mode="contained"
-                    style={styles.btn}
-                    icon={() => <Package size={18} color="white" />}
-                    onPress={() => router.push("/create-package")}>
-                    Tạo gói dịch vụ mới
-                  </Button>
-                </View>
-              }
+            {role === "SEER" &&
+              <View style={[styles.servicesContainer, styles.cardShadow]}>
+                <Text style={styles.text}>Tạo gói dịch vụ mới để thu hút khách hàng 💵</Text>
+                <Button
+                  mode="contained"
+                  style={styles.btn}
+                  icon={() => <Package size={18} color="white" />}
+                  onPress={() => router.push("/create-package")}>
+                  Tạo gói dịch vụ mới
+                </Button>
+              </View>
+            }
 
-            </>
-          ) : (
-            <View style={{ paddingVertical: 8 }} />
-          )
-        }
+          </>
+        ) : (
+          <View style={{ paddingVertical: 8 }} />
+        )}
         ListEmptyComponent={<Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
       />
     </SafeAreaView>
   );
 }
+
+const getCategoryIcon = (category: string | null, color?: string) => {
+  if (!category) return null;
+  const iconColor = color ?? getCategoryStyle(category).text ?? 'gray';
+  switch (category) {
+    case 'Cung Hoàng Đạo':
+      return <Star size={18} color={iconColor} />;
+    case 'Nhân Tướng Học':
+      return <Eye size={18} color={iconColor} />;
+    case 'Ngũ Hành':
+      return <Coins size={18} color={iconColor} />;
+    case 'Chỉ Tay':
+      return <Hand size={18} color={iconColor} />;
+    case 'Tarot':
+    case 'TAROT':
+      return <Sparkles size={18} color={iconColor} />;
+    case 'Khác':
+      return <MoreHorizontal size={18} color={iconColor} />;
+    default:
+      // fallback: use Star for unknown categories
+      return <Star size={18} color={iconColor} />;
+  }
+};
 
 const getCategoryStyle = (category: string | null) => {
   const categoryMapping: Record<string, { display: string; background: string; text: string; }> = {
@@ -651,7 +742,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
       {/* --- CONTENT --- */}
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
       <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>
-        {servicePackage.content}
+        {servicePackage.content?.replace(/\\n/g, "\n")}
       </Text>
 
       <Image
@@ -919,7 +1010,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   servicesGrid: {
     flexDirection: 'row',
@@ -1103,7 +1194,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "inter",
   },
   btn: {
     marginTop: 10,
@@ -1134,5 +1225,15 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
-  }
+  },
+  selectedCategoryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // a subtle border for contrast on light backgrounds
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.06)',
+  },
 });

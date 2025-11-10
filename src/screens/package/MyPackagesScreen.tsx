@@ -166,7 +166,7 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
             </View>
             <View style={styles.cardContent}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{pkg.packageTitle}</Text>
-                <Text style={styles.cardDesc} numberOfLines={2}>{pkg.packageContent}</Text>
+                <Text style={styles.cardDesc} numberOfLines={2}>{pkg.packageContent?.replace(/\\n/g, "\n")}</Text>
                 {pkg.status === "REJECTED" && pkg.rejectionReason && (
                     <View style={styles.rejectReasonBox}>
                         <Text style={styles.rejectReasonTitle}>Lý do từ chối: <Text style={styles.rejectReasonText}>{pkg.rejectionReason}</Text></Text>

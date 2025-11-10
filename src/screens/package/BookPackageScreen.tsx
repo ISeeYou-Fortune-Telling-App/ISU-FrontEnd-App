@@ -2,8 +2,9 @@ import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
 import { createBooking } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
@@ -26,7 +27,20 @@ export default function BookPackageScreen() {
   const [snackbarMsg, setSnackbarMsg] = useState<string>("");
   const [avatarError, setAvatarError] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [paymentInitiated, setPaymentInitiated] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  // Handle navigation when user returns from PayPal without completing payment
+  useFocusEffect(
+    useCallback(() => {
+      // If we just initiated payment and come back to this screen, 
+      // it means payment was cancelled, so go to booking tab
+      if (paymentInitiated && !success) {
+        setPaymentInitiated(false);
+        router.replace("/(tabs)/booking");
+      }
+    }, [paymentInitiated, success])
+  );
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
@@ -109,6 +123,7 @@ export default function BookPackageScreen() {
       const redirectUrl = res?.data?.data?.redirectUrl;
 
       setSuccess(true);
+      setPaymentInitiated(true);
       Animated.spring(scaleAnim, {
         toValue: 1,
         friction: 6,
@@ -127,7 +142,8 @@ export default function BookPackageScreen() {
         }).start(() => {
           setSubmitting(false);
           setSuccess(false);
-          router.replace("/(tabs)/booking");
+          //router.replace("/(tabs)/booking");
+          // Remove automatic redirect - let deep link handle navigation
         });
       }, 1500);
 
@@ -135,6 +151,7 @@ export default function BookPackageScreen() {
       const msg = (error as any)?.response?.data?.message || "Đặt lịch thất bại";
       setSnackbarMsg(msg);
       setSnackbarVisible(true);
+      setPaymentInitiated(false);
     } finally {
       setSubmitting(false);
     }

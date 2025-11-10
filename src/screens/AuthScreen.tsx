@@ -1,4 +1,6 @@
+import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
+import { loginUser, registerUser } from "@/src/services/api";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
@@ -7,8 +9,6 @@ import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Sty
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
-import { loginUser } from "../services/api";
 
 const isValidMonthDay = (month: number, day: number): boolean => {
     if (month < 1 || month > 12 || day < 1) {
@@ -117,6 +117,7 @@ export default function AuthScreen() {
     const [fullName, setFullName] = useState<string>("");
     const [phone, setPhone] = useState<string>("");
     const [DOB, setDOB] = useState<string>("");
+    const [actualDOB, setActualDOB] = useState<string>("");
     const [zodiac, setZodiac] = useState<string>("");
     const [gender, setGender] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
@@ -127,8 +128,6 @@ export default function AuthScreen() {
     const router = useRouter();
     const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
     const [menuVisible, setMenuVisible] = useState<boolean>(false);
-    const [regSent, setRegSent] = useState<boolean>(false);
-    const [otp, setOtp] = useState<string>("");
 
     const openMenu = () => setMenuVisible(true);
     const closeMenu = () => setMenuVisible(false);
@@ -201,6 +200,22 @@ export default function AuthScreen() {
             router.replace("/(tabs)/home");
         } catch (err: any) {
             console.error("Đăng nhập thất bại", err);
+            console.log("Error response:", err?.response);
+            console.log("Error status:", err?.response?.status);
+            console.log("Error data:", err?.response?.data);
+
+            // Check if email needs verification (403 error with specific message)
+            if ((err?.response?.status === 403 || err?.response?.data?.statusCode === 403) &&
+                err?.response?.data?.message?.includes("Email chưa được xác thực")) {
+                console.log("Navigating to OTP screen with email:", email);
+                // Navigate to OTP verification screen with the email
+                router.push({
+                    pathname: "/otp-verification",
+                    params: { email: email }
+                });
+                return;
+            }
+
             const message =
                 err?.response?.data?.message ||
                 err?.message ||
@@ -245,16 +260,36 @@ export default function AuthScreen() {
             return;
         }
 
-        setZodiac(computedZodiac);
-        setError(null);
-        setRegSent(true);
+        try {
+            setSubmitting(true);
+            setZodiac(computedZodiac);
+            setError(null);
 
-        Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ.", [
-            {
-                text: "Đăng nhập",
-                onPress: () => setOption("login"),
-            },
-        ]);
+            const data = {
+                fullName,
+                email,
+                phoneNumber: phone,
+                birthDate: actualDOB,
+                gender,
+                password,
+                passwordConfirm: confirmPassword
+            }
+
+            const res = await registerUser(data);
+
+            Alert.alert("Thành công", "Xin hãy nhập mã OTP để xác nhận tài khoản.", [
+                {
+                    text: "OK",
+                    onPress: () => router.push("/otp-verification")
+                }
+            ]);
+        }
+        catch (err) {
+            Alert.alert("Lỗi", "Hiện giờ không thể đăng ký. Xin hãy thử lại sau.");
+        }
+        finally {
+            setSubmitting(false);
+        }
     };
 
     const formatDate = (date: Date) => {
@@ -265,6 +300,7 @@ export default function AuthScreen() {
     };
 
     const handleConfirmDate = (date: Date) => {
+        setActualDOB(date.toISOString())
         setDOB(formatDate(date));
         handleDOBChange(formatDate(date));
         setShowDatePicker(false);
@@ -364,9 +400,15 @@ export default function AuthScreen() {
                                 <Button mode="contained" style={styles.btnLogin} onPress={handleLogin} loading={submitting} disabled={submitting}>
                                     Đăng nhập
                                 </Button>
+
+                                <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
+                                    Xác thực OTP
+                                </Button>
+
                                 <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
                                     Bỏ qua (demo)
                                 </Button>
+
                             </View>
                         ) : (
                             <View key="register">
@@ -493,27 +535,9 @@ export default function AuthScreen() {
                                     Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
                                 </Text>
 
-                                <Button mode="contained" style={styles.btnLogin} onPress={handleRegister}>
+                                <Button mode="contained" style={styles.btnLogin} onPress={handleRegister} loading={submitting} disabled={submitting}>
                                     Đăng ký
                                 </Button>
-
-                                {regSent &&
-                                    <>
-                                        <TextInput
-                                            label="OTP"
-                                            keyboardType="numeric"
-                                            placeholder="Nhập mã OTP"
-                                            mode="outlined"
-                                            style={styles.textInput}
-                                            left={<TextInput.Icon icon="phone" />}
-                                            onChangeText={setOtp}
-                                            value={otp}
-                                        />
-                                        <Button mode="contained" style={styles.btnLogin}>
-                                            Gửi
-                                        </Button>
-                                    </>
-                                }
 
                                 <Button
                                     mode="contained"
@@ -550,6 +574,11 @@ const styles = StyleSheet.create({
     btnLogin: {
         marginTop: 20,
         backgroundColor: Colors.primary,
+        borderRadius: 10,
+    },
+    btnOTP: {
+        marginTop: 10,
+        backgroundColor: Colors.green,
         borderRadius: 10,
     },
     skipButton: {
