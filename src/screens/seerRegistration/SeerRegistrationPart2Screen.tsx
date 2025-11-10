@@ -1,6 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -84,6 +85,21 @@ export default function SeerRegistrationStep2Screen() {
     if (text.length <= maxChars) {
       setBioText(text);
       setCharCount(text.length);
+    }
+  };
+
+  const handleNext = async () => {
+    // Save data to SecureStore - always send empty arrays for now
+    const step2Data = {
+      specialityIds: [],
+      profileDescription: bioText.trim(),
+    };
+
+    try {
+      await SecureStore.setItemAsync("seerRegistrationStep2", JSON.stringify(step2Data));
+      router.push("/seer-registration-step3" as any);
+    } catch (error) {
+      alert("Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
 
@@ -206,8 +222,7 @@ export default function SeerRegistrationStep2Screen() {
           mode="contained"
           style={styles.nextButton}
           labelStyle={{ color: 'white' }}
-          onPress={() => router.push("/seer-registration-step3" as any)}
-          disabled={selectedSpecialties.length === 0} //|| bioText.trim().length === 0}
+          onPress={handleNext}
         >
           Tiếp tục
         </Button>

@@ -367,6 +367,10 @@ export default function AuthScreen() {
                                 <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
                                     Bỏ qua (demo)
                                 </Button>
+
+                                <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
+                                    Xác thực OTP
+                                </Button>
                             </View>
                         ) : (
                             <View key="register">
@@ -550,6 +554,11 @@ const styles = StyleSheet.create({
     btnLogin: {
         marginTop: 20,
         backgroundColor: Colors.primary,
+        borderRadius: 10,
+    },
+    btnOTP: {
+        marginTop: 10,
+        backgroundColor: Colors.green,
         borderRadius: 10,
     },
     skipButton: {

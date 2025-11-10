@@ -1,9 +1,12 @@
 import Colors from "@/src/constants/colors";
+import { registerSeer } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { LucideEye, LucideFileText, LucideX } from "lucide-react-native";
+import { router, useFocusEffect } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { LucideFileText, LucideX } from "lucide-react-native";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,15 +32,17 @@ interface ServicePackage {
 
 interface Certificate {
   id: string;
-  name: string;
-  visible: boolean;
+  certificateName: string;
+  certificateDescription: string;
+  issuedBy: string;
+  issuedAt: string;
+  expirationDate: string;
+  categoryIds: string[];
 }
 
 interface CertificateItemProps {
-  name: string;
-  onToggleVisibility: () => void;
+  certificate: Certificate;
   onRemove: () => void;
-  visible: boolean;
 }
 
 const defaultServicePackages: ServicePackage[] = [
@@ -91,10 +96,7 @@ const defaultServicePackages: ServicePackage[] = [
   },
 ];
 
-const defaultCertificates: Certificate[] = [
-  { id: "1", name: "Chứng chỉ Tarot nâng cao", visible: true },
-  { id: "2", name: "Chứng nhận tư vấn tâm lý cơ bản", visible: false },
-];
+const defaultCertificates: Certificate[] = [];
 
 const ServicePackageCard = ({
   data,
@@ -181,36 +183,29 @@ const ServicePackageCard = ({
 };
 
 const CertificateItem = ({
-  name,
-  onToggleVisibility,
+  certificate,
   onRemove,
-  visible,
 }: CertificateItemProps) => {
   return (
     <View style={styles.certificateItem}>
       <View style={styles.certificateIcon}>
         <LucideFileText size={24} color="#E53935" />
       </View>
-      <Text style={styles.certificateName} numberOfLines={1}>
-        {name}
-      </Text>
-      <View style={styles.certificateActions}>
-        <TouchableOpacity
-          style={styles.certificateActionButton}
-        >
-          <LucideEye
-            size={22}
-            color="#555"
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.certificateActionButton}
-          onPress={onRemove}
-          accessibilityLabel="Xóa chứng chỉ"
-        >
-          <LucideX size={22} color="#E53935" />
-        </TouchableOpacity>
+      <View style={styles.certificateInfo}>
+        <Text style={styles.certificateName} numberOfLines={1}>
+          {certificate.certificateName}
+        </Text>
+        <Text style={styles.certificateIssuer} numberOfLines={1}>
+          {certificate.issuedBy}
+        </Text>
       </View>
+      <TouchableOpacity
+        style={styles.certificateActionButton}
+        onPress={onRemove}
+        accessibilityLabel="Xóa chứng chỉ"
+      >
+        <LucideX size={22} color="#E53935" />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -219,7 +214,22 @@ export default function SeerRegistrationStep3Screen() {
   const [servicePackages, setServicePackages] =
     useState<ServicePackage[]>(defaultServicePackages);
   const [certificates, setCertificates] =
-    useState<Certificate[]>(defaultCertificates);
+    useState<Certificate[]>([]);
+
+  useFocusEffect(() => {
+    const loadCertificates = async () => {
+      try {
+        const tempCerts = await SecureStore.getItemAsync("tempCertificates");
+        if (tempCerts) {
+          setCertificates(JSON.parse(tempCerts));
+        }
+      } catch (error) {
+        console.error("Error loading certificates:", error);
+      }
+    };
+
+    loadCertificates();
+  });
 
   const handleTogglePackage = (packageId: string) => {
     setServicePackages((prev) =>
@@ -233,20 +243,86 @@ export default function SeerRegistrationStep3Screen() {
     router.push("/add-certificate");
   };
 
-  const handleRemoveCertificate = (id: string) => {
+  const handleRemoveCertificate = async (id: string) => {
+    // Remove from local state
     setCertificates((prev) => prev.filter((cert) => cert.id !== id));
+
+    // Also remove from SecureStore
+    try {
+      const tempCerts = await SecureStore.getItemAsync("tempCertificates");
+      if (tempCerts) {
+        const certificates = JSON.parse(tempCerts);
+        const updatedCertificates = certificates.filter((cert: any) => cert.id !== id);
+        await SecureStore.setItemAsync("tempCertificates", JSON.stringify(updatedCertificates));
+      }
+    } catch (error) {
+      console.error("Error removing certificate from storage:", error);
+    }
   };
 
-  const handleToggleCertificateVisibility = (id: string) => {
-    setCertificates((prev) =>
-      prev.map((cert) =>
-        cert.id === id ? { ...cert, visible: !cert.visible } : cert,
-      ),
-    );
-  };
+  const handleCompleteRegistration = async () => {
+    try {
+      // Get data from previous steps
+      const step1Data = await SecureStore.getItemAsync("seerRegistrationStep1");
+      const step2Data = await SecureStore.getItemAsync("seerRegistrationStep2");
 
-  const handleCompleteRegistration = () => {
-    // TODO: Kết nối API lưu dữ liệu đăng ký
+      if (!step1Data || !step2Data) {
+        Alert.alert("Lỗi", "Thiếu thông tin đăng ký. Vui lòng bắt đầu lại từ bước 1.");
+        router.replace("/seer-registration");
+        return;
+      }
+
+      const step1 = JSON.parse(step1Data);
+      const step2 = JSON.parse(step2Data);
+
+      // Combine all data
+      const registrationData = {
+        ...step1,
+        ...step2,
+        ...(certificates.length > 0 && {
+          certificates: certificates.map(cert => cert.certificateName).join(", ")
+        })
+      };
+
+      // Submit registration
+      const response = await registerSeer(registrationData);
+
+      // Clear stored data
+      await SecureStore.deleteItemAsync("seerRegistrationStep1");
+      await SecureStore.deleteItemAsync("seerRegistrationStep2");
+      await SecureStore.deleteItemAsync("tempCertificates");
+
+      // Navigate to OTP verification
+      router.replace({
+        pathname: "/otp-verification",
+        params: { email: step1.email }
+      } as any);
+
+    } catch (error: any) {
+      console.error("Registration error:", error);
+
+      // Handle specific error codes
+      if (error?.response?.status === 422) {
+        Alert.alert(
+          "Tài khoản đã tồn tại",
+          "Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập nếu bạn đã có tài khoản.",
+          [
+            {
+              text: "Đăng nhập",
+              onPress: () => router.replace("/auth")
+            },
+            {
+              text: "Thử lại",
+              style: "cancel"
+            }
+          ]
+        );
+        return;
+      }
+
+      const message = error?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.";
+      Alert.alert("Lỗi", message);
+    }
   };
 
   const activePackageCount = servicePackages.filter(
@@ -338,11 +414,7 @@ export default function SeerRegistrationStep3Screen() {
                 certificates.map((certificate) => (
                   <CertificateItem
                     key={certificate.id}
-                    name={certificate.name}
-                    visible={certificate.visible}
-                    onToggleVisibility={() =>
-                      handleToggleCertificateVisibility(certificate.id)
-                    }
+                    certificate={certificate}
                     onRemove={() => handleRemoveCertificate(certificate.id)}
                   />
                 ))
@@ -579,12 +651,17 @@ const styles = StyleSheet.create({
   certificateIcon: {
     marginRight: 12,
   },
-  certificateName: {
+  certificateInfo: {
     flex: 1,
   },
-  certificateActions: {
-    flexDirection: "row",
-    alignItems: "center",
+  certificateName: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  certificateIssuer: {
+    fontSize: 14,
+    color: Colors.gray,
   },
   certificateActionButton: {
     padding: 8,

@@ -357,6 +357,30 @@ export const cancelBooking = (id) =>
 export const confirmBooking = (id, data) =>
   API.post(`/core/bookings/${id}/seer-confirm`, data);
 
+export const registerSeer = (data) => {
+  const formData = new FormData();
+
+  // Add all fields to FormData
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      if (Array.isArray(value)) {
+        // For arrays like specialityIds
+        value.forEach(item => {
+          formData.append(key, item);
+        });
+      } else {
+        formData.append(key, String(value));
+      }
+    }
+  });
+
+  return API.post("/core/auth/seer/register", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const verifyEmail = (data) => API.post("/core/auth/verify-email", data);
+
 // export const getNotifications = (params) => API.get("/notification", { params });
 
 // export const getMyNotifications = (params) => API.get("/notification/me", { params });
@@ -367,4 +391,4 @@ export const confirmBooking = (id, data) =>
 
 export default API;
 // /notification
-// /report 
+// /report

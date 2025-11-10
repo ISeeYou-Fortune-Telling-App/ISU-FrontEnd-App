@@ -1,16 +1,18 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
@@ -82,6 +84,8 @@ export default function AddCertificateScreen() {
   const [certFile, setCertFile] = useState<{uri: string, name: string} | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
+  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   
   // Categories
   const categories = [
@@ -130,11 +134,59 @@ export default function AddCertificateScreen() {
     }
   };
 
+  // Date picker functions
+  const formatDate = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleIssueDateConfirm = (date: Date) => {
+    setCertIssueDate(formatDate(date));
+    setShowIssueDatePicker(false);
+  };
+
+  const handleExpiryDateConfirm = (date: Date) => {
+    setCertExpiryDate(formatDate(date));
+    setShowExpiryDatePicker(false);
+  };
+
   // Handle adding certificate and navigate back
-  const handleAddCertificate = () => {
-    if (certName.trim()) {
-      // Here save the certificate data then navigate back to the previous screen
+  const handleAddCertificate = async () => {
+    if (!certName.trim() || !certIssuer.trim() || !certIssueDate || !certExpiryDate) {
+      alert("Vui lòng điền đầy đủ thông tin chứng chỉ");
+      return;
+    }
+
+    // Convert dates to ISO format
+    const issuedAt = `${certIssueDate.split('/')[2]}-${certIssueDate.split('/')[1].padStart(2, '0')}-${certIssueDate.split('/')[0].padStart(2, '0')}T00:00:00`;
+    const expirationDate = `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`;
+
+    const certificateData = {
+      id: Date.now().toString(),
+      certificateName: certName.trim(),
+      certificateDescription: certDescription.trim(),
+      issuedBy: certIssuer.trim(),
+      issuedAt,
+      expirationDate,
+      categoryIds: [] // Always empty as per requirements
+    };
+
+    try {
+      // Get existing certificates
+      const existingCerts = await SecureStore.getItemAsync("tempCertificates");
+      const certificates = existingCerts ? JSON.parse(existingCerts) : [];
+
+      // Add new certificate
+      certificates.push(certificateData);
+
+      // Save back to SecureStore
+      await SecureStore.setItemAsync("tempCertificates", JSON.stringify(certificates));
+
       router.back();
+    } catch (error) {
+      alert("Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
 
@@ -155,7 +207,7 @@ export default function AddCertificateScreen() {
           <Text style={styles.inputLabel}>Tên chứng chỉ</Text>
           <TextInput
             mode="outlined"
-            placeholder="Nhập họ và tên"
+            placeholder="Nhập tên chứng chỉ"
             value={certName}
             onChangeText={setCertName}
             style={styles.input}
@@ -171,23 +223,41 @@ export default function AddCertificateScreen() {
           />
           
           <Text style={styles.inputLabel}>Ngày nhận</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="dd/mm/yyyy"
-            value={certIssueDate}
-            onChangeText={setCertIssueDate}
-            style={styles.input}
-            left={<TextInput.Icon icon="calendar" />}
+          <TouchableOpacity onPress={() => setShowIssueDatePicker(true)}>
+            <TextInput
+              mode="outlined"
+              placeholder="dd/mm/yyyy"
+              value={certIssueDate}
+              editable={false}
+              pointerEvents="none"
+              style={styles.input}
+              left={<TextInput.Icon icon="calendar" />}
+            />
+          </TouchableOpacity>
+          <DateTimePickerModal
+            isVisible={showIssueDatePicker}
+            mode="date"
+            onConfirm={handleIssueDateConfirm}
+            onCancel={() => setShowIssueDatePicker(false)}
           />
           
           <Text style={styles.inputLabel}>Ngày hết hạn</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="dd/mm/yyyy"
-            value={certExpiryDate}
-            onChangeText={setCertExpiryDate}
-            style={styles.input}
-            left={<TextInput.Icon icon="calendar" />}
+          <TouchableOpacity onPress={() => setShowExpiryDatePicker(true)}>
+            <TextInput
+              mode="outlined"
+              placeholder="dd/mm/yyyy"
+              value={certExpiryDate}
+              editable={false}
+              pointerEvents="none"
+              style={styles.input}
+              left={<TextInput.Icon icon="calendar" />}
+            />
+          </TouchableOpacity>
+          <DateTimePickerModal
+            isVisible={showExpiryDatePicker}
+            mode="date"
+            onConfirm={handleExpiryDateConfirm}
+            onCancel={() => setShowExpiryDatePicker(false)}
           />
           
           <Text style={styles.inputLabel}>Danh mục</Text>
