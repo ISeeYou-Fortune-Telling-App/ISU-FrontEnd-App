@@ -384,13 +384,15 @@ export default function AuthScreen() {
                                 <Button mode="contained" style={styles.btnLogin} onPress={handleLogin} loading={submitting} disabled={submitting}>
                                     Đăng nhập
                                 </Button>
-                                <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
-                                    Bỏ qua (demo)
-                                </Button>
 
                                 <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
                                     Xác thực OTP
                                 </Button>
+
+                                <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
+                                    Bỏ qua (demo)
+                                </Button>
+
                             </View>
                         ) : (
                             <View key="register">

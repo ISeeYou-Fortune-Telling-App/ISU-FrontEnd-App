@@ -41,11 +41,15 @@ export default function OTPVerificationScreen() {
 
   const handleResendOTP = async () => {
     try {
+      setLoading(true);
       await resendOTP(email);
       Alert.alert("Thông báo", "Mã OTP đã được gửi lại đến email của bạn.");
     }
     catch {
       Alert.alert("Lỗi", "Hiện giờ không gửi được mã OTP.");
+    }
+    finally {
+      setLoading(false);
     }
   };
 
@@ -108,6 +112,8 @@ export default function OTPVerificationScreen() {
               mode="text"
               style={styles.btnResend}
               onPress={handleResendOTP}
+              loading={loading}
+              disabled={loading}
             >
               Gửi lại mã OTP
             </Button>

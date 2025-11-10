@@ -24,6 +24,8 @@ export default function PackageDetailScreen() {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
   const [avatarErrors, setAvatarErrors] = useState<{ [key: number]: boolean }>({});
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
 
   const handleDelete = async () => {
@@ -202,52 +204,106 @@ export default function PackageDetailScreen() {
           {/* Description */}
           <Card style={styles.descCard}>
             <Text style={styles.infoTitle}>Mô tả</Text>
-            <Text style={styles.descText}>{pkg.packageContent}</Text>
-          </Card>
 
+            <Text
+              style={styles.descText}
+              numberOfLines={showFullDesc ? undefined : 6} // Show only 6 lines initially
+            >
+              {pkg.packageContent?.replace(/\\n/g, "\n")}
+            </Text>
+
+            {pkg.packageContent && pkg.packageContent.length > 250 && (
+              <TouchableOpacity
+                onPress={() => setShowFullDesc(!showFullDesc)}
+                style={{ marginTop: 4 }}
+              >
+                <Text style={{ color: Colors.primary, fontFamily: "inter" }}>
+                  {showFullDesc ? "Thu gọn" : "Đọc thêm"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+          
           {/* ✅ Reviews */}
           <Card style={styles.reviewCard}>
             <Text style={styles.infoTitle}>Đánh giá ({reviews.length})</Text>
+
             {reviews.length === 0 ? (
               <Text style={{ color: "#666" }}>Chưa có đánh giá nào</Text>
             ) : (
-              reviews.map((rev, index) => (
-                <ReviewItem key={index} rev={rev} />
-              ))
+              <View>
+                {(showAllReviews ? reviews : reviews.slice(0, 3)).map((rev, index) => (
+                  <ReviewItem key={index} rev={rev} />
+                ))}
+
+                {reviews.length > 3 && (
+                  <TouchableOpacity
+                    style={{ marginTop: 6 }}
+                    onPress={() => setShowAllReviews(!showAllReviews)}
+                  >
+                    <Text style={{ color: Colors.primary, fontFamily: "inter" }}>
+                      {showAllReviews ? "Thu gọn" : "Xem thêm đánh giá"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </Card>
-
           {/* Comments */}
           <Card style={styles.reviewCard}>
-            <Text style={styles.infoTitle}>Bình luận ({comments.length})</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Text style={styles.infoTitle}>Bình luận ({comments.length})</Text>
+            </View>
+
             {comments.length === 0 ? (
               <Text style={{ color: "#666" }}>Chưa có bình luận nào</Text>
             ) : (
-              comments.map((rev) => (
-                <View key={rev.reviewId} style={styles.reviewItem}>
-                  <Image
-                    source={
-                      avatarErrors[rev.reviewId] || !rev.user?.avatarUrl
-                        ? require("@/assets/images/user-placeholder.png")
-                        : { uri: rev.user.avatarUrl }
-                    }
-                    style={styles.reviewAvatar}
-                    resizeMode="cover"
-                    onError={(e) => {
-                      setAvatarErrors((prev) => ({ ...prev, [rev.reviewId]: true }));
-                    }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.reviewName} numberOfLines={1}>
-                      {rev.user?.fullName ?? "Người dùng"}
-                    </Text>
-                    <Text style={styles.reviewComment} numberOfLines={2}>{rev.comment}</Text>
-                    <Text style={styles.reviewDate}>
-                      {new Date(rev.createdAt).toLocaleDateString("vi-VN")}
-                    </Text>
+              <View>
+                {comments.slice(0, 3).map((rev) => (
+                  <View key={rev.reviewId} style={styles.reviewItem}>
+                    <Image
+                      source={
+                        avatarErrors[rev.reviewId] || !rev.user?.avatarUrl
+                          ? require("@/assets/images/user-placeholder.png")
+                          : { uri: rev.user.avatarUrl }
+                      }
+                      style={styles.reviewAvatar}
+                      resizeMode="cover"
+                      onError={() =>
+                        setAvatarErrors((prev) => ({ ...prev, [rev.reviewId]: true }))
+                      }
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reviewName} numberOfLines={1}>
+                        {rev.user?.fullName ?? "Người dùng"}
+                      </Text>
+                      <Text style={styles.reviewComment} numberOfLines={2}>
+                        {rev.comment}
+                      </Text>
+                      <Text style={styles.reviewDate}>
+                        {new Date(rev.createdAt).toLocaleDateString("vi-VN")}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ))
+                ))}
+
+                <TouchableOpacity
+                  style={{ marginTop: 6 }}
+                  onPress={() =>
+                    router.push({ pathname: "/service-package-reviews", params: { id } })
+                  }
+                >
+                  <Text style={{ color: Colors.primary, fontFamily: "inter" }}>
+                    Xem thêm bình luận
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
           </Card>
 

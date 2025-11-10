@@ -5,6 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { decode } from "html-entities";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,7 +22,7 @@ import {
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Text, TextInput } from "react-native-paper";
-import { RichEditor, RichToolbar, actions } from "react-native-pell-rich-editor";
+import { RichEditor, RichToolbar } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CreatePackageScreen() {
@@ -196,9 +197,18 @@ export default function CreatePackageScreen() {
     try {
       setSubmitting(true);
 
+      const cleanDescription = decode(
+        content
+          .replace(/<div>/g, "")
+          .replace(/<\/div>/g, "\n")
+          .replace(/<br\s*\/?>/g, "\n")
+          .replace(/<[^>]+>/g, "") // remove remaining tags
+          .trim()
+      );
+
       const formData = new FormData();
       formData.append("packageTitle", title);
-      formData.append("packageContent", content);
+      formData.append("packageContent", cleanDescription);
       formData.append("durationMinutes", durationMinutes);
       formData.append("price", priceRaw);
 
@@ -324,12 +334,12 @@ export default function CreatePackageScreen() {
               <RichToolbar
                 editor={contentRef}
                 actions={[
-                  actions.setBold,
-                  actions.setItalic,
-                  actions.setUnderline,
-                  actions.insertBulletsList,
-                  actions.insertOrderedList,
-                  actions.insertLink,
+                  // actions.setBold,
+                  // actions.setItalic,
+                  // actions.setUnderline,
+                  // actions.insertBulletsList,
+                  // actions.insertOrderedList,
+                  // actions.insertLink,
                 ]}
                 iconTint="#000"
                 selectedIconTint="#2095F4"
