@@ -26,14 +26,14 @@ const createFormData = (uri: string, name?: string | null, mimeType?: string | n
 
 export const analyzePalmImage = (uri: string, name?: string | null, mimeType?: string | null) => {
   const data = createFormData(uri, name, mimeType);
-  return API.post("/ai-chat/analyze-palm", data, {
+  return API.post("/core/ai-chat/analyze-palm", data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
 export const analyzeFaceImage = (uri: string, name?: string | null, mimeType?: string | null) => {
   const data = createFormData(uri, name, mimeType);
-  return API.post("/ai-chat/analyze-face", data, {
+  return API.post("/core/ai-chat/analyze-face", data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
@@ -78,7 +78,7 @@ export const streamChatWithAI = async (
   try {
     const token = await SecureStore.getItemAsync("authToken");
     const baseURL = API.defaults.baseURL ?? "";
-    const url = `${baseURL.replace(/\/$/, "")}/ai-chat/query-stream`;
+    const url = `${baseURL.replace(/\/$/, "")}/core/ai-chat/query-stream`;
 
     const response = await fetch(url, {
       method: "POST",

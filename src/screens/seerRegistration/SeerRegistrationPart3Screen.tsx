@@ -215,6 +215,7 @@ export default function SeerRegistrationStep3Screen() {
     useState<ServicePackage[]>(defaultServicePackages);
   const [certificates, setCertificates] =
     useState<Certificate[]>([]);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   useFocusEffect(() => {
     const loadCertificates = async () => {
@@ -261,6 +262,7 @@ export default function SeerRegistrationStep3Screen() {
   };
 
   const handleCompleteRegistration = async () => {
+    setSubmitting(true);
     try {
       // Get data from previous steps
       const step1Data = await SecureStore.getItemAsync("seerRegistrationStep1");
@@ -322,6 +324,9 @@ export default function SeerRegistrationStep3Screen() {
 
       const message = error?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.";
       Alert.alert("Lỗi", message);
+    }
+    finally {
+      setSubmitting(false);
     }
   };
 
@@ -442,6 +447,8 @@ export default function SeerRegistrationStep3Screen() {
           style={styles.completeButton}
           labelStyle={styles.completeButtonLabel}
           onPress={handleCompleteRegistration}
+          loading={submitting} 
+          disabled={submitting}
         >
           Hoàn tất đăng ký
         </Button>

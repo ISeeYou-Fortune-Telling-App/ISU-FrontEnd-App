@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { verifyEmail } from "@/src/services/api";
+import { resendOTP, verifyEmail } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
@@ -40,8 +40,13 @@ export default function OTPVerificationScreen() {
   };
 
   const handleResendOTP = async () => {
-    // TODO: Implement resend OTP if needed
-    Alert.alert("Thông báo", "Mã OTP đã được gửi lại đến email của bạn.");
+    try {
+      await resendOTP(email);
+      Alert.alert("Thông báo", "Mã OTP đã được gửi lại đến email của bạn.");
+    }
+    catch {
+      Alert.alert("Lỗi", "Hiện giờ không gửi được mã OTP.");
+    }
   };
 
   return (
