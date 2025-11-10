@@ -1,53 +1,6 @@
 import axios from "axios";
-import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
-
-const ensureHttpProtocol = (raw) => {
-  if (!raw) {
-    return null;
-  }
-
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `http://${trimmed}`;
-};
-
-const resolveHostFromExpo = () => {
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    Constants.manifest?.debuggerHost ??
-    Constants.manifest2?.extra?.expoClient?.hostUri ??
-    Constants.manifest2?.extra?.expoGo?.debuggerHost;
-
-  if (!hostUri) {
-    return null;
-  }
-
-  const host = hostUri.split(":")[0];
-  if (!host) {
-    return null;
-  }
-
-  if (host.includes("localhost") || host.startsWith("127.")) {
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:8085";
-    }
-    if (Platform.OS === "ios") {
-      return "http://localhost:8085";
-    }
-    return null;
-  }
-
-  return `http://${host}:8085`;
-};
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 
 const setAuthHeader = (headers, token) => {
   if (!headers || !token) {
@@ -63,7 +16,7 @@ const setAuthHeader = (headers, token) => {
 
 const baseURL =
   ensureHttpProtocol(process.env.EXPO_PUBLIC_API_BASE_URL_NOTI) ??
-  resolveHostFromExpo() ??
+  resolveHostFromExpo(8085) ??
   "http://localhost:8085";
 
 const API = axios.create({

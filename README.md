@@ -1,5 +1,15 @@
 # .env
-Make a .env file in the base folder with EXPO_PUBLIC_API_BASE_URL=your-ip-address:8080
+Create a `.env` file in the project root so Expo knows how to reach your backend services:
+
+```bash
+# Replace 192.168.1.4 with your machine IP
+# Gateway (serves /core/**) runs on 8080, chat service stays on 8081.
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.4:8080
+EXPO_PUBLIC_CHAT_BASE_URL=http://192.168.1.4:8081
+EXPO_PUBLIC_SOCKET_PORT=8082
+# (Optional) EXPO_PUBLIC_SOCKET_URL=http://192.168.1.4:8082
+```
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
