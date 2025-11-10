@@ -1,9 +1,11 @@
+import Colors from "@/src/constants/colors";
+import { getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +17,31 @@ import {
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
+
+// Helper functions to map category names to icons and colors
+const getIconForCategory = (categoryName: string): string => {
+  const iconMap: Record<string, string> = {
+    "Cung Hoàng Đạo": "star",
+    "Nhân Tướng Học": "eye", 
+    "Ngũ Hành": "coins",
+    "Chỉ Tay": "hand",
+    "Tarot": "sparkles",
+    "Khác": "moreHorizontal"
+  };
+  return iconMap[categoryName] || "star";
+};
+
+const getColorForCategory = (categoryName: string) => {
+  const colorMap: Record<string, { icon: string; chip: string }> = {
+    "Cung Hoàng Đạo": Colors.categoryColors.zodiac,
+    "Nhân Tướng Học": Colors.categoryColors.physiognomy,
+    "Ngũ Hành": Colors.categoryColors.elements,
+    "Chỉ Tay": Colors.categoryColors.palmistry,
+    "Tarot": Colors.categoryColors.tarot,
+    "Khác": Colors.categoryColors.other
+  };
+  return colorMap[categoryName] || Colors.categoryColors.zodiac;
+};
 
 // Category Icon component
 const CategoryIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
@@ -81,21 +107,53 @@ export default function AddCertificateScreen() {
   const [certIssueDate, setCertIssueDate] = useState('');
   const [certExpiryDate, setCertExpiryDate] = useState('');
   const [certDescription, setCertDescription] = useState('');
-  const [certFile, setCertFile] = useState<{uri: string, name: string} | null>(null);
+  const [certFile, setCertFile] = useState<{uri: string, name: string, type?: string} | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
-  
-  // Categories
-  const categories = [
-    { id: "zodiac", name: "Cung Hoàng Đạo", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip, icon: "star" as any },
-    { id: "physiognomy", name: "Nhân Tướng Học", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip, icon: "eye" as any },
-    { id: "elements", name: "Ngũ Hành", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip, icon: "coins" as any },
-    { id: "palmistry", name: "Chỉ Tay", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip, icon: "hand" as any },
-    { id: "tarot", name: "Tarot", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip, icon: "sparkles" as any },
-    { id: "other", name: "Khác", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip, icon: "moreHorizontal" as any }
-  ];
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await getKnowledgeCategories();
+        console.log('AddCertificateScreen - Categories API response:', response);
+        
+        const categoriesData = response?.data?.data || [];
+        const arr = Array.isArray(categoriesData) ? categoriesData : [];
+        
+        const transformedCategories = arr.map((category: any) => ({
+          id: category.id,
+          name: category.name,
+          color: getColorForCategory(category.name).icon,
+          bgColor: getColorForCategory(category.name).chip,
+          icon: getIconForCategory(category.name) as any
+        }));
+        
+        console.log('AddCertificateScreen - Transformed categories:', transformedCategories);
+        setCategories(transformedCategories);
+      } catch (error) {
+        console.error('AddCertificateScreen - Error fetching categories:', error);
+        // Fallback to hardcoded categories if API fails
+        const fallbackCategories = [
+          { id: "1a1d3003-cad8-4805-8e04-2170d12e5bcf", name: "Cung Hoàng Đạo", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip, icon: "star" as any },
+          { id: "2b2d3003-cad8-4805-8e04-2170d12e5bcf", name: "Nhân Tướng Học", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip, icon: "eye" as any },
+          { id: "3c3d3003-cad8-4805-8e04-2170d12e5bcf", name: "Ngũ Hành", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip, icon: "coins" as any },
+          { id: "4d4d3003-cad8-4805-8e04-2170d12e5bcf", name: "Chỉ Tay", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip, icon: "hand" as any },
+          { id: "5e5d3003-cad8-4805-8e04-2170d12e5bcf", name: "Tarot", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip, icon: "sparkles" as any },
+          { id: "6f6d3003-cad8-4805-8e04-2170d12e5bcf", name: "Khác", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip, icon: "moreHorizontal" as any }
+        ];
+        setCategories(fallbackCategories);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Toggle category selection
   const toggleCategory = (categoryId: string) => {
@@ -126,7 +184,8 @@ export default function AddCertificateScreen() {
         const file = result.assets[0];
         setCertFile({
           uri: file.uri,
-          name: file.name
+          name: file.name,
+          type: file.mimeType || 'application/octet-stream'
         });
       }
     } catch (error) {
@@ -170,7 +229,8 @@ export default function AddCertificateScreen() {
       issuedBy: certIssuer.trim(),
       issuedAt,
       expirationDate,
-      categoryIds: [] // Always empty as per requirements
+      certificateFile: certFile, // Include the file
+      categoryIds: selectedCategories // Use selected categories instead of empty array
     };
 
     try {
@@ -262,17 +322,21 @@ export default function AddCertificateScreen() {
           
           <Text style={styles.inputLabel}>Danh mục</Text>
           <View style={styles.categoriesContainer}>
-            {categories.map(category => (
-              <CategoryCheckbox 
-                key={category.id}
-                label={category.name}
-                icon={category.icon}
-                color={category.color}
-                bgColor={category.bgColor}
-                selected={selectedCategories.includes(category.id)}
-                onPress={() => toggleCategory(category.id)}
-              />
-            ))}
+            {loadingCategories ? (
+              <Text style={styles.loadingText}>Đang tải danh mục...</Text>
+            ) : (
+              categories.map(category => (
+                <CategoryCheckbox 
+                  key={category.id}
+                  label={category.name}
+                  icon={category.icon}
+                  color={category.color}
+                  bgColor={category.bgColor}
+                  selected={selectedCategories.includes(category.id)}
+                  onPress={() => toggleCategory(category.id)}
+                />
+              ))
+            )}
           </View>
           <Text style={styles.categoryCountText}>Đã chọn {selectedCategories.length}/6 danh mục</Text>
           
@@ -404,6 +468,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.gray,
     marginBottom: 12,
+  },
+  loadingText: {
+    textAlign: "center",
+    color: Colors.gray,
+    fontSize: 14,
+    marginVertical: 20,
   },
   textArea: {
     backgroundColor: "#fff",
