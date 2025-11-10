@@ -165,7 +165,7 @@ export default function HomeScreen() {
                 imageUrl: detail.imageUrl,
                 likes: p.likeCount,
                 dislikes: p.dislikeCount,
-                comments: '0 bình luận',
+                comments: `${p.totalReviews} bình luận`,
                 avatarUrl: detail.seer.avatarUrl,
                 isLike: p.isLike,
                 isDislike: p.isDislike,
@@ -189,7 +189,7 @@ export default function HomeScreen() {
                 imageUrl: p.imageUrl,
                 likes: p.likeCount,
                 dislikes: p.dislikeCount,
-                comments: '0 bình luận',
+                comments: `${p.totalReviews} bình luận`,
               };
             }
           })
