@@ -1,53 +1,6 @@
 import axios from "axios";
-import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
-
-const ensureHttpProtocol = (raw) => {
-  if (!raw) {
-    return null;
-  }
-
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `http://${trimmed}`;
-};
-
-const resolveHostFromExpo = () => {
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    Constants.manifest?.debuggerHost ??
-    Constants.manifest2?.extra?.expoClient?.hostUri ??
-    Constants.manifest2?.extra?.expoGo?.debuggerHost;
-
-  if (!hostUri) {
-    return null;
-  }
-
-  const host = hostUri.split(":")[0];
-  if (!host) {
-    return null;
-  }
-
-  if (host.includes("localhost") || host.startsWith("127.")) {
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:8080";
-    }
-    if (Platform.OS === "ios") {
-      return "http://localhost:8080";
-    }
-    return null;
-  }
-
-  return `http://${host}:8080`;
-};
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 
 const setAuthHeader = (headers, token) => {
   if (!headers || !token) {
@@ -66,8 +19,17 @@ const baseURL =
   resolveHostFromExpo() ??
   "http://localhost:8080";
 
+const chatBaseURL =
+  ensureHttpProtocol(process.env.EXPO_PUBLIC_CHAT_BASE_URL) ??
+  resolveHostFromExpo(process.env.EXPO_PUBLIC_CHAT_PORT || 8081) ??
+  "http://localhost:8081";
+
 const API = axios.create({
   baseURL,
+});
+
+const ChatAPI = axios.create({
+  baseURL: chatBaseURL,
 });
 
 let isRefreshing = false;
@@ -98,6 +60,20 @@ API.interceptors.request.use(async (config) => {
       API.defaults.headers.common = {};
     }
     setAuthHeader(API.defaults.headers.common, token);
+  }
+  return config;
+});
+
+ChatAPI.interceptors.request.use(async (config) => {
+  if (config.skipAuth) {
+    delete config.skipAuth;
+    return config;
+  }
+
+  const token = await SecureStore.getItemAsync("authToken");
+  if (token) {
+    config.headers = config.headers ?? {};
+    setAuthHeader(config.headers, token);
   }
   return config;
 });
@@ -226,10 +202,10 @@ export const getKnowledgeCategories = (params) => API.get("/core/knowledge-categ
 export const getKnowledgeItemDetail = (id) => API.get(`/core/knowledge-items/${id}`);
 
 export const getChatConversations = (params) =>
-  API.get("/core/chat/conversations", { params });
+  ChatAPI.get("/chat/conversations", { params });
 
 export const getChatConversation = (conversationId) =>
-  API.get(`/core/chat/conversations/${conversationId}`);
+  ChatAPI.get(`/chat/conversations/${conversationId}`);
 
 export const getCustomerPayments = (params) =>
   API.get("/core/bookings/my-payments", { params });
@@ -241,7 +217,7 @@ export const getPackageBookingReviews = (params) =>
   API.get("/core/bookings/seer/reviews", { params });
 
 export const getChatMessages = (conversationId, params) =>
-  API.get(`/core/chat/conversations/${conversationId}/messages`, { params });
+  ChatAPI.get(`/chat/conversations/${conversationId}/messages`, { params });
 
 export const sendChatMessage = (conversationId, payload) => {
   const canUseFormData = typeof FormData !== "undefined";
@@ -282,31 +258,34 @@ export const sendChatMessage = (conversationId, payload) => {
       formData.append("conversationId", String(conversationId));
     }
 
-    return API.post("/core/chat/messages", formData, {
+    return ChatAPI.post("/chat/messages", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   }
 
   const body = { ...(payload ?? {}), conversationId };
-  return API.post("/core/chat/messages", body);
+  return ChatAPI.post("/chat/messages", body);
 };
 
 export const markConversationMessagesRead = (conversationId) =>
-  API.post(`/core/chat/conversations/${conversationId}/mark-read`);
+  ChatAPI.post(`/chat/conversations/${conversationId}/mark-read`);
 
 export const deleteChatMessage = (messageId) =>
-  API.delete(`/core/chat/messages/${messageId}`);
+  ChatAPI.delete(`/chat/messages/${messageId}`);
 
 export const recallChatMessage = (messageId) =>
-  API.post(`/core/chat/messages/${messageId}/recall`);
+  ChatAPI.post(`/chat/messages/${messageId}/recall`);
+
+export const uploadChatFile = (formData) =>
+  ChatAPI.post("/chat/messages/file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 
 export const createReport = (payload) => {
   return API.post("/core/reports", payload, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
-
-export const chatWithAI = (payload) => API.post("/core/ai-chat/query", payload);
 
 export const updateUserStatus = (id, status) =>
   API.patch(`/core/account/${id}/status`, null, { params: { id, status } });
@@ -356,6 +335,9 @@ export const cancelBooking = (id) =>
 
 export const confirmBooking = (id, data) =>
   API.post(`/core/bookings/${id}/seer-confirm`, data);
+
+export const createChatSessionByBooking = (bookingId) =>
+  ChatAPI.post(`/chat/conversations/booking/${bookingId}`);
 
 // export const getNotifications = (params) => API.get("/notification", { params });
 

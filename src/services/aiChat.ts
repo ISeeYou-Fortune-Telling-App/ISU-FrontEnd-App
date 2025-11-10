@@ -1,11 +1,51 @@
 import API from "@/src/services/api";
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 import * as SecureStore from "expo-secure-store";
 
-type StreamCallbacks = {
-  onChunk?: (chunk: string) => void;
-  onError?: (error: unknown) => void;
-  onComplete?: () => void;
-  onStart?: (controller: AbortController) => void;
+const stripTrailingSlash = (value?: string | null) =>
+  typeof value === "string" ? value.replace(/\/+$/, "") : value ?? "";
+
+const inferAiBaseFromApiBase = () => {
+  const apiBase = ensureHttpProtocol(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (!apiBase) {
+    return null;
+  }
+
+  try {
+    const url = new URL(apiBase);
+    const fallbackPort = process.env.EXPO_PUBLIC_AI_BASE_PORT ?? "8081";
+    url.port = fallbackPort;
+    return stripTrailingSlash(url.toString());
+  } catch {
+    return null;
+  }
+};
+
+const resolveAiChatBaseUrl = () => {
+  const envBase = ensureHttpProtocol(process.env.EXPO_PUBLIC_AI_BASE_URL);
+  if (envBase) {
+    return stripTrailingSlash(envBase);
+  }
+
+  const inferred = inferAiBaseFromApiBase();
+  if (inferred) {
+    return inferred;
+  }
+
+  const expoResolved = resolveHostFromExpo(Number(process.env.EXPO_PUBLIC_AI_BASE_PORT) || 8081);
+  if (expoResolved) {
+    return stripTrailingSlash(expoResolved);
+  }
+
+  return "http://localhost:8081";
+};
+
+const AI_CHAT_BASE_URL = resolveAiChatBaseUrl();
+const buildAiChatUrl = (path: string) => {
+  if (!path.startsWith("/")) {
+    return `${AI_CHAT_BASE_URL}/${path}`;
+  }
+  return `${AI_CHAT_BASE_URL}${path}`;
 };
 
 const createFormData = (uri: string, name?: string | null, mimeType?: string | null) => {
@@ -26,155 +66,36 @@ const createFormData = (uri: string, name?: string | null, mimeType?: string | n
 
 export const analyzePalmImage = (uri: string, name?: string | null, mimeType?: string | null) => {
   const data = createFormData(uri, name, mimeType);
-  return API.post("/ai-chat/analyze-palm", data, {
+  return API.post(buildAiChatUrl("/ai-chat/analyze-palm"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
 export const analyzeFaceImage = (uri: string, name?: string | null, mimeType?: string | null) => {
   const data = createFormData(uri, name, mimeType);
-  return API.post("/ai-chat/analyze-face", data, {
+  return API.post(buildAiChatUrl("/ai-chat/analyze-face"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
-export const streamChatWithAI = async (
-  payload: Record<string, unknown>,
-  callbacks: StreamCallbacks,
-) => {
-  const sanitizeSsePayload = (raw: string): string => {
-    if (!raw) {
-      return "";
-    }
+export const chatWithAI = async (payload: Record<string, unknown>) => {
+  const token = await SecureStore.getItemAsync("authToken");
+  const response = await fetch(buildAiChatUrl("/ai-chat/query"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
 
-    const lines = raw.split(/\r?\n/);
-    const dataLines: string[] = [];
-
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        return;
-      }
-
-      if (/^data:/i.test(trimmed)) {
-        dataLines.push(trimmed.replace(/^data:\s*/i, ""));
-        return;
-      }
-
-      if (/^(event|id|retry):/i.test(trimmed)) {
-        return;
-      }
-
-      dataLines.push(trimmed);
-    });
-
-    const joined = dataLines.join("\n").trim();
-    return joined.replace(/^data:\s*/gim, "");
-  };
-
-  const controller = new AbortController();
-  callbacks.onStart?.(controller);
-
-  try {
-    const token = await SecureStore.getItemAsync("authToken");
-    const baseURL = API.defaults.baseURL ?? "";
-    const url = `${baseURL.replace(/\/$/, "")}/ai-chat/query-stream`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Streaming request failed with status ${response.status}`);
-    }
-
-    const reader: ReadableStreamDefaultReader<Uint8Array> | undefined =
-      typeof response.body?.getReader === "function" ? response.body.getReader() : undefined;
-
-    if (!reader) {
-      const text = await response.text();
-      callbacks.onChunk?.(text);
-      callbacks.onComplete?.();
-      return controller;
-    }
-
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
-    const processEvent = (raw: string) => {
-      if (!raw) {
-        return false;
-      }
-
-      const lines = raw
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      if (lines.length === 0) {
-        return false;
-      }
-
-      const rawPayload = lines
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.replace(/^data:\s*/i, ""))
-        .join("\n");
-
-      const dataPayload = sanitizeSsePayload(rawPayload || raw);
-
-      if (!dataPayload) {
-        return false;
-      }
-
-      if (dataPayload === "[DONE]") {
-        callbacks.onComplete?.();
-        controller.abort();
-        return true;
-      }
-
-      callbacks.onChunk?.(dataPayload);
-      return false;
-    };
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-
-      let separatorIndex = buffer.indexOf("\n\n");
-      while (separatorIndex !== -1) {
-        const event = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
-        const shouldStop = processEvent(event);
-        if (shouldStop) {
-          return controller;
-        }
-        separatorIndex = buffer.indexOf("\n\n");
-      }
-    }
-
-    if (buffer.trim().length > 0) {
-      processEvent(buffer);
-    }
-
-    if (!controller.signal.aborted) {
-      callbacks.onComplete?.();
-    }
-  } catch (error) {
-    if (!controller.signal.aborted) {
-      callbacks.onError?.(error);
-    }
+  if (!response.ok) {
+    const fallbackText = await response.text().catch(() => "");
+    throw new Error(
+      fallbackText?.length ? fallbackText : `AI request failed with status ${response.status}`,
+    );
   }
 
-  return controller;
+  const data = await response.json().catch(() => ({}));
+  return { data };
 };

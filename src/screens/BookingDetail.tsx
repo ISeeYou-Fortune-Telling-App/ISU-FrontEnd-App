@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { cancelBooking, confirmBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
+import { cancelBooking, confirmBooking, createChatSessionByBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -98,11 +98,20 @@ export default function BookingDetailScreen() {
     }
 
     const handleConfirmBooking = async () => {
+        if (!bookingId) {
+            Alert.alert("Lỗi", "Không tìm thấy lịch hẹn để xác nhận.");
+            return;
+        }
         try {
             const status = {
                 status: "CONFIRMED"
             }
             const res = await confirmBooking(bookingId, status);
+            try {
+                await createChatSessionByBooking(bookingId);
+            } catch (chatError) {
+                console.warn("Unable to create chat session after confirm", chatError);
+            }
             Alert.alert("Thành công", "Lịch hẹn đã xác nhận", [
                 {
                     text: "OK",

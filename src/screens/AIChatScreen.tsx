@@ -1,6 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { chatWithAI } from "@/src/services/api";
-import { analyzeFaceImage, analyzePalmImage, streamChatWithAI } from "@/src/services/aiChat";
+import { analyzeFaceImage, analyzePalmImage, chatWithAI } from "@/src/services/aiChat";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
@@ -14,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -44,6 +44,7 @@ type KnowledgeReference = {
   sourceUrl?: string;
   knowledgeId?: string;
   type?: "knowledge" | "external";
+  documentCode?: string;
 };
 
 type AIMessage = {
@@ -54,6 +55,79 @@ type AIMessage = {
   createdAt: number;
   processingTime?: number | null;
   references?: KnowledgeReference[];
+};
+
+const KNOWLEDGE_FILE_MAP = new Map<string, string>([
+  ["026eeee3-372e-43a2-9797-816459818d56", "Ngũ Hành Phản Sinh Phản Khắc"],
+  ["1227a134-9048-4377-8856-062c5530d595", "Xem Chỉ Tay - Nghệ Thuật Chiêm Tinh Học Tay"],
+  ["1e664360-9d6f-48ad-b680-f0d4cda9b7de", "12 Cung Hoàng Đạo - Tổng Quan"],
+  ["224c7fd6-5098-4397-996e-9e2229a977a4", "Ý nghĩa Bộ Swords trong Tarot"],
+  ["2ad61ee6-8f2c-4058-a5e3-be5a8f5dff42", "Ý nghĩa Bộ Cups trong Tarot"],
+  ["2afeeb7c-5ae5-49e6-87db-6d850d026710", "Cung Khí - Song Tử, Thiên Bình, Bảo Bình"],
+  ["554eb231-1085-471b-a681-612fa1819295", "Ý nghĩa Bộ Pentacles trong Tarot"],
+  ["6e11568b-5fcb-4b82-b815-60018c46e28e", "Nhân Tướng Học - Nghệ Thuật Xem Tướng Mặt"],
+  ["7524950d-2ecd-45a5-8994-b1e7ae744fe3", "Xem Tướng Bàn Tay - Chỉ Tay Học"],
+  ["820f6465-c535-41d5-bc0c-02a745792513", "Ý nghĩa Bộ Wands trong Tarot"],
+  ["9c06e0f2-2c54-477d-b0f0-848df4bc6821", "Cung Nước - Cự Giải, Thiên Yết, Song Ngư"],
+  ["9f72a042-f7c6-474d-8e25-2e7cc5bc138d", "Ngũ Hành Tương Sinh Tương Khắc"],
+  ["a0ba013b-7067-4ec8-aecb-46ab8e8dcc90", "Cung Đất - Kim Ngưu, Xử Nữ, Ma Kết"],
+  ["ad02e0f0-9909-4e23-8f7b-d1529eec4923", "Cung Lửa - Bạch Dương, Sư Tử, Nhân Mã"],
+  ["ae80ac40-69ba-480c-b541-ca096fa947f2", "Ba Đường Chỉ Tay Chính - Sinh Đạo, Trí Đạo, Tâm Đạo"],
+  ["afd07a12-0f85-43bf-ad22-ae0023e08005", "Xem Tướng Dáng Người - Thể Tướng Học"],
+  ["c2fe3a0c-0c2e-40a5-a38d-3e83820d90b2", "Ngũ Hành - Kim Mộc Thủy Hỏa Thổ"],
+  ["d5c5ab58-2480-41da-825f-3c01efe7d640", "Ý nghĩa Bộ Ẩn Chính (Major Arcana) trong Tarot"],
+  ["edb7f498-685b-478c-831d-dd48631da3fd", "Các Gò Trên Bàn Tay và Đường Chỉ Tay Phụ"],
+]);
+
+const normalizeReferenceName = (value?: string | null) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const KNOWLEDGE_NAME_INDEX = (() => {
+  const entries = new Map<string, { id: string; title: string }>();
+  KNOWLEDGE_FILE_MAP.forEach((title, id) => {
+    entries.set(normalizeReferenceName(title), { id, title });
+  });
+  return entries;
+})();
+
+const createDocumentCode = (id: string, title: string) => {
+  const slug = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+  return `${id}_${slug}`;
+};
+
+const buildKnowledgeReference = (name: string): KnowledgeReference | null => {
+  const lookupKey = normalizeReferenceName(name);
+  if (!lookupKey) {
+    return null;
+  }
+
+  const matched = KNOWLEDGE_NAME_INDEX.get(lookupKey);
+  if (!matched) {
+    return null;
+  }
+
+  const documentCode = createDocumentCode(matched.id, matched.title);
+
+  return {
+    id: documentCode,
+    knowledgeId: matched.id,
+    title: documentCode,
+    snippet: matched.title,
+    category: "Kho tri thức",
+    type: "knowledge",
+    documentCode,
+  };
 };
 
 const TOP_K_OPTIONS = [5, 20, 40] as const;
@@ -132,6 +206,9 @@ const mergeKnowledgeReferences = (
       snippet: reference.snippet ?? existing.snippet,
       category: reference.category ?? existing.category,
       sourceUrl: reference.sourceUrl ?? existing.sourceUrl,
+      knowledgeId: reference.knowledgeId ?? existing.knowledgeId,
+      documentCode: reference.documentCode ?? existing.documentCode,
+      type: reference.type ?? existing.type,
     });
   };
 
@@ -151,45 +228,77 @@ const parseDocumentReference = (raw: string): KnowledgeReference | null => {
     return null;
   }
 
-  const fileSegment = sanitized.split("/").pop() ?? sanitized;
-  const withoutExtension = fileSegment.replace(/\.txt$/i, "").trim();
+  const fileSegment = sanitized.split(/[/\\]/).pop() ?? sanitized;
+  const withoutExtension = fileSegment.replace(/\.[^.]+$/i, "").trim();
 
   if (!withoutExtension) {
     return null;
   }
 
-  const underscoreIndex = withoutExtension.indexOf("_");
-  if (underscoreIndex === -1) {
-    return null;
-  }
-
-  const knowledgeId = withoutExtension.slice(0, underscoreIndex).trim();
-  const rawTitle = withoutExtension.slice(underscoreIndex + 1).trim();
+  const [rawId, ...nameParts] = withoutExtension.split("_");
+  const knowledgeId = rawId?.trim()?.length ? rawId.trim() : undefined;
+  const rawTitle = nameParts.length > 0 ? nameParts.join("_") : withoutExtension;
   const title = rawTitle.replace(/_/g, " ").trim() || "Tài liệu tham khảo";
 
-  if (!knowledgeId) {
-    return null;
-  }
-
   return {
-    id: knowledgeId,
+    id: knowledgeId ?? withoutExtension,
     knowledgeId,
     title,
     category: "Kho tri thức",
     type: "knowledge",
+    documentCode: withoutExtension,
   };
 };
 
-const extractKnowledgeReferencesFromAnswer = (
-  answer: string,
+const extractReferencesSection = (
+  input: string,
 ): { cleanedAnswer: string; references: KnowledgeReference[] } => {
-  if (!answer) {
-    return { cleanedAnswer: "", references: [] };
+  const normalized = input.replace(/\r\n/g, "\n");
+  const lower = normalized.toLowerCase();
+  const headingIndex = lower.indexOf("### references");
+
+  if (headingIndex === -1) {
+    return { cleanedAnswer: normalized.trim(), references: [] };
   }
 
-  let working = stripSseArtifacts(answer).replace(/\r\n/g, "\n");
+  const before = normalized.slice(0, headingIndex).trimEnd();
+  const afterHeading = normalized.slice(headingIndex);
+  const firstNewline = afterHeading.indexOf("\n");
+  const remainder = firstNewline >= 0 ? afterHeading.slice(firstNewline + 1) : "";
 
+  const referenceLines: string[] = [];
+  const lines = remainder.split("\n");
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+    if (!/^[-–•*]/.test(line)) {
+      break;
+    }
+    referenceLines.push(line);
+  }
+
+  const references = referenceLines
+    .map((line) => {
+      const match = line.match(/\]\s*(.+)$/) ?? line.match(/^[-–•*]\s*(.+)$/);
+      const referenceName = match ? match[1].trim() : "";
+      return referenceName.length > 0 ? buildKnowledgeReference(referenceName) : null;
+    })
+    .filter((item): item is KnowledgeReference => Boolean(item));
+
+  return {
+    cleanedAnswer: before.trim(),
+    references,
+  };
+};
+
+const extractLegacyKnowledgeReferences = (
+  input: string,
+): { cleanedAnswer: string; references: KnowledgeReference[] } => {
+  let working = input;
   const references: KnowledgeReference[] = [];
+
   const dcMatches = Array.from(working.matchAll(/\[DC\]\s*([^\n]+)/gi));
   dcMatches.forEach((match) => {
     const parsed = parseDocumentReference(match[1]);
@@ -216,6 +325,22 @@ const extractKnowledgeReferencesFromAnswer = (
     .trim();
 
   return { cleanedAnswer, references };
+};
+
+const extractKnowledgeReferencesFromAnswer = (
+  answer: string,
+): { cleanedAnswer: string; references: KnowledgeReference[] } => {
+  if (!answer) {
+    return { cleanedAnswer: "", references: [] };
+  }
+
+  const sanitized = stripSseArtifacts(answer).replace(/\r\n/g, "\n");
+  const sectionResult = extractReferencesSection(sanitized);
+  if (sectionResult.references.length > 0) {
+    return sectionResult;
+  }
+
+  return extractLegacyKnowledgeReferences(sanitized);
 };
 
 const normalizeReferences = (raw: any): KnowledgeReference[] => {
@@ -246,6 +371,17 @@ const normalizeReferences = (raw: any): KnowledgeReference[] => {
   return candidates
     .map((item: any, index: number): KnowledgeReference | null => {
       if (!item) {
+        return null;
+      }
+
+      const typeHint =
+        typeof item.type === "string"
+          ? item.type.trim().toUpperCase()
+          : typeof item.category === "string"
+            ? item.category.trim().toUpperCase()
+            : undefined;
+
+      if (typeHint === "KG" || typeHint === "KNOWLEDGE_GRAPH") {
         return null;
       }
 
@@ -297,26 +433,41 @@ const normalizeReferences = (raw: any): KnowledgeReference[] => {
                 ? item.path
                 : undefined;
 
+      const documentCode =
+        typeof item.documentCode === "string" && item.documentCode.trim().length > 0
+          ? item.documentCode.trim()
+          : undefined;
+
+      let knowledgeId =
+        typeof item.knowledgeId === "string" && item.knowledgeId.trim().length > 0
+          ? item.knowledgeId.trim()
+          : undefined;
+
+      let normalizedTitle = title;
+      let normalizedDocumentCode = documentCode;
+
+      if (documentCode) {
+        const parsedFromCode = parseDocumentReference(documentCode);
+        if (parsedFromCode) {
+          knowledgeId = knowledgeId ?? parsedFromCode.knowledgeId;
+          normalizedTitle = parsedFromCode.title || normalizedTitle;
+          normalizedDocumentCode = parsedFromCode.documentCode ?? normalizedDocumentCode;
+        }
+      }
+
       return {
-        id: String(item.id ?? item.referenceId ?? item.knowledgeId ?? index),
-        title,
+        id: String(item.id ?? item.referenceId ?? knowledgeId ?? normalizedDocumentCode ?? index),
+        title: normalizedTitle,
         snippet,
         category,
         confidence,
         sourceUrl,
         type: sourceUrl ? "external" : undefined,
+        knowledgeId,
+        documentCode: normalizedDocumentCode,
       };
     })
     .filter((item: KnowledgeReference | null): item is KnowledgeReference => Boolean(item));
-};
-
-const formatConfidence = (value?: number): string | null => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return null;
-  }
-
-  const normalized = value <= 1 ? value * 100 : value;
-  return `${Math.round(Math.min(Math.max(normalized, 0), 100))}% match`;
 };
 
 const ANALYSIS_LABELS: Record<AnalysisType, string> = {
@@ -344,25 +495,23 @@ export default function AIChatScreen() {
   const [input, setInput] = useState<string>("");
   const [selectedImages, setSelectedImages] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState<boolean>(false);
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [topK, setTopK] = useState<(typeof TOP_K_OPTIONS)[number]>(DEFAULT_TOP_K);
   const [topKPickerVisible, setTopKPickerVisible] = useState<boolean>(false);
-  const streamingControllerRef = useRef<AbortController | null>(null);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, []);
 
-  useEffect(() => {
-    return () => {
-      streamingControllerRef.current?.abort();
-    };
-  }, []);
-
   const handleReferencePress = useCallback(
     async (reference: KnowledgeReference) => {
-      if (reference.knowledgeId) {
-        router.push({ pathname: "/knowledge-detail", params: { knowledgeId: reference.knowledgeId } } as never);
+      let resolvedKnowledgeId = reference.knowledgeId;
+      if (!resolvedKnowledgeId && reference.documentCode) {
+        const derived = parseDocumentReference(reference.documentCode);
+        resolvedKnowledgeId = derived?.knowledgeId ?? derived?.id;
+      }
+
+      if (resolvedKnowledgeId) {
+        router.push({ pathname: "/knowledge-detail", params: { knowledgeId: resolvedKnowledgeId } } as never);
         return;
       }
 
@@ -433,7 +582,7 @@ export default function AIChatScreen() {
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
-    if ((!trimmed && selectedImages.length === 0) || isSending || isStreaming) {
+    if ((!trimmed && selectedImages.length === 0) || isSending) {
       return;
     }
 
@@ -451,7 +600,6 @@ export default function AIChatScreen() {
     setInput("");
     setSelectedImages([]);
     setIsSending(true);
-    setIsStreaming(true);
     scrollToEnd();
 
     const attachmentNotes = attachmentsSnapshot.map((attachment, index) => {
@@ -507,10 +655,6 @@ export default function AIChatScreen() {
     const combinedQuestion = combinedQuestionParts.join("\n\n");
 
     const assistantId = `assistant-${Date.now() + 1}`;
-    let rawStreamedContent = "";
-    let latestParsedStream = { cleanedAnswer: "", references: [] as KnowledgeReference[] };
-    let streamFailed = false;
-
     const placeholderMessage: AIMessage = {
       id: assistantId,
       role: "assistant",
@@ -522,145 +666,75 @@ export default function AIChatScreen() {
     scrollToEnd();
 
     try {
-      await streamChatWithAI(
-        {
-          question: combinedQuestion,
-          topK,
-        },
-        {
-          onStart: (controller) => {
-            streamingControllerRef.current = controller;
-          },
-          onChunk: (chunk) => {
-            if (!chunk) {
-              return;
-            }
-            const cleanedChunk = stripSseArtifacts(chunk);
-            if (!cleanedChunk) {
-              return;
-            }
-            rawStreamedContent += cleanedChunk;
-            const parsed = extractKnowledgeReferencesFromAnswer(rawStreamedContent);
-            latestParsedStream = parsed;
-            setMessages((prev) =>
-              prev.map((item) =>
-                item.id === assistantId
-                  ? {
-                      ...item,
-                      content: parsed.cleanedAnswer,
-                      references: parsed.references.length > 0 ? parsed.references : item.references,
-                    }
-                  : item,
-              ),
-            );
-          },
-          onError: () => {
-            streamFailed = true;
-          },
-          onComplete: () => {
-            streamingControllerRef.current = null;
-          },
-        },
-      );
-    } catch (error) {
-      console.error(error);
-      streamFailed = true;
-    }
+      const response = await chatWithAI({
+        question: combinedQuestion,
+        topK,
+      });
 
-    if (streamFailed || rawStreamedContent.trim().length === 0) {
-      try {
-        const response = await chatWithAI({
-          question: combinedQuestion,
-          topK,
-        });
-
-        const payloadRoot = response?.data?.data ?? response?.data ?? response;
-        const rawAnswer =
-          typeof payloadRoot?.answer === "string" && payloadRoot.answer.trim().length > 0
-            ? payloadRoot.answer
-            : "";
-
-        const parsedFromAnswer = extractKnowledgeReferencesFromAnswer(rawAnswer);
-        const normalizedReferences = normalizeReferences(
-          payloadRoot?.references ??
-            payloadRoot?.knowledgeBaseReferences ??
-            payloadRoot?.sources ??
-            payloadRoot?.documents ??
-            payloadRoot?.matches ??
-            payloadRoot?.results ??
-            payloadRoot?.citations ??
-            payloadRoot?.contexts ??
-            payloadRoot,
-        );
-
-        const combinedReferences = mergeKnowledgeReferences(
-          parsedFromAnswer.references,
-          normalizedReferences,
-        );
-
-        const sanitizedAnswerRaw = parsedFromAnswer.cleanedAnswer || rawAnswer;
-        const sanitizedAnswer = sanitizedAnswerRaw
-          ? stripSseArtifacts(sanitizedAnswerRaw).trim()
+      const payloadRoot = response?.data?.data ?? response?.data ?? response;
+      const rawAnswer =
+        typeof payloadRoot?.answer === "string" && payloadRoot.answer.trim().length > 0
+          ? payloadRoot.answer
           : "";
 
-        const fallbackMessage: AIMessage = {
-          id: assistantId,
-          role: "assistant",
-          createdAt: Date.now(),
-          content:
-            sanitizedAnswer.length > 0
-              ? sanitizedAnswer
-              : "Xin lỗi, hiện tại mình chưa thể phản hồi yêu cầu này. Bạn hãy thử lại sau nhé!",
-          references: combinedReferences.length > 0 ? combinedReferences : undefined,
-          processingTime:
-            typeof payloadRoot?.processingTime === "number"
-              ? payloadRoot.processingTime
-              : undefined,
-        };
+      const parsedFromAnswer = extractKnowledgeReferencesFromAnswer(rawAnswer);
+      const normalizedReferences = normalizeReferences(
+        payloadRoot?.references ??
+          payloadRoot?.knowledgeBaseReferences ??
+          payloadRoot?.sources ??
+          payloadRoot?.documents ??
+          payloadRoot?.matches ??
+          payloadRoot?.results ??
+          payloadRoot?.citations ??
+          payloadRoot?.contexts ??
+          payloadRoot,
+      );
 
-        setMessages((prev) => prev.map((item) => (item.id === assistantId ? fallbackMessage : item)));
-      } catch (error: any) {
-        console.error(error);
-        const fallback =
-          error?.response?.data?.message ??
-          "Hệ thống đang bận. Bạn vui lòng thử lại sau ít phút.";
-        setMessages((prev) =>
-          prev.map((item) =>
-            item.id === assistantId
-              ? {
-                  ...item,
-                  role: "system",
-                  content: fallback,
-                }
-              : item,
-          ),
-        );
-      }
-    } else {
+      const combinedReferences = mergeKnowledgeReferences(
+        parsedFromAnswer.references,
+        normalizedReferences,
+      );
+
+      const sanitizedAnswerRaw = parsedFromAnswer.cleanedAnswer || rawAnswer;
+      const sanitizedAnswer = sanitizedAnswerRaw
+        ? stripSseArtifacts(sanitizedAnswerRaw).trim()
+        : "";
+
+      const aiResponseMessage: AIMessage = {
+        id: assistantId,
+        role: "assistant",
+        createdAt: Date.now(),
+        content:
+          sanitizedAnswer.length > 0
+            ? sanitizedAnswer
+            : "Xin lỗi, hiện tại mình chưa thể phản hồi yêu cầu này. Bạn hãy thử lại sau nhé!",
+        references: combinedReferences.length > 0 ? combinedReferences : undefined,
+        processingTime:
+          typeof payloadRoot?.processingTime === "number"
+            ? payloadRoot.processingTime
+            : undefined,
+      };
+
+      setMessages((prev) => prev.map((item) => (item.id === assistantId ? aiResponseMessage : item)));
+    } catch (error: any) {
+      console.error(error);
+      const fallback =
+        error?.response?.data?.message ?? error?.message ?? "Hệ thống đang bận. Bạn vui lòng thử lại sau ít phút.";
       setMessages((prev) =>
         prev.map((item) =>
           item.id === assistantId
             ? {
                 ...item,
-                content:
-                  latestParsedStream.cleanedAnswer.trim().length > 0
-                    ? latestParsedStream.cleanedAnswer.trim()
-                    : stripSseArtifacts(rawStreamedContent).trim(),
-                references:
-                  latestParsedStream.references.length > 0
-                    ? latestParsedStream.references
-                    : item.references,
-                createdAt: Date.now(),
+                role: "system",
+                content: fallback,
               }
             : item,
         ),
       );
+    } finally {
+      setIsSending(false);
     }
-
-    streamingControllerRef.current = null;
-    setIsStreaming(false);
-    setIsSending(false);
-  }, [input, isSending, isStreaming, scrollToEnd, selectedImages, topK]);
+  }, [input, isSending, scrollToEnd, selectedImages, topK]);
 
   const renderMessage = useCallback(
     ({ item }: { item: AIMessage }) => {
@@ -693,55 +767,29 @@ export default function AIChatScreen() {
               ) : null}
 
               {hasReferences ? (
-                <View style={styles.referenceContainer}>
-                  <View style={styles.referenceHeader}>
-                    <Ionicons name="book-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.referenceHeaderText}>Nguồn tham khảo</Text>
+                <View style={styles.referenceStrip}>
+                  <View style={styles.referenceStripHeader}>
+                    <Ionicons name="link-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.referenceStripHeaderText}>Liên kết · Trích dẫn</Text>
                   </View>
-                  {references.map((reference) => {
-                    const formattedConfidence = formatConfidence(reference.confidence);
-                    return (
-                      <TouchableOpacity
-                        key={reference.id}
-                        activeOpacity={0.85}
-                        style={[
-                          styles.referenceCard,
-                          reference.knowledgeId ? styles.referenceCardKnowledge : null,
-                          !reference.knowledgeId && !reference.sourceUrl && styles.referenceCardDisabled,
-                        ]}
-                        onPress={() => handleReferencePress(reference)}
-                      >
-                        <View style={styles.referenceIcon}>
-                          <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
-                        </View>
-                        <View style={styles.referenceContent}>
-                          <Text style={styles.referenceTitle} numberOfLines={1}>
-                            {reference.title}
-                          </Text>
-                          {reference.snippet ? (
-                            <Text style={styles.referenceSnippet} numberOfLines={2}>
-                              {reference.snippet}
-                            </Text>
-                          ) : null}
-                          <View style={styles.referenceMetaRow}>
-                            {reference.category ? (
-                              <View style={styles.referenceChip}>
-                                <Text style={styles.referenceChipText}>{reference.category}</Text>
-                              </View>
-                            ) : null}
-                            {formattedConfidence ? (
-                              <Text style={styles.referenceConfidence}>{formattedConfidence}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                        {reference.knowledgeId ? (
-                          <Ionicons name="arrow-forward-circle-outline" size={18} color={Colors.primary} />
-                        ) : reference.sourceUrl ? (
-                          <Ionicons name="open-outline" size={16} color={Colors.primary} />
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
+                  <View style={styles.referenceChipGroup}>
+                    {references.map((reference, index) => {
+                      const chipLabel = reference.documentCode ?? reference.title;
+                      return (
+                        <Pressable
+                          key={`${reference.id}-${index}`}
+                          style={({ hovered, focused, pressed }) => [
+                            styles.referenceChip,
+                            (hovered || focused) && styles.referenceChipFocused,
+                            pressed && styles.referenceChipPressed,
+                          ]}
+                          onPress={() => handleReferencePress(reference)}
+                        >
+                          <Text style={styles.referenceChipText}>{chipLabel}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               ) : null}
 
@@ -816,7 +864,7 @@ export default function AIChatScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           ListFooterComponent={
-            isSending || isStreaming ? (
+            isSending ? (
               <View style={styles.loadingIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
                 <Text style={styles.loadingText}>AI đang trả lời...</Text>
@@ -866,9 +914,9 @@ export default function AIChatScreen() {
             returnKeyType="send"
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!canSend || isSending || isStreaming) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!canSend || isSending) && styles.sendButtonDisabled]}
             onPress={handleSend}
-            disabled={!canSend || isSending || isStreaming}
+            disabled={!canSend || isSending}
           >
             {isSending ? (
               <ActivityIndicator size="small" color={Colors.white} />
@@ -1099,88 +1147,51 @@ const styles = StyleSheet.create({
   timestampTextUser: {
     color: "rgba(255,255,255,0.8)",
   },
-  referenceContainer: {
+  referenceStrip: {
+    marginTop: 8,
+    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.borderGray,
-    paddingTop: 12,
     gap: 10,
   },
-  referenceHeader: {
+  referenceStripHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  referenceHeaderText: {
+  referenceStripHeaderText: {
     fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.4,
+    fontWeight: "700",
+    letterSpacing: 0.3,
     color: Colors.primary,
     textTransform: "uppercase",
   },
-  referenceCard: {
+  referenceChipGroup: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(24, 119, 242, 0.08)",
-  },
-  referenceCardKnowledge: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.primary,
-  },
-  referenceCardDisabled: {
-    opacity: 0.7,
-  },
-  referenceIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(24,119,242,0.32)",
-  },
-  referenceContent: {
-    flex: 1,
-    gap: 6,
-  },
-  referenceTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.dark_gray,
-  },
-  referenceSnippet: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: Colors.gray,
-  },
-  referenceMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     flexWrap: "wrap",
-    marginTop: 2,
+    marginHorizontal: -4,
   },
   referenceChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.borderGray,
+    borderColor: "rgba(15,23,42,0.12)",
+    backgroundColor: "rgba(15,23,42,0.03)",
+    marginHorizontal: 4,
+    marginBottom: 8,
+  },
+  referenceChipFocused: {
+    borderColor: Colors.primary,
+    backgroundColor: "rgba(24,119,242,0.08)",
+  },
+  referenceChipPressed: {
+    opacity: 0.75,
   },
   referenceChipText: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: Colors.gray,
-  },
-  referenceConfidence: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
-    color: Colors.primary,
+    color: Colors.dark_gray,
   },
   systemMessage: {
     flexDirection: "row",

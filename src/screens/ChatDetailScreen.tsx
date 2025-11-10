@@ -6,8 +6,10 @@ import {
   markConversationMessagesRead,
   recallChatMessage,
   sendChatMessage,
+  uploadChatFile,
 } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
+import io, { Socket } from "socket.io-client";
 import * as DocumentPicker from "expo-document-picker";
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,7 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
+  GestureResponderEvent,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -25,9 +29,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { resolveSocketUrl } from "@/src/utils/network";
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
 
@@ -47,10 +53,60 @@ type ChatMessage = {
   status: MessageStatus;
   createdAt: number;
   isRecalled?: boolean;
+  conversationId?: string;
 };
 
-const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB cap to keep uploads reliable
-const MAX_VIDEO_DURATION_MS = 3 * 60 * 1000; // 3 minutes max duration
+type ConversationStatus = "WAITING" | "ACTIVE" | "ENDED" | "CANCELLED" | string;
+
+const LEGACY_STATUS_WARNING_MESSAGE =
+  "Một số tin nhắn cũ có trạng thái không còn được hỗ trợ nên lịch sử có thể bị thiếu. Bạn vẫn có thể tiếp tục trò chuyện bình thường.";
+
+const STATUS_METADATA: Record<
+  string,
+  {
+    label: string;
+    description: string;
+  }
+> = {
+  WAITING: {
+    label: "Chờ bắt đầu",
+    description: "Phiên chưa đến giờ. Bạn có thể xem lịch sử nhưng chưa thể gửi tin nhắn.",
+  },
+  ACTIVE: {
+    label: "Đang diễn ra",
+    description: "Phiên đã mở. Bạn có thể chat realtime.",
+  },
+  ENDED: {
+    label: "Đã kết thúc",
+    description: "Phiên đã xong. Bạn chỉ có thể xem lại lịch sử.",
+  },
+  CANCELLED: {
+    label: "Đã hủy",
+    description: "Phiên này đã bị hủy (có thể do vào trễ hoặc người kia không tham gia).",
+  },
+  UNKNOWN: {
+    label: "Đang cập nhật",
+    description: "Hệ thống đang cập nhật trạng thái cuộc trò chuyện.",
+  },
+};
+
+const normalizeConversationStatus = (status?: string | null): ConversationStatus =>
+  (status ?? "").toUpperCase() || "UNKNOWN";
+
+const isLegacyStatusError = (error: any): boolean => {
+  const rawMessage = (error?.response?.data?.message ?? error?.message ?? "")
+    ?.toString()
+    .toLowerCase();
+  if (!rawMessage) {
+    return false;
+  }
+
+  return (
+    rawMessage.includes("messagestatusenum") ||
+    rawMessage.includes("no enum constant") ||
+    rawMessage.includes("sent")
+  );
+};
 
 const normalizeStatus = (status?: string | null): MessageStatus => {
   const normalized = (status ?? "").toString().toLowerCase();
@@ -79,7 +135,21 @@ const normalizeStatus = (status?: string | null): MessageStatus => {
   }
 };
 
-const mapApiMessage = (item: any, currentUserId: string | null): ChatMessage => {
+const normalizeSystemText = (text?: string | null) => {
+  if (!text) {
+    return text;
+  }
+  if (text.toLowerCase() === "chat.session.started") {
+    return "Phiên trò chuyện bắt đầu";
+  }
+  return text;
+};
+
+const mapApiMessage = (
+  item: any,
+  currentUserId: string | null,
+  fallbackConversationId?: string,
+): ChatMessage => {
   const senderId = item?.senderId ?? item?.fromUserId ?? item?.authorId ?? null;
   const baseId = String(item?.id ?? item?.messageId ?? Date.now());
   const createdAt =
@@ -128,6 +198,13 @@ const mapApiMessage = (item: any, currentUserId: string | null): ChatMessage => 
     status: normalizeStatus(item?.status ?? item?.messageStatus),
     createdAt,
     isRecalled,
+    content: normalizeSystemText(item?.textContent ?? item?.content),
+    conversationId:
+      item?.conversationId
+        ? String(item.conversationId)
+        : fallbackConversationId
+          ? String(fallbackConversationId)
+          : undefined,
   };
 };
 
@@ -135,6 +212,8 @@ export default function ChatDetailScreen() {
   const router = useRouter();
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>("");
@@ -142,11 +221,186 @@ export default function ChatDetailScreen() {
   const [conversationTitle, setConversationTitle] = useState<string>("Cuộc trò chuyện");
   const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null);
   const [isPartnerOnline, setIsPartnerOnline] = useState<boolean>(false);
+  const [conversationStatus, setConversationStatus] = useState<ConversationStatus>("UNKNOWN");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [socketConnected, setSocketConnected] = useState<boolean>(false);
+  const [socketReadyVersion, setSocketReadyVersion] = useState<number>(0);
+  const [socketJoinError, setSocketJoinError] = useState<string | null>(null);
+  const [legacyStatusWarning, setLegacyStatusWarning] = useState<string | null>(null);
+  const [sessionNotice, setSessionNotice] = useState<{ type: "info" | "warning" | "error"; message: string } | null>(
+    null,
+  );
+
+  const normalizedConversationStatus = useMemo(
+    () => normalizeConversationStatus(conversationStatus),
+    [conversationStatus],
+  );
+  const statusMeta = STATUS_METADATA[normalizedConversationStatus] ?? STATUS_METADATA.UNKNOWN;
+  const isConversationActive = normalizedConversationStatus === "ACTIVE";
+  const inputPlaceholder = useMemo(() => {
+    switch (normalizedConversationStatus) {
+      case "WAITING":
+        return "Phiên chưa bắt đầu. Bạn sẽ chat được khi chuyển sang trạng thái ACTIVE.";
+      case "ENDED":
+        return "Phiên đã kết thúc. Bạn chỉ có thể xem lại nội dung.";
+      case "CANCELLED":
+        return "Phiên đã bị hủy. Không thể gửi tin nhắn.";
+      default:
+        return "Nhập tin nhắn...";
+    }
+  }, [normalizedConversationStatus]);
+
+  const showSessionNotice = useCallback(
+    (type: "info" | "warning" | "error", message: string) => {
+      setSessionNotice({ type, message });
+    },
+    [],
+  );
+
+  const handleIncomingMessage = useCallback(
+    (payload: any) => {
+      if (!payload) {
+        return;
+      }
+
+      try {
+        const normalized = mapApiMessage(payload, currentUserId, conversationId);
+        if (!normalized?.id) {
+          return;
+        }
+
+        const sameConversation =
+          !!conversationId &&
+          normalized.conversationId &&
+          String(normalized.conversationId) === String(conversationId);
+
+        setMessages((prev) => {
+          if (prev.some((message) => message.id === normalized.id)) {
+            return prev.map((message) => (message.id === normalized.id ? normalized : message));
+          }
+
+          if (normalized.role === "outgoing") {
+            const pendingIndex = prev.findIndex(
+              (message) =>
+                message.role === "outgoing" &&
+                message.status === "sending" &&
+                (message.content ?? "") === (normalized.content ?? ""),
+            );
+
+            if (pendingIndex !== -1) {
+              const clone = [...prev];
+              clone[pendingIndex] = normalized;
+              return clone.sort((a, b) => a.createdAt - b.createdAt);
+            }
+          }
+
+          const next = [...prev, normalized];
+          next.sort((a, b) => a.createdAt - b.createdAt);
+          return next;
+        });
+
+        if (sameConversation) {
+          socketRef.current?.emit("mark_read", conversationId);
+        }
+      } catch (error) {
+        console.warn("Không thể xử lý tin nhắn realtime", error);
+      }
+    },
+    [conversationId, currentUserId],
+  );
+
+  const emitSocketMessage = useCallback(
+    (payload: {
+      conversationId: string;
+      textContent?: string;
+      imagePath?: string;
+      videoPath?: string;
+    }) =>
+      new Promise<void>((resolve, reject) => {
+        const socket = socketRef.current;
+        if (!socket || !socketConnected) {
+          reject(new Error("Socket chưa sẵn sàng"));
+          return;
+        }
+
+        socket.emit("send_message", payload, (status: string, message?: string) => {
+          if (status === "success") {
+            resolve();
+          } else {
+            reject(new Error(message ?? "Không thể gửi tin nhắn qua socket"));
+          }
+        });
+      }),
+    [socketConnected],
+  );
+
+  const handleSessionActivated = useCallback(
+    (data: any) => {
+      setConversationStatus("ACTIVE");
+      const message = data?.message ?? "Phiên trò chuyện bắt đầu";
+      showSessionNotice("info", message);
+      Alert.alert("Phiên đã bắt đầu", message);
+    },
+    [showSessionNotice],
+  );
+
+  const handleSessionCanceled = useCallback(
+    (data: any) => {
+      setConversationStatus("CANCELLED");
+      const message =
+        data?.message ??
+        (data?.reason
+          ? `Phiên đã bị hủy: ${data.reason}`
+          : "Phiên đã bị hủy. Vui lòng đặt lại lịch nếu cần.");
+      showSessionNotice("error", message);
+      Alert.alert("Phiên đã bị hủy", message);
+    },
+    [showSessionNotice],
+  );
+
+  const handleSessionEndingSoon = useCallback(
+    (data: any) => {
+      const remaining = data?.remainingMinutes ?? 10;
+      const message =
+        data?.message ?? `Phiên sẽ kết thúc trong khoảng ${remaining} phút nữa. Hãy hoàn tất cuộc trò chuyện.`;
+      showSessionNotice("warning", message);
+    },
+    [showSessionNotice],
+  );
+
+  const handleSessionEnded = useCallback(
+    (data: any) => {
+      setConversationStatus("ENDED");
+      const message = data?.message ?? "Phiên đã kết thúc. Bạn có thể xem lại lịch sử cuộc trò chuyện.";
+      showSessionNotice("info", message);
+      Alert.alert("Phiên đã kết thúc", message);
+    },
+    [showSessionNotice],
+  );
+
+  const handleUserJoined = useCallback(
+    (data: any) => {
+      if (!data?.userId) {
+        return;
+      }
+      showSessionNotice("info", `Người dùng ${data.userId} vừa tham gia cuộc trò chuyện.`);
+    },
+    [showSessionNotice],
+  );
+
+  const handleUserLeft = useCallback(
+    (data: any) => {
+      if (!data?.userId) {
+        return;
+      }
+      showSessionNotice("info", `Người dùng ${data.userId} đã rời cuộc trò chuyện.`);
+    },
+    [showSessionNotice],
+  );
 
   useEffect(() => {
     let active = true;
@@ -167,6 +421,83 @@ export default function ChatDetailScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!currentUserId || !socketBaseUrl) {
+      return;
+    }
+
+    const socket = io(`${socketBaseUrl}/chat`, {
+      transports: ["websocket", "polling"],
+      autoConnect: false,
+      forceNew: true,
+      query: { userId: currentUserId },
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+
+    socketRef.current = socket;
+    setSocketJoinError(null);
+    setSocketConnected(false);
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+      setSocketJoinError(null);
+      setSocketReadyVersion((prev) => prev + 1);
+    };
+
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+      setSocketReadyVersion((prev) => prev + 1);
+    };
+
+    const handleConnectError = (error: any) => {
+      console.warn("Socket connect error", error);
+      const fallbackMessage = "Không thể kết nối realtime. Hệ thống sẽ tự thử lại.";
+      const detail = error?.message ? ` (${error.message})` : "";
+      setSocketJoinError(`${fallbackMessage}${detail}`);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("receive_message", handleIncomingMessage);
+    socket.on("session_activated", handleSessionActivated);
+    socket.on("session_canceled", handleSessionCanceled);
+    socket.on("session_ending_soon", handleSessionEndingSoon);
+    socket.on("session_ended", handleSessionEnded);
+    socket.on("user_joined", handleUserJoined);
+    socket.on("user_left", handleUserLeft);
+
+    socket.connect();
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+      socket.off("receive_message", handleIncomingMessage);
+      socket.off("session_activated", handleSessionActivated);
+      socket.off("session_canceled", handleSessionCanceled);
+      socket.off("session_ending_soon", handleSessionEndingSoon);
+      socket.off("session_ended", handleSessionEnded);
+      socket.off("user_joined", handleUserJoined);
+      socket.off("user_left", handleUserLeft);
+      socket.disconnect();
+      socketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [
+    currentUserId,
+    handleIncomingMessage,
+    handleSessionActivated,
+    handleSessionCanceled,
+    handleSessionEndingSoon,
+    handleSessionEnded,
+    handleUserJoined,
+    handleUserLeft,
+    socketBaseUrl,
+  ]);
+
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true });
@@ -178,6 +509,37 @@ export default function ChatDetailScreen() {
       scrollToEnd();
     }
   }, [messages, scrollToEnd]);
+
+  useEffect(() => {
+    if (!conversationId || !socketConnected) {
+      return;
+    }
+
+    const socket = socketRef.current;
+    if (!socket) {
+      return;
+    }
+
+    let cancelled = false;
+
+    socket.emit("join_conversation", conversationId, (status: string, message?: string) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (status !== "success") {
+        setSocketJoinError(message ?? "Không thể tham gia cuộc trò chuyện");
+      } else {
+        setSocketJoinError(null);
+        socket.emit("mark_read", conversationId);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      socket.emit("leave_conversation", conversationId, () => {});
+    };
+  }, [conversationId, socketConnected, socketReadyVersion]);
 
   const fetchMessages = useCallback(
     async (options: { silent?: boolean; refreshing?: boolean } = {}) => {
@@ -195,7 +557,7 @@ export default function ChatDetailScreen() {
 
       try {
         setLoadError(null);
-        const [messagesResponse, conversationResponse] = await Promise.all([
+        const [messagesResult, conversationResult] = await Promise.allSettled([
           getChatMessages(conversationId, {
             page: 1,
             limit: 100,
@@ -205,17 +567,17 @@ export default function ChatDetailScreen() {
           getChatConversation(conversationId),
         ]);
 
-        const messagePayload = messagesResponse?.data?.data;
-        const rawMessages = Array.isArray(messagePayload) ? messagePayload : [];
+        if (conversationResult.status !== "fulfilled") {
+          throw conversationResult.reason ?? new Error("Không thể tải cuộc trò chuyện");
+        }
 
-        const normalized = rawMessages
-          .map((item: any) => mapApiMessage(item, currentUserId))
-          .sort((a, b) => a.createdAt - b.createdAt);
-
-        setMessages(normalized);
-
-        const conversation = conversationResponse?.data?.data ?? null;
+        const conversation = conversationResult.value?.data?.data ?? null;
         if (conversation) {
+          if (conversation.status || conversation.conversationStatus) {
+            setConversationStatus(
+              normalizeConversationStatus(conversation.status ?? conversation.conversationStatus),
+            );
+          }
           const viewerIsSeer =
             currentUserId &&
             conversation.seerId &&
@@ -248,12 +610,42 @@ export default function ChatDetailScreen() {
         markConversationMessagesRead(conversationId).catch((err) => {
           console.warn("Không thể đánh dấu đã đọc:", err);
         });
+
+        let legacyError = false;
+        let rawMessages: any[] = [];
+
+        if (messagesResult.status === "fulfilled") {
+          const messagePayload = messagesResult.value?.data?.data;
+          rawMessages = Array.isArray(messagePayload) ? messagePayload : [];
+        } else if (isLegacyStatusError(messagesResult.reason)) {
+          legacyError = true;
+        } else {
+          throw messagesResult.reason;
+        }
+
+        if (!legacyError) {
+          const normalized = rawMessages
+          .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
+            .sort((a, b) => a.createdAt - b.createdAt);
+          setMessages(normalized);
+
+          if (legacyStatusWarning) {
+            setLegacyStatusWarning(null);
+          }
+        } else {
+          setLegacyStatusWarning(LEGACY_STATUS_WARNING_MESSAGE);
+        }
       } catch (error: any) {
         console.error(error);
-        const message =
-          error?.response?.data?.message ??
-          "Không thể tải lịch sử trò chuyện. Vui lòng thử lại.";
-        setLoadError(message);
+        if (isLegacyStatusError(error)) {
+          setLegacyStatusWarning(LEGACY_STATUS_WARNING_MESSAGE);
+          setLoadError(null);
+        } else {
+          const message =
+            error?.response?.data?.message ??
+            "Không thể tải lịch sử trò chuyện. Vui lòng thử lại.";
+          setLoadError(message);
+        }
       } finally {
         if (refreshing) {
           setIsRefreshing(false);
@@ -262,7 +654,7 @@ export default function ChatDetailScreen() {
         }
       }
     },
-    [conversationId, currentUserId],
+    [conversationId, currentUserId, legacyStatusWarning],
   );
 
   useEffect(() => {
@@ -316,22 +708,6 @@ export default function ChatDetailScreen() {
         return;
       }
 
-      if (typeof asset.size === "number" && asset.size > MAX_VIDEO_SIZE_BYTES) {
-        Alert.alert(
-          "Video quá lớn",
-          "Vui lòng chọn video nhỏ hơn 50MB để đảm bảo quá trình tải lên ổn định.",
-        );
-        return;
-      }
-
-      if (typeof asset.duration === "number" && asset.duration > MAX_VIDEO_DURATION_MS) {
-        Alert.alert(
-          "Video quá dài",
-          "Vui lòng chọn video có độ dài tối đa 3 phút để gửi nhanh hơn.",
-        );
-        return;
-      }
-
       setSelectedAttachment({
         id: `${Date.now()}`,
         uri: asset.uri,
@@ -345,8 +721,33 @@ export default function ChatDetailScreen() {
     }
   }, []);
 
+  const [isAttachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+  const [messageMenuState, setMessageMenuState] = useState<{
+    message: ChatMessage;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handleAttachmentMenu = useCallback(() => {
+    setAttachmentMenuVisible((prev) => !prev);
+  }, []);
+
+  const handleSelectImageFromMenu = useCallback(() => {
+    setAttachmentMenuVisible(false);
+    handlePickImage();
+  }, [handlePickImage]);
+
+  const handleSelectVideoFromMenu = useCallback(() => {
+    setAttachmentMenuVisible(false);
+    handlePickVideo();
+  }, [handlePickVideo]);
+
   const handleRemoveAttachment = useCallback(() => {
     setSelectedAttachment(null);
+  }, []);
+
+  const closeMessageMenu = useCallback(() => {
+    setMessageMenuState(null);
   }, []);
 
   const handleSendMessage = useCallback(async () => {
@@ -361,6 +762,11 @@ export default function ChatDetailScreen() {
       return;
     }
 
+    if (!isConversationActive) {
+      Alert.alert("Không thể gửi tin nhắn", statusMeta.description);
+      return;
+    }
+
     const localId = `${Date.now()}`;
     const optimisticAttachments = attachment ? [attachment] : undefined;
 
@@ -371,6 +777,7 @@ export default function ChatDetailScreen() {
       attachments: optimisticAttachments,
       status: "sending",
       createdAt: Date.now(),
+      conversationId,
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
@@ -380,57 +787,95 @@ export default function ChatDetailScreen() {
     scrollToEnd();
 
     try {
-      let payload: any;
+      let mediaPayload: { imagePath?: string; videoPath?: string } = {};
       if (attachment) {
-        const formData = new FormData();
-        formData.append("conversationId", conversationId);
-        if (trimmed.length > 0) {
-          formData.append("textContent", trimmed);
-        }
+        const uploadForm = new FormData();
         const fieldName = attachment.kind === "video" ? "video" : "image";
-        formData.append(
+        uploadForm.append(
           fieldName,
           {
             uri: attachment.uri,
-            name: attachment.name ?? `${attachment.id}.${attachment.kind === "video" ? "mp4" : "jpg"}`,
-            type: attachment.mimeType ?? (attachment.kind === "video" ? "video/mp4" : "image/jpeg"),
+            name:
+              attachment.name ??
+              `${attachment.id}.${attachment.kind === "video" ? "mp4" : "jpg"}`,
+            type:
+              attachment.mimeType ??
+              (attachment.kind === "video" ? "video/mp4" : "image/jpeg"),
           } as any,
         );
-        payload = formData;
-      } else {
-        payload = {
-          conversationId,
-          ...(trimmed.length > 0 ? { textContent: trimmed } : {}),
-        };
+
+        const uploadResponse = await uploadChatFile(uploadForm);
+        const uploadData = uploadResponse?.data?.data ?? {};
+        if (uploadData?.imagePath) {
+          mediaPayload.imagePath = uploadData.imagePath;
+        }
+        if (uploadData?.videoPath) {
+          mediaPayload.videoPath = uploadData.videoPath;
+        }
       }
 
-      const response = await sendChatMessage(conversationId, payload);
-      const persistedRaw = response?.data?.data;
-      const persisted = persistedRaw
-        ? mapApiMessage(persistedRaw, currentUserId)
-        : {
-            ...optimisticMessage,
-            id: `${localId}-persisted`,
-            status: "sent" as MessageStatus,
-          };
+      const payload = {
+        conversationId,
+        ...(trimmed.length > 0 ? { textContent: trimmed } : {}),
+        ...(mediaPayload.imagePath ? { imagePath: mediaPayload.imagePath } : {}),
+        ...(mediaPayload.videoPath ? { videoPath: mediaPayload.videoPath } : {}),
+      };
 
-      setMessages((prev) =>
-        prev.map((message) => (message.id === localId ? persisted : message)),
-      );
-      scrollToEnd();
-      fetchMessages({ silent: true });
-    } catch (error) {
-      console.error(error);
+      let sentViaSocket = false;
+
+      if (socketConnected && socketRef.current) {
+        try {
+          await emitSocketMessage(payload);
+          sentViaSocket = true;
+        } catch (socketError) {
+          console.warn("Gửi tin nhắn qua socket thất bại, chuyển qua REST API", socketError);
+        }
+      }
+
+      if (!sentViaSocket) {
+        const response = await sendChatMessage(conversationId, payload);
+        const apiMessage = response?.data?.data;
+
+        if (apiMessage) {
+          const normalizedMessage = mapApiMessage(apiMessage, currentUserId, conversationId);
+          setMessages((prev) => {
+            const filtered = prev.filter((message) => message.id !== localId);
+            const next = [...filtered, normalizedMessage];
+            next.sort((a, b) => a.createdAt - b.createdAt);
+            return next;
+          });
+        } else {
+          await fetchMessages({ silent: true });
+        }
+      }
+    } catch (error: any) {
+      console.error("Send message failed", error);
       setMessages((prev) =>
         prev.map((message) =>
           message.id === localId ? { ...message, status: "failed" } : message,
         ),
       );
-      Alert.alert("Không thể gửi tin nhắn", "Vui lòng thử lại sau.");
+      const errorMessage =
+        error?.response?.data?.message ??
+        error?.message ??
+        "Không thể gửi tin nhắn. Vui lòng thử lại.";
+      Alert.alert("Lỗi", errorMessage);
     } finally {
       setIsSending(false);
     }
-  }, [conversationId, currentUserId, fetchMessages, input, isSending, scrollToEnd, selectedAttachment]);
+  }, [
+    conversationId,
+    currentUserId,
+    emitSocketMessage,
+    fetchMessages,
+    input,
+    isSending,
+    scrollToEnd,
+    selectedAttachment,
+    socketConnected,
+    isConversationActive,
+    statusMeta.description,
+  ]);
 
   const handleOpenAttachment = useCallback((uri: string) => {
     if (!uri) {
@@ -506,32 +951,22 @@ export default function ChatDetailScreen() {
   );
 
   const handleMessageOptions = useCallback(
-    (message: ChatMessage) => {
+    (message: ChatMessage, event: GestureResponderEvent) => {
       if (!message.id || message.status === "sending") {
         return;
       }
-
-      const options: { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void }[] = [];
-
-      if (message.role === "outgoing" && !message.isRecalled) {
-        options.push({ text: "Thu hồi", style: "destructive", onPress: () => handleRecallMessage(message) });
-      }
-
-      if (!message.isRecalled) {
-        options.push({ text: "Xóa phía tôi", onPress: () => handleDeleteMessage(message) });
-      }
-
-      options.push({ text: "Huỷ", style: "cancel" });
-
-      Alert.alert("Tùy chọn", undefined, options);
+      const { pageX, pageY } = event.nativeEvent;
+      setMessageMenuState({ message, x: pageX, y: pageY });
     },
-    [handleDeleteMessage, handleRecallMessage],
+    [],
   );
 
-  const canSend = useMemo(
-    () => input.trim().length > 0 || Boolean(selectedAttachment),
-    [input, selectedAttachment],
-  );
+  const canSend = useMemo(() => {
+    if (!isConversationActive) {
+      return false;
+    }
+    return (input.trim().length > 0 || Boolean(selectedAttachment)) && !isSending;
+  }, [input, isConversationActive, isSending, selectedAttachment]);
 
   const renderMessage = useCallback(
     ({ item }: { item: ChatMessage }) => {
@@ -554,7 +989,7 @@ export default function ChatDetailScreen() {
       return (
         <TouchableOpacity
           activeOpacity={0.9}
-          onLongPress={() => handleMessageOptions(item)}
+          onLongPress={(event) => handleMessageOptions(item, event)}
           delayLongPress={250}
         >
           <View
@@ -604,35 +1039,112 @@ export default function ChatDetailScreen() {
     [handleMessageOptions, handleOpenAttachment],
   );
 
+  const insets = useSafeAreaInsets();
+  const screenWidth = Dimensions.get("window").width;
+
   const headerInfo = useMemo(
     () => (
-      <View style={styles.infoHeader}>
-        <View style={styles.avatarWrapper}>
-          {partnerAvatar ? (
-            <Image source={{ uri: partnerAvatar }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person-outline" size={20} color="#64748b" />
+      <View style={styles.infoHeaderWrapper}>
+        <View style={styles.infoHeader}>
+          <View style={styles.avatarWrapper}>
+            {partnerAvatar ? (
+              <Image source={{ uri: partnerAvatar }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person-outline" size={20} color="#64748b" />
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.infoTitle}>{conversationTitle}</Text>
+            <Text style={styles.infoSubtitle}>
+              {isPartnerOnline ? "Đang hoạt động" : "Ngoại tuyến"}
+            </Text>
+            <View style={styles.statusRow}>
+              {socketConnected ? (
+                <View style={[styles.connectionBadge, styles.connectionBadgeOnline]}>
+                  <View style={[styles.connectionDot, styles.connectionDotOnline]} />
+                  <Text style={styles.connectionBadgeText}>Đã kết nối realtime</Text>
+                </View>
+              ) : null}
+              <View
+                style={[
+                  styles.conversationStatusBadge,
+                  normalizedConversationStatus === "ACTIVE"
+                    ? styles.statusPillActive
+                    : normalizedConversationStatus === "WAITING"
+                      ? styles.statusPillWaiting
+                      : normalizedConversationStatus === "CANCELLED"
+                        ? styles.statusPillCancelled
+                        : normalizedConversationStatus === "ENDED"
+                          ? styles.statusPillEnded
+                          : styles.statusPillDefault,
+                ]}
+              >
+                <Text style={styles.conversationStatusBadgeText}>{statusMeta.label}</Text>
+              </View>
             </View>
-          )}
+            <Text style={styles.statusDescription}>{statusMeta.description}</Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.infoTitle}>{conversationTitle}</Text>
-          <Text style={styles.infoSubtitle}>
-            {isPartnerOnline ? "Đang hoạt động" : "Ngoại tuyến"}
-          </Text>
-        </View>
+        {legacyStatusWarning ? (
+          <View style={styles.legacyWarningBanner}>
+            <Ionicons name="warning-outline" size={18} color="#b45309" />
+            <View style={styles.legacyWarningTextBlock}>
+              <Text style={styles.legacyWarningTitle}>Không thể tải toàn bộ lịch sử</Text>
+              <Text style={styles.legacyWarningText}>{legacyStatusWarning}</Text>
+            </View>
+          </View>
+        ) : null}
+        {sessionNotice ? (
+          <View
+            style={[
+              styles.sessionNoticeBanner,
+              sessionNotice.type === "warning"
+                ? styles.sessionNoticeWarning
+                : sessionNotice.type === "error"
+                  ? styles.sessionNoticeError
+                  : styles.sessionNoticeInfo,
+            ]}
+          >
+            <Ionicons
+              name={sessionNotice.type === "warning" ? "time-outline" : sessionNotice.type === "error" ? "close-circle" : "information-circle"}
+              size={18}
+              color={
+                sessionNotice.type === "warning"
+                  ? "#b45309"
+                  : sessionNotice.type === "error"
+                    ? "#b91c1c"
+                    : "#0f172a"
+              }
+            />
+            <Text style={styles.sessionNoticeText}>{sessionNotice.message}</Text>
+            <TouchableOpacity onPress={() => setSessionNotice(null)}>
+              <Ionicons name="close" size={16} color="#475569" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     ),
-    [conversationTitle, isPartnerOnline, partnerAvatar],
+    [
+      conversationTitle,
+      isPartnerOnline,
+      legacyStatusWarning,
+      normalizedConversationStatus,
+      partnerAvatar,
+      sessionNotice,
+      socketConnected,
+      statusMeta.description,
+      statusMeta.label,
+    ],
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
@@ -679,6 +1191,22 @@ export default function ChatDetailScreen() {
                 <Text style={styles.errorStateText}>{loadError}</Text>
                 <Text style={styles.errorRetryHint}>Nhấn để thử lại</Text>
               </TouchableOpacity>
+            ) : legacyStatusWarning ? (
+              <View style={styles.legacyEmptyState}>
+                <Ionicons name="alert-circle-outline" size={22} color="#b45309" />
+                <Text style={styles.legacyEmptyTitle}>Không thể tải lịch sử cũ</Text>
+                <Text style={styles.legacyEmptyText}>{legacyStatusWarning}</Text>
+              </View>
+            ) : normalizedConversationStatus !== "ACTIVE" ? (
+              <View style={styles.statusEmptyState}>
+                <Ionicons
+                  name={normalizedConversationStatus === "WAITING" ? "time-outline" : "ban-outline"}
+                  size={22}
+                  color="#475569"
+                />
+                <Text style={styles.statusEmptyTitle}>{statusMeta.label}</Text>
+                <Text style={styles.statusEmptyText}>{statusMeta.description}</Text>
+              </View>
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="chatbubble-ellipses-outline" size={24} color={Colors.gray} />
@@ -689,57 +1217,136 @@ export default function ChatDetailScreen() {
           showsVerticalScrollIndicator={false}
         />
 
-        {selectedAttachment ? (
-          <View style={styles.previewRow}>
-            <View style={styles.previewItem}>
-              {selectedAttachment.kind === "image" ? (
-                <Image source={{ uri: selectedAttachment.uri }} style={styles.previewImage} />
+        <View style={[styles.inputArea, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {selectedAttachment ? (
+            <View style={styles.previewRow}>
+              <View style={styles.previewItem}>
+                {selectedAttachment.kind === "image" ? (
+                  <Image source={{ uri: selectedAttachment.uri }} style={styles.previewImage} />
+                ) : (
+                  <View style={styles.previewVideo}>
+                    <Ionicons name="videocam" size={18} color={Colors.white} />
+                    <Text style={styles.previewVideoText}>Video đính kèm</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removePreviewButton} onPress={handleRemoveAttachment}>
+                  <Ionicons name="close" size={16} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.inputRow}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleAttachmentMenu}>
+              <Ionicons name="attach-outline" size={20} color="#475569" />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.messageInput}
+              placeholder={inputPlaceholder}
+              placeholderTextColor="#94a3b8"
+              value={input}
+              onChangeText={setInput}
+              multiline
+              editable={isConversationActive}
+              selectTextOnFocus={isConversationActive}
+              onSubmitEditing={() => {
+                if (Platform.OS === "ios" && isConversationActive) {
+                  handleSendMessage();
+                }
+              }}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (!canSend || isSending) && styles.sendButtonDisabled]}
+              onPress={handleSendMessage}
+              disabled={!canSend}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color={Colors.white} />
               ) : (
-                <View style={styles.previewVideo}>
-                  <Ionicons name="videocam" size={18} color={Colors.white} />
-                  <Text style={styles.previewVideoText}>Video đính kèm</Text>
-                </View>
+                <Ionicons name="paper-plane" size={18} color={Colors.white} />
               )}
-              <TouchableOpacity style={styles.removePreviewButton} onPress={handleRemoveAttachment}>
-                <Ionicons name="close" size={16} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {isAttachmentMenuVisible ? (
+          <View style={styles.popoverOverlay} pointerEvents="box-none">
+            <TouchableWithoutFeedback onPress={() => setAttachmentMenuVisible(false)}>
+              <View style={styles.popoverBackdrop} />
+            </TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.attachmentPopover,
+                { bottom: Math.max(insets.bottom, 12) + 86 },
+              ]}
+            >
+              <View style={styles.popoverArrowDown} />
+              <TouchableOpacity style={styles.popoverOption} onPress={handleSelectImageFromMenu}>
+                <Text style={styles.popoverOptionText}>Ảnh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.popoverOption} onPress={handleSelectVideoFromMenu}>
+                <Text style={styles.popoverOptionText}>Video</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.popoverOption, styles.popoverOptionLast]}
+                onPress={() => setAttachmentMenuVisible(false)}
+              >
+                <Text style={styles.popoverOptionText}>Hủy</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : null}
 
-        <View style={styles.inputRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
-            <Ionicons name="image-outline" size={22} color={Colors.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handlePickVideo}>
-            <Ionicons name="videocam-outline" size={22} color={Colors.gray} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.messageInput}
-            placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#94a3b8"
-            value={input}
-            onChangeText={setInput}
-            multiline
-            onSubmitEditing={() => {
-              if (Platform.OS === "ios") {
-                handleSendMessage();
-              }
-            }}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!canSend || isSending) && styles.sendButtonDisabled]}
-            onPress={handleSendMessage}
-            disabled={!canSend || isSending}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
-              <Ionicons name="paper-plane" size={18} color={Colors.white} />
-            )}
-          </TouchableOpacity>
-        </View>
+        {messageMenuState ? (
+          <View style={styles.popoverOverlay} pointerEvents="box-none">
+            <TouchableWithoutFeedback onPress={closeMessageMenu}>
+              <View style={styles.popoverBackdrop} />
+            </TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.messagePopover,
+                {
+                  top: Math.max(messageMenuState.y - 110, 80),
+                  left: Math.min(
+                    Math.max(messageMenuState.x - 100, 16),
+                    screenWidth - 170,
+                  ),
+                },
+              ]}
+            >
+              <View style={styles.popoverArrowUp} />
+              {messageMenuState.message.role === "outgoing" && !messageMenuState.message.isRecalled ? (
+                <TouchableOpacity
+                  style={styles.popoverOption}
+                  onPress={() => {
+                    handleRecallMessage(messageMenuState.message);
+                    closeMessageMenu();
+                  }}
+                >
+                  <Text style={styles.popoverOptionText}>Thu hồi</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!messageMenuState.message.isRecalled ? (
+                <TouchableOpacity
+                  style={styles.popoverOption}
+                  onPress={() => {
+                    handleDeleteMessage(messageMenuState.message);
+                    closeMessageMenu();
+                  }}
+                >
+                  <Text style={styles.popoverOptionText}>Xóa phía tôi</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[styles.popoverOption, styles.popoverOptionLast]}
+                onPress={closeMessageMenu}
+              >
+                <Text style={styles.popoverOptionText}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -778,14 +1385,18 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 140,
     gap: 12,
+  },
+  infoHeaderWrapper: {
+    gap: 8,
+    marginBottom: 12,
   },
   infoHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   avatarWrapper: {
     width: 40,
@@ -813,9 +1424,121 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.gray,
   },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+    flexWrap: "wrap",
+  },
+  connectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  connectionBadgeOnline: {
+    backgroundColor: "#dcfce7",
+  },
+  connectionBadgeOffline: {
+    backgroundColor: "#fee2e2",
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  connectionDotOnline: {
+    backgroundColor: "#22c55e",
+  },
+  connectionDotOffline: {
+    backgroundColor: "#f87171",
+  },
+  connectionBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  conversationStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  conversationStatusBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  statusPillActive: {
+    backgroundColor: "#dcfce7",
+  },
+  statusPillWaiting: {
+    backgroundColor: "#fef9c3",
+  },
+  statusPillCancelled: {
+    backgroundColor: "#fee2e2",
+  },
+  statusPillEnded: {
+    backgroundColor: "#e2e8f0",
+  },
+  statusPillDefault: {
+    backgroundColor: "#e2e8f0",
+  },
+  statusDescription: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#475569",
+  },
+  legacyWarningBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#fffbeb",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#fed7aa",
+  },
+  legacyWarningTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  legacyWarningTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#b45309",
+  },
+  legacyWarningText: {
+    fontSize: 12,
+    color: "#92400e",
+    lineHeight: 18,
+  },
+  socketWarningBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#fef2f2",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#fecaca",
+  },
+  socketWarningTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#b91c1c",
+  },
+  socketWarningText: {
+    fontSize: 12,
+    color: "#b91c1c",
+    lineHeight: 18,
+  },
   messageRow: {
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
+    paddingHorizontal: 6,
   },
   alignLeft: {
     alignSelf: "flex-start",
@@ -853,15 +1576,19 @@ const styles = StyleSheet.create({
     color: "#0369a1",
   },
   bubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-    maxWidth: "80%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    maxWidth: "82%",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   bubbleIncoming: {
-    backgroundColor: Colors.white,
+    backgroundColor: "#f8fafc",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
+    borderColor: "#e2e8f0",
   },
   bubbleOutgoing: {
     backgroundColor: Colors.primary,
@@ -900,6 +1627,67 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 24,
   },
+  legacyEmptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 36,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  legacyEmptyTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#b45309",
+    textAlign: "center",
+  },
+  legacyEmptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#92400e",
+    textAlign: "center",
+  },
+  sessionNoticeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  sessionNoticeInfo: {
+    backgroundColor: "#eef2ff",
+  },
+  sessionNoticeWarning: {
+    backgroundColor: "#fef3c7",
+  },
+  sessionNoticeError: {
+    backgroundColor: "#fee2e2",
+  },
+  sessionNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#0f172a",
+  },
+  statusEmptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 36,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  statusEmptyTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0f172a",
+    textAlign: "center",
+  },
+  statusEmptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#475569",
+    textAlign: "center",
+    paddingHorizontal: 16,
+  },
   errorState: {
     alignItems: "center",
     justifyContent: "center",
@@ -931,7 +1719,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
     paddingBottom: 8,
   },
   previewItem: {
@@ -968,36 +1756,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  inputArea: {
+    paddingHorizontal: 16,
+    backgroundColor: Colors.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#e2e8f0",
+  },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.grayBackground,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.white,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 28,
+    backgroundColor: "#f1f5f9",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e2e8f0",
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e2e8f0",
   },
   messageInput: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
+    minHeight: 40,
+    maxHeight: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 15,
     color: Colors.black,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e2e8f0",
   },
   sendButton: {
     width: 44,
@@ -1006,8 +1797,92 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   sendButtonDisabled: {
     backgroundColor: "#cbd5f5",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  popoverOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  popoverBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.25)",
+  },
+  attachmentPopover: {
+    position: "absolute",
+    left: 36,
+    width: 140,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+    zIndex: 20,
+  },
+  messagePopover: {
+    position: "absolute",
+    width: 160,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    zIndex: 20,
+  },
+  popoverOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  popoverOptionLast: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#e2e8f0",
+  },
+  popoverOptionText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  popoverArrowDown: {
+    position: "absolute",
+    bottom: -6,
+    left: 20,
+    width: 12,
+    height: 12,
+    backgroundColor: Colors.white,
+    transform: [{ rotate: "45deg" }],
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e2e8f0",
+    zIndex: 21,
+  },
+  popoverArrowUp: {
+    position: "absolute",
+    top: -6,
+    left: 24,
+    width: 12,
+    height: 12,
+    backgroundColor: Colors.white,
+    transform: [{ rotate: "45deg" }],
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e2e8f0",
+    zIndex: 21,
   },
 });

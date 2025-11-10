@@ -28,6 +28,7 @@ type Conversation = {
   lastTimestamp?: number | string | Date | null;
   unreadCount?: number;
   avatarUrl?: string | null;
+  status?: ConversationStatusFilter | string | null;
 };
 
 type PagingState = {
@@ -91,6 +92,11 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
   const timestamp =
     item?.lastMessageTime ?? item?.updatedAt ?? item?.createdAt ?? null;
 
+  const rawStatus = (item?.status ?? item?.conversationStatus ?? "")
+    .toString()
+    .toUpperCase();
+  const normalizedStatus = rawStatus.length ? rawStatus : null;
+
   const conversationId = item?.conversationId ?? item?.id ?? index;
   const viewerIsSeer =
     currentUserId &&
@@ -132,6 +138,7 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
     lastTimestamp: timestamp,
     unreadCount,
     avatarUrl,
+    status: normalizedStatus,
   };
 };
 
@@ -298,17 +305,26 @@ export default function MessageScreen() {
     }
   }, [currentUserId, fetchConversations]);
 
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return conversations;
-    }
+  const visibleConversations = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
-    return conversations.filter(
-      (item) =>
+    return conversations.filter((item) => {
+      if (selectedStatus) {
+        const itemStatus = (item.status ?? "").toString().toUpperCase();
+        if (itemStatus !== selectedStatus) {
+          return false;
+        }
+      }
+
+      if (!keyword) {
+        return true;
+      }
+
+      return (
         item.title.toLowerCase().includes(keyword) ||
-        (item.lastMessage ?? "").toLowerCase().includes(keyword),
-    );
-  }, [conversations, searchQuery]);
+        (item.lastMessage ?? "").toLowerCase().includes(keyword)
+      );
+    });
+  }, [conversations, searchQuery, selectedStatus]);
 
   const handleSelectStatus = useCallback(
     (value: ConversationStatusFilter) => {
@@ -448,7 +464,7 @@ export default function MessageScreen() {
       ) : null}
 
       <FlatList
-        data={filteredConversations}
+        data={visibleConversations}
         keyExtractor={(item) => item.id}
         renderItem={renderConversation}
         ListHeaderComponent={

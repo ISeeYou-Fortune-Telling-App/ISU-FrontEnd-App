@@ -1,4 +1,4 @@
-import { firebase } from "@react-native-firebase/messaging";
+import messaging from "@react-native-firebase/messaging";
 import * as Device from 'expo-device';
 import { useFonts } from "expo-font";
 import * as Notifications from 'expo-notifications';
@@ -40,7 +40,7 @@ export async function registerForPushNotificationsAsync() {
     // await SecureStore.setItemAsync("expoPushToken", token);
     // console.log('Expo Push Token:', token);
 
-    token = await firebase.messaging().getToken();
+    token = await messaging().getToken();
     await SecureStore.setItemAsync("fcmToken", token);
     console.log('FCM Token:', token);
   } else {
