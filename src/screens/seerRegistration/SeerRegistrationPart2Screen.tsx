@@ -1,12 +1,38 @@
 import Colors from "@/src/constants/colors";
+import { getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Helper functions to map category names to icons and colors
+const getIconForCategory = (categoryName: string): string => {
+  const iconMap: Record<string, string> = {
+    "Cung Hoàng Đạo": "star",
+    "Nhân Tướng Học": "eye", 
+    "Ngũ Hành": "coins",
+    "Chỉ Tay": "hand",
+    "Tarot": "sparkles",
+    "Khác": "moreHorizontal"
+  };
+  return iconMap[categoryName] || "star";
+};
+
+const getColorForCategory = (categoryName: string) => {
+  const colorMap: Record<string, { icon: string; chip: string }> = {
+    "Cung Hoàng Đạo": Colors.categoryColors.zodiac,
+    "Nhân Tướng Học": Colors.categoryColors.physiognomy,
+    "Ngũ Hành": Colors.categoryColors.elements,
+    "Chỉ Tay": Colors.categoryColors.palmistry,
+    "Tarot": Colors.categoryColors.tarot,
+    "Khác": Colors.categoryColors.other
+  };
+  return colorMap[categoryName] || Colors.categoryColors.zodiac;
+};
 
 // Specialty Icons component
 const SpecialtyIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
@@ -65,11 +91,50 @@ const SpecialtyCheckbox = ({
 export default function SeerRegistrationStep2Screen() {
   // Selected specialties
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  // Knowledge categories from API
+  const [knowledgeCategories, setKnowledgeCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   // Biography text
   const [bioText, setBioText] = useState<string>("");
   // Character counter
   const [charCount, setCharCount] = useState<number>(0);
   const maxChars = 1000;
+
+  // Fetch knowledge categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await getKnowledgeCategories();
+        const categoriesData = response?.data?.data || [];
+        
+        // Transform API data to match our UI format
+        const transformedCategories = categoriesData.map((category: any) => ({
+          id: category.id,
+          name: category.name,
+          icon: getIconForCategory(category.name),
+          color: getColorForCategory(category.name).icon,
+          bgColor: getColorForCategory(category.name).chip
+        }));
+        
+        setKnowledgeCategories(transformedCategories);
+      } catch (error) {
+        console.error('Error fetching knowledge categories:', error);
+        // Fallback to basic categories if API fails
+        setKnowledgeCategories([
+          { id: "fallback-1", name: "Cung Hoàng Đạo", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip, icon: "star" },
+          { id: "fallback-2", name: "Nhân Tướng Học", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip, icon: "eye" },
+          { id: "fallback-3", name: "Ngũ Hành", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip, icon: "coins" },
+          { id: "fallback-4", name: "Chỉ Tay", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip, icon: "hand" },
+          { id: "fallback-5", name: "Tarot", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip, icon: "sparkles" },
+          { id: "fallback-6", name: "Khác", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip, icon: "moreHorizontal" }
+        ]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Toggle specialty selection
   const toggleSpecialty = (specialty: string) => {
@@ -89,9 +154,9 @@ export default function SeerRegistrationStep2Screen() {
   };
 
   const handleNext = async () => {
-    // Save data to SecureStore - always send empty arrays for now
+    // Save data to SecureStore
     const step2Data = {
-      specialityIds: [],
+      specialityIds: selectedSpecialties, // Use selected specialties
       profileDescription: bioText.trim(),
     };
 
@@ -137,62 +202,24 @@ export default function SeerRegistrationStep2Screen() {
         <Text variant="titleMedium" style={styles.specialtyTitle}>Chọn chuyên môn của bạn</Text>
         
         <View style={styles.specialtiesContainer}>
-          <SpecialtyCheckbox 
-            label="Cung Hoàng Đạo" 
-            icon="star" 
-            color={Colors.categoryColors.zodiac.icon}
-            bgColor={Colors.categoryColors.zodiac.chip}
-            selected={selectedSpecialties.includes("zodiac")}
-            onPress={() => toggleSpecialty("zodiac")}
-          />
-          
-          <SpecialtyCheckbox 
-            label="Nhân Tướng Học" 
-            icon="eye" 
-            color={Colors.categoryColors.physiognomy.icon}
-            bgColor={Colors.categoryColors.physiognomy.chip}
-            selected={selectedSpecialties.includes("physiognomy")}
-            onPress={() => toggleSpecialty("physiognomy")}
-          />
-
-          <SpecialtyCheckbox 
-            label="Ngũ Hành" 
-            icon="coins" 
-            color={Colors.categoryColors.elements.icon}
-            bgColor={Colors.categoryColors.elements.chip}
-            selected={selectedSpecialties.includes("elements")}
-            onPress={() => toggleSpecialty("elements")}
-          />
-          
-          <SpecialtyCheckbox 
-            label="Chỉ Tay" 
-            icon="hand" 
-            color={Colors.categoryColors.palmistry.icon}
-            bgColor={Colors.categoryColors.palmistry.chip}
-            selected={selectedSpecialties.includes("palmistry")}
-            onPress={() => toggleSpecialty("palmistry")}
-          />
-
-          <SpecialtyCheckbox 
-            label="Tarot" 
-            icon="sparkles" 
-            color={Colors.categoryColors.tarot.icon}
-            bgColor={Colors.categoryColors.tarot.chip}
-            selected={selectedSpecialties.includes("tarot")}
-            onPress={() => toggleSpecialty("tarot")}
-          />
-
-          <SpecialtyCheckbox 
-            label="Khác" 
-            icon="moreHorizontal" 
-            color={Colors.categoryColors.other.icon}
-            bgColor={Colors.categoryColors.other.chip}
-            selected={selectedSpecialties.includes("other")}
-            onPress={() => toggleSpecialty("other")}
-          />
+          {loadingCategories ? (
+            <Text style={styles.loadingText}>Đang tải chuyên môn...</Text>
+          ) : (
+            knowledgeCategories.map((category) => (
+              <SpecialtyCheckbox
+                key={category.id}
+                label={category.name}
+                icon={category.icon || "star"}
+                color={category.color || Colors.categoryColors.zodiac.icon}
+                bgColor={category.bgColor || Colors.categoryColors.zodiac.chip}
+                selected={selectedSpecialties.includes(category.id)}
+                onPress={() => toggleSpecialty(category.id)}
+              />
+            ))
+          )}
         </View>
         
-        <Text style={styles.selectionCount}>Đã chọn {selectedSpecialties.length}/6 chuyên môn</Text>
+        <Text style={styles.selectionCount}>Đã chọn {selectedSpecialties.length}/{knowledgeCategories.length} chuyên môn</Text>
 
         <View style={styles.bioSection}>
           <Text variant="titleMedium" style={styles.bioTitle}>Mô tả bản thân</Text>
@@ -361,5 +388,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     backgroundColor: Colors.primary,
     borderRadius: 10,
+  },
+  loadingText: {
+    textAlign: "center",
+    color: Colors.gray,
+    fontSize: 16,
+    marginVertical: 20,
   },
 });

@@ -200,6 +200,22 @@ export default function AuthScreen() {
             router.replace("/(tabs)/home");
         } catch (err: any) {
             console.error("Đăng nhập thất bại", err);
+            console.log("Error response:", err?.response);
+            console.log("Error status:", err?.response?.status);
+            console.log("Error data:", err?.response?.data);
+
+            // Check if email needs verification (403 error with specific message)
+            if ((err?.response?.status === 403 || err?.response?.data?.statusCode === 403) &&
+                err?.response?.data?.message?.includes("Email chưa được xác thực")) {
+                console.log("Navigating to OTP screen with email:", email);
+                // Navigate to OTP verification screen with the email
+                router.push({
+                    pathname: "/otp-verification",
+                    params: { email: email }
+                });
+                return;
+            }
+
             const message =
                 err?.response?.data?.message ||
                 err?.message ||

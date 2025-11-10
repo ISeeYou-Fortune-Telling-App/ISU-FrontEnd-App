@@ -37,6 +37,7 @@ interface Certificate {
   issuedBy: string;
   issuedAt: string;
   expirationDate: string;
+  certificateFile?: {uri: string, name: string, type?: string};
   categoryIds: string[];
 }
 
@@ -281,10 +282,19 @@ export default function SeerRegistrationStep3Screen() {
       const registrationData = {
         ...step1,
         ...step2,
-        ...(certificates.length > 0 && {
-          certificates: certificates.map(cert => cert.certificateName).join(", ")
-        })
+        specialityIds: step2.specialityIds || [],
+        certificates: certificates.map(cert => ({
+          certificateName: cert.certificateName,
+          certificateDescription: cert.certificateDescription || '',
+          issuedBy: cert.issuedBy,
+          issuedAt: cert.issuedAt,
+          expirationDate: cert.expirationDate,
+          certificateFile: cert.certificateFile,
+          categoryIds: cert.categoryIds || []
+        }))
       };
+
+      console.log("Registration data being sent:", JSON.stringify(registrationData, null, 2));
 
       // Submit registration
       const response = await registerSeer(registrationData);
@@ -371,7 +381,7 @@ export default function SeerRegistrationStep3Screen() {
             </View>
           </View>
 
-          <View style={styles.packagesSection}>
+          {/* <View style={styles.packagesSection}>
             <Text variant="headlineSmall" style={styles.packagesTitle}>
               Danh mục gói dịch vụ
             </Text>
@@ -391,7 +401,7 @@ export default function SeerRegistrationStep3Screen() {
                 />
               ))}
             </View>
-          </View>
+          </View> */}
 
           <View style={styles.sectionSpacing}>
             <Text variant="headlineSmall" style={styles.sectionTitle}>
