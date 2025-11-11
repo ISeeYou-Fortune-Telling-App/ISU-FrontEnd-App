@@ -11,7 +11,8 @@ import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function BookPackageScreen() {
-  const { id, title, content, rating, price, duration, seer, avatarUrl } = useLocalSearchParams();
+  const { id, title, rating, price, duration, seer, avatarUrl } = useLocalSearchParams();
+  const { content } = useLocalSearchParams<{ content: string }>();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<string>("");
   const [scheduledDateISO, setScheduledDateISO] = useState<string>("");
@@ -199,7 +200,7 @@ export default function BookPackageScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Chi tiết gói</Text>
             <Text style={styles.packageTitleCard}>{title}</Text>
-            <Text style={styles.packageContentCard}>{content}</Text>
+            <Text style={styles.packageContentCard}>{content?.replace(/\\n/g, "\n")}</Text>
 
             <TouchableOpacity style={styles.categoryChip}>
               <Text style={styles.categoryChipText}>Cung Hoàng Đạo</Text>

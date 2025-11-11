@@ -100,14 +100,14 @@ export default function OTPVerificationScreen() {
               {isEmailProvided ? "Nhập mã OTP" : otpSent ? "Nhập mã OTP" : "Gửi mã OTP"}
             </Text>
             <Text style={styles.description}>
-              {isEmailProvided 
+              {isEmailProvided
                 ? `Chúng tôi đã gửi mã OTP đến email ${email}. Vui lòng kiểm tra và nhập mã để xác thực tài khoản.`
                 : otpSent
                   ? `Chúng tôi đã gửi mã OTP đến email ${email}. Vui lòng kiểm tra và nhập mã để xác thực tài khoản.`
                   : "Vui lòng nhập email để nhận mã OTP xác thực tài khoản."
               }
             </Text>
-            
+
             <TextInput
               autoCapitalize="none"
               mode="outlined"
@@ -119,7 +119,7 @@ export default function OTPVerificationScreen() {
               style={styles.textInput}
               disabled={isEmailProvided || otpSent} // Disable if email provided or OTP already sent
             />
-            
+
             {(isEmailProvided || otpSent) && (
               <TextInput
                 autoCapitalize="none"
@@ -132,7 +132,7 @@ export default function OTPVerificationScreen() {
                 style={styles.textInput}
               />
             )}
-            
+
             {!otpSent && !isEmailProvided ? (
               <Button
                 mode="contained"
@@ -160,7 +160,7 @@ export default function OTPVerificationScreen() {
                   onPress={handleResendOTP}
                   disabled={loading}
                   loading={loading}
-            >
+                >
                   Gửi lại mã OTP
                 </Button>
               </>

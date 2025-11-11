@@ -125,7 +125,7 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
 
       <Text style={styles.cardTitle}>{item.title}</Text>
       <Text style={styles.cardExcerpt} numberOfLines={expanded ? undefined : 3}>
-        {item.content}
+        {item.content?.replace(/\\n/g, "\n")}
       </Text>
 
       {item.imageUrl ? (

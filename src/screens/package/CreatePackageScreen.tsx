@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Text, TextInput } from "react-native-paper";
-import { RichEditor, RichToolbar } from "react-native-pell-rich-editor";
+import { RichEditor, RichToolbar, actions } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CreatePackageScreen() {
@@ -334,12 +334,12 @@ export default function CreatePackageScreen() {
               <RichToolbar
                 editor={contentRef}
                 actions={[
-                  // actions.setBold,
-                  // actions.setItalic,
-                  // actions.setUnderline,
-                  // actions.insertBulletsList,
-                  // actions.insertOrderedList,
-                  // actions.insertLink,
+                  actions.setBold,
+                  actions.setItalic,
+                  actions.setUnderline,
+                  actions.insertBulletsList,
+                  actions.insertOrderedList,
+                  actions.insertLink,
                 ]}
                 iconTint="#000"
                 selectedIconTint="#2095F4"

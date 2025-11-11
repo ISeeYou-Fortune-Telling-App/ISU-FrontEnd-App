@@ -320,7 +320,7 @@ export default function BookingDetailScreen() {
                             <View style={styles.card}>
                                 <Text style={styles.cardTitle}>Chi tiết lịch hẹn</Text>
                                 <Text style={{ fontWeight: '700', fontSize: 15, marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
-                                <Text style={{ marginTop: 8, color: '#374151', fontFamily: "inter" }}>{booking.servicePackage?.packageContent}</Text>
+                                <Text style={{ marginTop: 8, color: '#374151', fontFamily: "inter" }}>{booking.servicePackage?.packageContent?.replace(/\\n/g, "\n")}</Text>
 
                                 <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
                                     {(booking.servicePackage?.categories || []).map((c: string, idx: number) => (
