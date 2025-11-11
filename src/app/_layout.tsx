@@ -77,24 +77,27 @@ export default function RootLayout() {
 
       // Handle custom deep links
       if (hostname === 'homescreen') {
-        router.replace('/(tabs)/home');
+        router.replace('/home');
       } else if (hostname === 'bookings') {
-        router.replace('/(tabs)/booking');
+        router.replace('/booking');
       } else if (hostname === 'profile') {
-        router.replace('/(tabs)/profile');
+        router.replace('/profile');
       } else if (hostname === 'payment-success') {
         // Handle payment success
         const bookingId = queryParams?.bookingId as string;
         if (bookingId) {
-          router.replace(`/booking-detail?bookingId=${bookingId}`);
+          router.replace('/booking');
+          setTimeout(() => {
+            router.push(`/booking-detail?bookingId=${bookingId}`);
+          }, 0);
         } else {
-          router.replace('/(tabs)/booking');
+          router.replace('/booking');
         }
       } else if (hostname === 'payment-cancel') {
-        router.replace('/(tabs)/booking');
+        router.replace('/booking');
       } else {
         // Default to home screen for unknown links
-        router.replace('/(tabs)/home');
+        router.replace('/home');
       }
     };
 
