@@ -402,6 +402,16 @@ export const getNotifications = (params) => API.get("/notification/", { params }
 
 export const getMyNotifications = (params) => API.get("/notification/me", { params });
 
+export const getCertificates = (params) => API.get("/core/certificates", { params });
+
+export const createCertificate = (formData) => API.post("/core/certificates", formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+
+export const deleteCertificate = (id) => API.delete(`/core/certificates/${id}`);
+
 export const deleteNotification = (id) => API.delete(`/notification/${id}`);
 
 export const markNotificationAsRead = (id) => API.patch(`/notification/${id}/read`);

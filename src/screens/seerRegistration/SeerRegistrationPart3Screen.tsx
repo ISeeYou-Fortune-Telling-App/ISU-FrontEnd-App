@@ -242,7 +242,7 @@ export default function SeerRegistrationStep3Screen() {
   };
 
   const handleAddCertificate = () => {
-    router.push("/add-certificate");
+    router.push("/add-certificate?mode=registration");
   };
 
   const handleRemoveCertificate = async (id: string) => {

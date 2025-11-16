@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { getKnowledgeCategories } from "@/src/services/api";
+import { createCertificate, getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
@@ -100,6 +100,7 @@ const CategoryCheckbox = ({
 export default function AddCertificateScreen() {
   // Get params if any
   const params = useLocalSearchParams();
+  const mode = params.mode as string || 'registration'; // Default to registration for backward compatibility
   
   // Certificate form state
   const [certName, setCertName] = useState('');
@@ -218,40 +219,82 @@ export default function AddCertificateScreen() {
       return;
     }
 
+    if (mode === 'create' && !certFile) {
+      alert("Vui lòng chọn file chứng chỉ");
+      return;
+    }
+
     // Convert dates to ISO format
     const issuedAt = `${certIssueDate.split('/')[2]}-${certIssueDate.split('/')[1].padStart(2, '0')}-${certIssueDate.split('/')[0].padStart(2, '0')}T00:00:00`;
     const expirationDate = `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`;
 
-    const certificateData = {
-      id: Date.now().toString(),
-      certificateName: certName.trim(),
-      certificateDescription: certDescription.trim(),
-      issuedBy: certIssuer.trim(),
-      issuedAt,
-      expirationDate,
-      certificateFile: certFile, // Include the file
-      categoryIds: selectedCategories // Use selected categories instead of empty array
-    };
-
     try {
-      // Get existing certificates
-      const existingCerts = await SecureStore.getItemAsync("tempCertificates");
-      const certificates = existingCerts ? JSON.parse(existingCerts) : [];
+      if (mode === 'create') {
+        // Create certificate via API
+        const formData = new FormData();
+        formData.append('certificateName', certName.trim());
+        formData.append('certificateDescription', certDescription.trim());
+        formData.append('issuedBy', certIssuer.trim());
+        formData.append('issuedAt', issuedAt);
+        formData.append('expirationDate', expirationDate);
+        
+        if (certFile) {
+          formData.append('certificateFile', {
+            uri: certFile.uri,
+            name: certFile.name,
+            type: certFile.type || 'image/jpeg',
+          } as any);
+        }
+        
+        selectedCategories.forEach(categoryId => {
+          formData.append('categoryIds', categoryId);
+        });
 
-      // Add new certificate
-      certificates.push(certificateData);
+        await createCertificate(formData);
+        // Navigate back with success parameter to trigger reload
+        router.replace("/manage-certificate?refresh=true");
+      } else {
+        // Registration mode - save to SecureStore
+        const certificateData = {
+          id: Date.now().toString(),
+          certificateName: certName.trim(),
+          certificateDescription: certDescription.trim(),
+          issuedBy: certIssuer.trim(),
+          issuedAt,
+          expirationDate,
+          certificateFile: certFile, // Include the file
+          categoryIds: selectedCategories
+        };
 
-      // Save back to SecureStore
-      await SecureStore.setItemAsync("tempCertificates", JSON.stringify(certificates));
+        // Get existing certificates
+        const existingCerts = await SecureStore.getItemAsync("tempCertificates");
+        const certificates = existingCerts ? JSON.parse(existingCerts) : [];
+
+        // Add new certificate
+        certificates.push(certificateData);
+
+        // Save back to SecureStore
+        await SecureStore.setItemAsync("tempCertificates", JSON.stringify(certificates));
+      }
 
       router.back();
     } catch (error) {
+      console.error('Error adding certificate:', error);
       alert("Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header similar to other pages */}
+      <View style={styles.header}>
+        <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
+        <View style={styles.titleContainer}>
+          <Text variant="titleLarge" style={styles.title}>Thêm chứng chỉ</Text>
+        </View>
+        <View style={styles.headerPlaceholder} />
+      </View>
+      
       <View style={{ flex: 1 }}>
         <ScrollView
           style={styles.content}
@@ -397,6 +440,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    backgroundColor: Colors.background,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  title: {
+    fontWeight: "bold",
+    color: Colors.black,
+  },
+  headerPlaceholder: {
+    width: 28,
+    height: 28,
   },
   content: {
     flex: 1,

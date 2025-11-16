@@ -3,13 +3,20 @@ import { logoutUser } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMAGE";
+type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMAGE" | "MANAGE_CERTIFICATE";
 
 export default function SettingScreen() {
+    const [role, setRole] = useState<string | null>(null);
+
+    useEffect(() => {
+        SecureStore.getItemAsync("userRole").then(setRole);
+    }, []);
+
     const handlePress = (action: SettingAction) => {
         switch (action) {
             case "PROFILE":
@@ -17,6 +24,9 @@ export default function SettingScreen() {
                 break;
             case "IMAGE":
                 //router.push("/edit-images");
+                break;
+            case "MANAGE_CERTIFICATE":
+                router.push("/manage-certificate");
                 break;
             case "PASSWORD":
                 Alert.alert("Sắp ra mắt", "Tính năng đổi mật khẩu sẽ sớm khả dụng.");
@@ -76,6 +86,13 @@ export default function SettingScreen() {
                     <Text style={styles.cardTitle}>Thay đổi ảnh</Text>
                     <Text style={styles.cardSubtitle}>Ảnh đại diện, ảnh nền.</Text>
                 </TouchableOpacity>
+
+                {role === "SEER" && (
+                    <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("MANAGE_CERTIFICATE")}>
+                        <Text style={styles.cardTitle}>Quản lý chứng chỉ</Text>
+                        <Text style={styles.cardSubtitle}>Thêm, chỉnh sửa hoặc xóa chứng chỉ của bạn.</Text>
+                    </TouchableOpacity>
+                )}
 
                 <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={() => handlePress("PASSWORD")}>
                     <Text style={styles.cardTitle}>Đổi mật khẩu</Text>
