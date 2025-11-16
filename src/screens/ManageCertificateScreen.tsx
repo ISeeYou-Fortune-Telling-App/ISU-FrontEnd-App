@@ -237,6 +237,7 @@ export default function ManageCertificateScreen() {
         params.status = selectedStatus;
       }
 
+      console.log('Requesting page:', page);
       const response: { data: ApiResponse } = await getCertificates(params);
       if (response.data.statusCode === 200) {
         const newCertificates = response.data.data;
@@ -246,6 +247,7 @@ export default function ManageCertificateScreen() {
         if (reset) {
           setCertificates(newCertificates);
           newTotalLength = newCertificates.length;
+          setCurrentPage(2);
         } else {
           setCertificates(prev => {
             const existingKeys = new Set(prev.map(cert => `${cert.id}-${cert.createdAt}`));
@@ -253,12 +255,14 @@ export default function ManageCertificateScreen() {
             newTotalLength = prev.length + uniqueNewCertificates.length;
             return [...prev, ...uniqueNewCertificates];
           });
+          setCurrentPage(currentPage + 1);
         }
 
-        setCurrentPage(paging.page + 1);
         setTotalPages(paging.totalPages);
         setTotalCount(paging.total);
-        setHasMore(newTotalLength < paging.total && newCertificates.length === 15);
+        const hasMorePages = paging.page < paging.totalPages;
+        setHasMore(hasMorePages);
+        console.log('Load complete:', { requestedPage: page, apiPage: paging.page, totalPages: paging.totalPages, total: paging.total, loaded: newTotalLength, nextPage: reset ? 2 : currentPage + 1, hasMore: hasMorePages });
       }
     } catch (error) {
       console.error("Error loading certificates:", error);
@@ -296,7 +300,9 @@ export default function ManageCertificateScreen() {
   };
 
   const handleLoadMore = () => {
+    console.log('handleLoadMore called:', { hasMore, loadingMore, certLength: certificates.length, totalCount, currentPage });
     if (hasMore && !loadingMore && certificates.length < totalCount) {
+      console.log('Loading more certificates...');
       loadCertificates(false);
     }
   };
@@ -333,69 +339,65 @@ export default function ManageCertificateScreen() {
         <View style={styles.headerPlaceholder} />
       </View>
 
-      <View style={styles.contentPadding}>
-        <View style={styles.sectionSpacing}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>
-            Chứng chỉ & Bằng cấp
-          </Text>
-          <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-            Quản lý các chứng chỉ đã tải lên và theo dõi trạng thái duyệt.
-          </Text>
+      <View style={styles.fixedHeader}>
+        <Text variant="headlineSmall" style={styles.sectionTitle}>
+          Chứng chỉ & Bằng cấp
+        </Text>
+        <Text variant="bodyMedium" style={styles.sectionSubtitle}>
+          Quản lý các chứng chỉ đã tải lên và theo dõi trạng thái duyệt.
+        </Text>
 
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleAddCertificate}
-            accessibilityRole="button"
-          >
-            <MaterialIcons name="file-upload" size={24} color={Colors.primary} />
-            <Text style={styles.addButtonText}>Thêm chứng chỉ</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAddCertificate}
+          accessibilityRole="button"
+        >
+          <MaterialIcons name="file-upload" size={24} color={Colors.primary} />
+          <Text style={styles.addButtonText}>Thêm chứng chỉ</Text>
+        </TouchableOpacity>
 
-          <StatusFilter
-            selectedStatus={selectedStatus}
-            onStatusChange={(status) => {
-              setSelectedStatus(status);
-              // Reset will happen in useEffect
-            }}
-          />
+        <StatusFilter
+          selectedStatus={selectedStatus}
+          onStatusChange={(status) => {
+            setSelectedStatus(status);
+            // Reset will happen in useEffect
+          }}
+        />
 
-          <View style={styles.certificatesSection}>
-            <Text style={styles.certificatesTitle}>
-              Chứng chỉ đã tải lên ({totalCount})
-            </Text>
-
-            {loading ? (
-              <Text style={styles.loadingText}>Đang tải...</Text>
-            ) : (
-              <FlatList
-                data={certificates}
-                renderItem={renderCertificate}
-                keyExtractor={(item, index) => `cert-${index}`}
-                onEndReached={handleLoadMore}
-                onEndReachedThreshold={0.5}
-                ListFooterComponent={renderFooter}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={handleRefresh}
-                    colors={[Colors.primary]}
-                    tintColor={Colors.primary}
-                  />
-                }
-                contentContainerStyle={certificates.length === 0 ? [styles.certificatesList, styles.emptyList] : styles.certificatesList}
-                ListEmptyComponent={
-                  <Text style={styles.emptyText}>
-                    {selectedStatus === "ALL"
-                      ? "Chưa có chứng chỉ nào, hãy thêm mới để hoàn thiện hồ sơ."
-                      : `Không có chứng chỉ nào ở trạng thái ${selectedStatus.toLowerCase()}.`}
-                  </Text>
-                }
-              />
-            )}
-          </View>
-        </View>
+        <Text style={styles.certificatesTitle}>
+          Chứng chỉ đã tải lên ({totalCount})
+        </Text>
       </View>
+
+      <FlatList
+        data={certificates}
+        renderItem={renderCertificate}
+        keyExtractor={(item, index) => `cert-${index}`}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={renderFooter}
+        showsVerticalScrollIndicator={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || loading}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+        contentContainerStyle={certificates.length === 0 ? [styles.certificatesList, styles.emptyList] : styles.certificatesList}
+        ListEmptyComponent={
+          loading ? (
+            <Text style={styles.loadingText}>Đang tải...</Text>
+          ) : (
+            <Text style={styles.emptyText}>
+              {selectedStatus === "ALL"
+                ? "Chưa có chứng chỉ nào, hãy thêm mới để hoàn thiện hồ sơ."
+                : `Không có chứng chỉ nào ở trạng thái ${selectedStatus.toLowerCase()}.`}
+            </Text>
+          )
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -425,6 +427,10 @@ const styles = StyleSheet.create({
     headerPlaceholder: {
         width: 28,
         height: 28,
+    },
+    fixedHeader: {
+        padding: 16,
+        backgroundColor: "#fff",
     },
     content: {
         flex: 1,
@@ -486,7 +492,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     certificatesList: {
-        paddingTop: 8,
+        paddingHorizontal: 16,
         paddingBottom: 20,
     },
     certificateItem: {

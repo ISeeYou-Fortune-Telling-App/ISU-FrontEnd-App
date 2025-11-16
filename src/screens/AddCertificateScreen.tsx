@@ -115,13 +115,14 @@ export default function AddCertificateScreen() {
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Fetch categories from API
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const response = await getKnowledgeCategories();
-        console.log('AddCertificateScreen - Categories API response:', response);
+        //console.log('AddCertificateScreen - Categories API response:', response);
         
         const categoriesData = response?.data?.data || [];
         const arr = Array.isArray(categoriesData) ? categoriesData : [];
@@ -224,6 +225,8 @@ export default function AddCertificateScreen() {
       return;
     }
 
+    setSubmitting(true);
+
     // Convert dates to ISO format
     const issuedAt = `${certIssueDate.split('/')[2]}-${certIssueDate.split('/')[1].padStart(2, '0')}-${certIssueDate.split('/')[0].padStart(2, '0')}T00:00:00`;
     const expirationDate = `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`;
@@ -281,6 +284,8 @@ export default function AddCertificateScreen() {
     } catch (error) {
       console.error('Error adding certificate:', error);
       alert("Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -425,7 +430,8 @@ export default function AddCertificateScreen() {
               style={styles.addButton}
               labelStyle={{ color: 'white' }}
               onPress={handleAddCertificate}
-              disabled={!certName.trim()}
+              disabled={!certName.trim() || submitting}
+              loading={submitting}
             >
               Thêm chứng chỉ
             </Button>
