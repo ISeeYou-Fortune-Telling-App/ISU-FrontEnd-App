@@ -1,6 +1,6 @@
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 
 const setAuthHeader = (headers, token) => {
   if (!headers || !token) {
@@ -165,6 +165,7 @@ API.interceptors.response.use(
 export const loginUser = (data) => API.post("/core/auth/login", data);
 export const logoutUser = (firebaseToken) => API.get("/core/auth/logout", { firebaseToken });
 export const registerUser = (data) => API.post("/core/auth/register", data);
+export const verifyEmail = (data) => API.post("/core/auth/verify-email", data);
 export const deleteAccount = (userId, reason) => {
   if (!userId) {
     return Promise.reject(new Error("Missing userId"));
@@ -397,15 +398,17 @@ export const registerSeer = (data) => {
   });
 };
 
-export const verifyEmail = (data) => API.post("/core/auth/verify-email", data);
+export const getNotifications = (params) => API.get("/notification/", { params });
 
-// export const getNotifications = (params) => API.get("/notification", { params });
+export const getMyNotifications = (params) => API.get("/notification/me", { params });
 
-// export const getMyNotifications = (params) => API.get("/notification/me", { params });
+export const deleteNotification = (id) => API.delete(`/notification/${id}`);
 
-// export const deleteNotification = (id) => API.delete(`/notification/${id}`);
+export const markNotificationAsRead = (id) => API.patch(`/notification/${id}/read`);
 
-// export const markNotificationAsRead = (id) => API.patch(`/notification/${id}/read`);
+export const getMyCustomerPotential = (params) => API.get("/report/my-customer-potential", { params });
+
+export const getMySeerPerformance = (params) => API.get("/report/my-seer-performance", { params });
 
 export default API;
 // /notification

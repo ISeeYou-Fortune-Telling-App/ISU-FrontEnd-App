@@ -60,19 +60,65 @@ export default function BookPackageScreen() {
     return `${hh}:${mm}`;
   };
 
+  const updateScheduledDateISO = useCallback((date: Date, time: Date | null) => {
+    if (!time) return;
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
+
+    const localIso = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
+    setScheduledDateISO(localIso);
+  }, []);
+
   const handleConfirmDate = (date: Date) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const selectedDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (selectedDay < today) {
+      setSnackbarMsg("Không thể chọn ngày trong quá khứ");
+      setSnackbarVisible(true);
+      setShowDatePicker(false);
+      return;
+    }
+
     const year = date.getFullYear();
     const month = date.getMonth();
     const day = date.getDate();
 
     setSelectedDateObj(date);
     setScheduledDate(`${pad(day)}/${pad(month + 1)}/${year}`);
+
+    // If time is already selected, update the ISO with new date
+    if (selectedTimeObj) {
+      updateScheduledDateISO(date, selectedTimeObj);
+    }
+
     setShowDatePicker(false);
   };
 
   const handleConfirmTime = (time: Date) => {
     if (!selectedDateObj) {
       setSnackbarMsg("Vui lòng chọn ngày trước");
+      setSnackbarVisible(true);
+      setShowTimePicker(false);
+      return;
+    }
+
+    const now = new Date();
+    const bookingDate = new Date(
+      selectedDateObj.getFullYear(),
+      selectedDateObj.getMonth(),
+      selectedDateObj.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+
+    if (bookingDate <= now) {
+      setSnackbarMsg("Giờ hẹn phải trong tương lai");
       setSnackbarVisible(true);
       setShowTimePicker(false);
       return;
@@ -108,6 +154,15 @@ export default function BookPackageScreen() {
 
     if (!paymentMethod) {
       setSnackbarMsg("Chọn phương thức thanh toán");
+      setSnackbarVisible(true);
+      return;
+    }
+
+    // Extra guard: ensure booking datetime is in the future
+    const now = new Date();
+    const bookingDate = new Date(scheduledDateISO);
+    if (bookingDate <= now) {
+      setSnackbarMsg("Ngày giờ hẹn phải trong tương lai");
       setSnackbarVisible(true);
       return;
     }
@@ -234,6 +289,7 @@ export default function BookPackageScreen() {
             <DateTimePickerModal
               isVisible={showDatePicker}
               mode="date"
+              minimumDate={new Date()}
               onConfirm={handleConfirmDate}
               onCancel={() => setShowDatePicker(false)}
             />

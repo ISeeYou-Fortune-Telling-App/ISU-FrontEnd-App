@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,7 +21,8 @@ export default function BookingDetailScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [review, setReview] = useState<any | null>(null);
     const [role, setRole] = useState<string>("");
-    const [redirectUrl, setRedirectUrl] = useState("");
+    const [cancelling, setCancelling] = useState(false);
+    const [confirming, setConfirming] = useState(false);
 
     const fetchBookingDetail = async (bookingId: string) => {
         try {
@@ -66,6 +67,7 @@ export default function BookingDetailScreen() {
 
     const handleCancelBooking = async () => {
         try {
+            setCancelling(true);
             const res = await cancelBooking(bookingId);
             Alert.alert("Thành công", "Lịch hẹn đã được huỷ", [
                 {
@@ -77,10 +79,14 @@ export default function BookingDetailScreen() {
             Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
             console.error("Error cancelling booking", err);
         }
+        finally {
+            setCancelling(false);
+        }
     }
 
     const handleSeerCancelBooking = async () => {
         try {
+            setCancelling(true);
             const status = {
                 status: "CANCELED"
             }
@@ -95,6 +101,9 @@ export default function BookingDetailScreen() {
             Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
             console.error("Error cancelling booking", err);
         }
+        finally {
+            setCancelling(false);
+        }
     }
 
     const handleConfirmBooking = async () => {
@@ -103,6 +112,7 @@ export default function BookingDetailScreen() {
             return;
         }
         try {
+            setConfirming(true);
             const status = {
                 status: "CONFIRMED"
             }
@@ -121,6 +131,9 @@ export default function BookingDetailScreen() {
         } catch (err) {
             Alert.alert("Lỗi", "Không thể xác nhận lịch hẹn. Vui lòng thử lại.");
             console.error("Error confirming booking", err);
+        }
+        finally {
+            setConfirming(false);
         }
     }
 
@@ -383,14 +396,14 @@ export default function BookingDetailScreen() {
                                                                     'Chờ thanh toán'
                                                     }</Text></Text>
                                                 <Text style={styles.infoText}>Tổng tiền: {p.amount?.toLocaleString('vi-VN')} VNĐ</Text>
-                                                {(p.paymentStatus === "PENDING" && p.approvalUrl && role == "CUSTOMER") && <TouchableOpacity style={styles.paymentButton} onPress={() => { Linking.openURL(p.approvalUrl) }}>
+                                                {(p.paymentStatus === "PENDING" && p.approvalUrl && role == "CUSTOMER" && booking.status !== "CANCELED") && <TouchableOpacity style={styles.paymentButton} onPress={() => { Linking.openURL(p.approvalUrl) }}>
                                                     <Text style={{ color: Colors.white, fontFamily: "inter" }}>Thanh toán</Text>
                                                 </TouchableOpacity>}
                                             </View>
                                         );
                                     })()
                                 ) : (
-                                    <Text style={{ marginTop: 8 }}>Chưa có thông tin thanh toán</Text>
+                                    <Text style={{ marginTop: 8, fontFamily: "inter" }}>Chưa có thông tin thanh toán</Text>
                                 )}
                             </View>
 
@@ -400,7 +413,7 @@ export default function BookingDetailScreen() {
                                 <View style={{ marginTop: 8 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a', marginRight: 8 }} />
-                                        <Text> Lịch hẹn được tạo</Text>
+                                        <Text style={{ fontFamily: "inter" }}> Lịch hẹn được tạo</Text>
                                     </View>
                                     <Text style={{ color: '#6b7280', marginTop: 6, marginLeft: 16 }}>{dayjs(booking.createdAt).format('HH:mm:ss DD/MM/YYYY')}</Text>
                                 </View>
@@ -409,16 +422,16 @@ export default function BookingDetailScreen() {
                                         {booking.bookingPaymentInfos.map((payment: any, index: number) => (
                                             <View key={index} style={{ marginTop: index > 0 ? 12 : 0, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb' }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                    <View style={{ 
-                                                        width: 8, 
-                                                        height: 8, 
-                                                        borderRadius: 4, 
+                                                    <View style={{
+                                                        width: 8,
+                                                        height: 8,
+                                                        borderRadius: 4,
                                                         backgroundColor: payment.paymentStatus === "COMPLETED" || payment.paymentStatus === "CONFIRMED" ? '#16a34a' :
                                                             payment.paymentStatus === "FAILED" || payment.paymentStatus === "CANCELED" ? '#dc2626' :
                                                                 payment.paymentStatus === "PENDING" ? '#d97706' : '#374151',
-                                                        marginRight: 8 
+                                                        marginRight: 8
                                                     }} />
-                                                    <Text>Chuyển {payment.amount?.toLocaleString('vi-VN')} qua {payment.paymentMethod}</Text>
+                                                    <Text style={{ fontFamily: "inter" }}>Chuyển {payment.amount?.toLocaleString('vi-VN')} qua {payment.paymentMethod}</Text>
                                                 </View>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 16 }}>
                                                     <View style={[styles.smallBadge, {
@@ -427,7 +440,7 @@ export default function BookingDetailScreen() {
                                                                 payment.paymentStatus === "PENDING" ? '#fef3c7' : '#f3f4f6'
                                                     }]}>
                                                         <Text style={{
-                                                            fontWeight: '700',
+                                                            fontFamily: "inter",
                                                             color: payment.paymentStatus === "COMPLETED" || payment.paymentStatus === "CONFIRMED" ? '#16a34a' :
                                                                 payment.paymentStatus === "FAILED" || payment.paymentStatus === "CANCELED" ? '#dc2626' :
                                                                     payment.paymentStatus === "PENDING" ? '#d97706' : '#374151'
@@ -441,7 +454,7 @@ export default function BookingDetailScreen() {
                                                         </Text>
                                                     </View>
                                                     {payment.failureReason && (
-                                                        <Text style={{ marginLeft: 8, color: '#dc2626', fontSize: 12 }}>{payment.failureReason}</Text>
+                                                        <Text style={{ marginLeft: 8, color: '#dc2626', fontSize: 12, fontFamily: "inter" }}>{payment.failureReason}</Text>
                                                     )}
                                                 </View>
                                                 <Text style={{ color: '#6b7280', marginTop: 6, marginLeft: 16 }}>{dayjs(payment.paymentTime).format('HH:mm:ss DD/MM/YYYY')}</Text>
@@ -552,6 +565,18 @@ export default function BookingDetailScreen() {
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            <Modal visible={submitting || cancelling || confirming} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                        <Text style={styles.modalText}>{submitting ? "Đang gửi review ..." :
+                            cancelling ? "Đang huỷ lịch ..." :
+                                "Đang xác nhận lịch ..."
+                        }</Text>
+                    </View>
+                </View>
+            </Modal>
 
         </SafeAreaView>
     );
@@ -679,5 +704,25 @@ const styles = StyleSheet.create({
     reviewComment: { marginTop: 6, color: "#374151", fontFamily: "inter" },
     infoTitle: { color: '#6b7280', fontFamily: "inter" },
     infoContent: { marginTop: 6, fontFamily: "inter", fontSize: 12 },
-    infoText: { marginTop: 8, color: '#374151', fontFamily: "inter" }
+    infoText: { marginTop: 8, color: '#374151', fontFamily: "inter" },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalBox: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        width: 220,
+    },
+    modalText: {
+        marginTop: 12,
+        color: "#000",
+        fontWeight: "600",
+        textAlign: "center",
+    },
 });

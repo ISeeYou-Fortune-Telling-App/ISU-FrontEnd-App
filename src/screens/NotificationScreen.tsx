@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { deleteNotification, getMyNotifications, markNotificationAsRead } from "@/src/services/apiNoti";
+import { deleteNotification, getMyNotifications, markNotificationAsRead } from "@/src/services/api";
 import { router } from "expo-router";
 import { ArrowLeft, Calendar, Clock, EllipsisVertical, Trash } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";

@@ -6,7 +6,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Button, SegmentedButtons } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -65,26 +65,7 @@ export default function HomeScreen() {
   const pageSize = 15;
   const [categories, setCategories] = useState<Array<{ id: string, name: string, description: string }>>([]);
   const [selectedCategory, setSelectedCategory] = useState<{ id: string, name: string, description: string } | null>(null);
-
-  useEffect(() => {
-    searchParamsRef.current = searchParams;
-    (async () => {
-      try {
-        const storedRole = await SecureStore.getItemAsync("userRole");
-        if (storedRole) setRole(storedRole);
-      } catch (e) {
-        console.warn("Unable to read userRole from SecureStore", e);
-      }
-    })();
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (searchParams.searchText || searchParams.packageCategoryIds || searchParams.seerSpecialityIds || searchParams.minPrice || searchParams.maxPrice || searchParams.minTime || searchParams.maxTime) {
-      setActivePage("search");
-    } else {
-      setActivePage("home");
-    }
-  }, [searchParams]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchServicePackages = useCallback(async (page: number = 1, filterCategoryId?: string) => {
     if (page === 1) {
@@ -310,20 +291,40 @@ export default function HomeScreen() {
     }
   }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers, selectedCategory]);
 
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+    if (searchParams.searchText || searchParams.packageCategoryIds || searchParams.seerSpecialityIds || searchParams.minPrice || searchParams.maxPrice || searchParams.minTime || searchParams.maxTime) {
+      setActivePage("search");
+    } else {
+      setActivePage("home");
+    }
+    (async () => {
+      try {
+        const storedRole = await SecureStore.getItemAsync("userRole");
+        if (storedRole) setRole(storedRole);
+      } catch (e) {
+        console.warn("Unable to read userRole from SecureStore", e);
+      }
+    })();
+  }, [searchParams]);
+
   useFocusEffect(
     useCallback(() => {
-      setCurrentPage(1);
-      setHasMore(true);
-      // load categories and the initial packages/seers
-      (async () => {
-        await fetchCategories();
-        if (searchType === "packages") {
-          // if user had selected a category keep it, otherwise normal load
-          await fetchServicePackages(1, selectedCategory?.id);
-        } else {
-          await fetchSeers(1);
-        }
-      })();
+      if (categories.length === 0) fetchCategories();
+      if ((searchType === "packages" && servicePackages.length === 0) ||
+        (searchType === "seers" && seers.length === 0)) {
+        setCurrentPage(1);
+        setHasMore(true);
+        (async () => {
+          await fetchCategories();
+          if (searchType === "packages") {
+            // if user had selected a category keep it, otherwise normal load
+            await fetchServicePackages(1, selectedCategory?.id);
+          } else {
+            await fetchSeers(1);
+          }
+        })();
+      }
     }, [searchType, fetchServicePackages, fetchSeers, selectedCategory])
   );
 
@@ -442,22 +443,24 @@ export default function HomeScreen() {
     fetchServicePackages(1, cat.id);
   };
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setCurrentPage(1);
+    setHasMore(true);
+    if (searchType === "packages") {
+      await fetchServicePackages(1, selectedCategory?.id);
+    } else {
+      await fetchSeers(1);
+    }
+    setRefreshing(false);
+  }, [searchType, fetchServicePackages, fetchSeers, selectedCategory, fetchCategories]);
 
   const clearSelectedCategory = () => {
     setSelectedCategory(null);
     setCurrentPage(1);
     setHasMore(true);
     fetchServicePackages(1);
-    router.replace({ pathname: '/(tabs)/home', params: {} })
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </SafeAreaView>
-    );
-  }
 
   if (error) {
     return (
@@ -523,7 +526,9 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <FlatList
+      {loading && <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />}
+
+      {!loading && <FlatList
         data={activePage === "search" && searchType === "seers" ? seers : servicePackages}
         renderItem={({ item }) => (
           activePage === "search" && searchType === "seers" ? (
@@ -595,7 +600,14 @@ export default function HomeScreen() {
           <View style={{ paddingVertical: 8 }} />
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
-      />
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+          />
+        }
+      />}
     </SafeAreaView>
   );
 }
@@ -1033,7 +1045,7 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 12,
     textAlign: 'center',
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageCard: {
     backgroundColor: Colors.white,
@@ -1056,17 +1068,17 @@ const styles = StyleSheet.create({
   seerName: {
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageTime: {
     color: 'gray',
     fontSize: 12,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   seerDescription: {
     color: 'gray',
     fontSize: 14,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
     marginTop: 4,
   },
   categoryTag: {
@@ -1078,19 +1090,19 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 12,
     fontWeight: '500',
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageTitle: {
     fontWeight: 'bold',
     fontSize: 16,
     marginTop: 12,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageContent: {
     marginTop: 8,
     fontSize: 16,
     color: '#333',
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageImage: {
     width: '100%',
@@ -1110,13 +1122,13 @@ const styles = StyleSheet.create({
     color: '#32CD32',
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageDuration: {
     marginLeft: 4,
     color: 'gray',
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageStats: {
     flexDirection: 'row',
@@ -1131,13 +1143,13 @@ const styles = StyleSheet.create({
     color: 'gray',
     marginLeft: 4,
     fontSize: 12,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   dislikes: {
     color: 'gray',
     marginLeft: 4,
     fontSize: 12,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   likeIconCircle: {
     width: 24,
@@ -1157,7 +1169,7 @@ const styles = StyleSheet.create({
   comments: {
     color: 'gray',
     fontSize: 12,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   packageActions: {
     flexDirection: 'row',
@@ -1177,7 +1189,7 @@ const styles = StyleSheet.create({
     color: 'gray',
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   bookButtonContainer: {
     marginTop: 12,
@@ -1190,7 +1202,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   text: {
     fontSize: 16,
@@ -1204,7 +1216,7 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 20,
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   loadingMoreContainer: {
     padding: 16,
@@ -1214,7 +1226,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: 'gray',
-    fontFamily: 'Inter',
+    fontFamily: 'inter',
   },
   avatar: {
     width: 50,

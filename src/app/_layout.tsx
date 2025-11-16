@@ -164,6 +164,8 @@ export default function RootLayout() {
           <Stack.Screen name="transaction-history" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="otp-verification" options={{ headerShown: false }} />
+          <Stack.Screen name="customer-potential" options={{ headerShown: false }} />
+          <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </PaperProvider>

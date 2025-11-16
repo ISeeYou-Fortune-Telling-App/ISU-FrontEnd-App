@@ -181,25 +181,6 @@ export default function KnowledgeScreen() {
     }, [fetchKnowledge])
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, styles.centerContent]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, styles.centerContent]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" style={styles.retryButton} onPress={fetchKnowledge}>
-          Thử lại
-        </Button>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <>
@@ -240,6 +221,13 @@ export default function KnowledgeScreen() {
           }}
         />
       </>
+      {error && <View style={[styles.centerContent, {flex: 1}]}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Button mode="contained" style={styles.retryButton} onPress={fetchKnowledge}>
+          Thử lại
+        </Button>
+      </View>}
+      {loading ? <ActivityIndicator size="large" color={Colors.primary} style={{flex: 1, alignContent: "center"}} /> : 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -273,7 +261,7 @@ export default function KnowledgeScreen() {
             </ImageBackground>
         }
         ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
-      />
+      />}
     </SafeAreaView>
   );
 }

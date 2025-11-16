@@ -17,6 +17,7 @@ const Colors = {
   pink: "#DB2777",              // Dislike / rejected
   purple: "#7C3AED",            // SEER gradient, premium
   brightYellow: "#d8c200ff",    // Highlighter yellow
+  lightGreen: "#00ff00ff",  
 
   // Grays
   gray: "#777777",              // Default icon/text

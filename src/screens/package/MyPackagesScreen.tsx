@@ -329,6 +329,7 @@ const styles = StyleSheet.create({
         color: Colors.error,
         fontWeight: 'normal',
         fontSize: 14,
+        fontFamily: "inter"
     },
     cardTitle: {
         fontWeight: "bold",

@@ -1,10 +1,10 @@
 import Colors from "@/src/constants/colors";
-import { getMyPackages, getProfile, updateUserStatus } from "@/src/services/api";
+import { getMyCustomerPotential, getMyPackages, getMySeerPerformance, getProfile, updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Bell, Calendar, ChevronRight, CreditCard, Mail, Mars, Package, Phone, Rat, Settings, Star, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, ChevronRight, CreditCard, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,6 +35,11 @@ export default function ProfileScreen() {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
 
+  // Performance states
+  const [customerPerf, setCustomerPerf] = useState<any | null>(null);
+  const [seerPerf, setSeerPerf] = useState<any | null>(null);
+  const [perfLoading, setPerfLoading] = useState<boolean>(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -45,10 +50,11 @@ export default function ProfileScreen() {
       return () => { };
     }, [])
   );
+
   const fetchPackageStats = async () => {
     try {
       const res = await getMyPackages();
-      const packages = res?.data?.data ?? [];
+      const packages = res?.data?.data ?? res?.data ?? [];
       let approved = 0, pending = 0, rejected = 0;
       for (const pkg of packages) {
         if (pkg.status === "AVAILABLE") approved++;
@@ -61,6 +67,39 @@ export default function ProfileScreen() {
       setPackCount(packages.length);
     } catch (err) {
       console.error("Failed to load package stats:", err);
+    }
+  };
+
+  const fetchPerformance = async (roleToFetch: string) => {
+    setPerfLoading(true);
+    try {
+      const now = new Date();
+      const params = {
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+      }
+
+      if (roleToFetch === "CUSTOMER") {
+        try {
+          const res = await getMyCustomerPotential(params);
+          const payload = res?.data?.data ?? res?.data ?? res ?? null;
+          setCustomerPerf(payload);
+        } catch (err) {
+          console.warn("Failed to fetch customer potential:", err);
+          setCustomerPerf(null);
+        }
+      } else if (roleToFetch === "SEER") {
+        try {
+          const res = await getMySeerPerformance(params);
+          const payload = res?.data?.data ?? res?.data ?? res ?? null;
+          setSeerPerf(payload);
+        } catch (err) {
+          console.warn("Failed to fetch seer performance:", err);
+          setSeerPerf(null);
+        }
+      }
+    } finally {
+      setPerfLoading(false);
     }
   };
 
@@ -117,6 +156,9 @@ export default function ProfileScreen() {
         if (storedRole === "SEER") {
           fetchPackageStats();
         }
+        // fetch performance after role resolved
+        const effectiveRole = storedRole ?? role;
+        await fetchPerformance(effectiveRole);
       }
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -142,14 +184,6 @@ export default function ProfileScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingOverlay} pointerEvents="none">
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
 
@@ -163,98 +197,109 @@ export default function ProfileScreen() {
         <Settings size={32} color={Colors.black} onPress={() => router.push("/profile-setting")} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.coverWrapper}>
-          <Image
-            source={
-              coverError || !coverUrl
-                ? require("@/assets/images/placeholder.png")
-                : { uri: coverUrl }
-            }
-            style={styles.cover}
-            onError={(e) => {
-              console.log('Cover image failed to load:', e.nativeEvent);
-              setCoverError(true);
-            }}
-          />
+      {loading ?
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-
-        <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
-          <View style={[styles.container, styles.headerContainer]}>
+        :
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.coverWrapper}>
             <Image
               source={
-                avatarError || !avatarUrl
-                  ? require('@/assets/images/user-placeholder.png')
-                  : { uri: avatarUrl }
+                coverError || !coverUrl
+                  ? require("@/assets/images/placeholder.png")
+                  : { uri: coverUrl }
               }
-              style={styles.avatar}
+              style={styles.cover}
               onError={(e) => {
-                console.log('Avatar image failed to load:', e.nativeEvent);
-                setAvatarError(true);
+                console.log('Cover image failed to load:', e.nativeEvent);
+                setCoverError(true);
               }}
             />
-            <Text style={styles.name}>{fullName}</Text>
-            {role === "SEER" &&
-              <View style={{ flexDirection: "row", padding: 10, borderRadius: 30, borderWidth: 1, borderColor: Colors.grayBackground, alignItems: "center" }}>
-                <View style={{
-                  padding: 6, marginRight: 5, borderRadius: 50,
-                  backgroundColor:
-                    status == "ACTIVE" ? Colors.green :
-                      status == "VERIFIED" ? Colors.primary :
-                        status == "BLOCKED" ? Colors.error :
-                          Colors.gray
-                }} />
-                <Text style={{ fontFamily: "inter" }}>{
-                  status == "ACTIVE" ? "ĐANG HOẠT ĐỘNG" :
-                  status == "INACTIVE" ? "KHÔNG HOẠT ĐỘNG" :
-                  status == "VERIFIED" ? "DÃ XÁC MINH" :
-                  status == "UNVERIFIED" ? "CHƯA XÁC MINH" :
-                  "BỊ CHẶN"
-                }</Text>
-              </View>
-            }
-            {description?.length > 0 ? 
-              <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10 }}>{description}</Text> :
-              <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10, color: Colors.gray }}>Chưa có mô tả.</Text>
-            }
           </View>
-        </View>
 
-        {role === "CUSTOMER" && <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />}
-        {role === "CUSTOMER" && <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={cashCount} />}
-
-        {role === "SEER" && <SeerStatsRow packCount={packCount} bookingCount={bookingCount} certCount={certCount} />}
-        {role === "SEER" && (
-          <MyServicePackagesCard
-            approved={packageApprovedCount}
-            pending={packagePendingCount}
-            rejected={packageRejectedCount}
-          />
-        )}
-
-        <TouchableOpacity
-          style={[styles.actionCard, styles.cardShadow]}
-          activeOpacity={0.85}
-          onPress={() => router.push("/transaction-history")}
-        >
-          <View style={styles.actionIcon}>
-            <CreditCard size={20} color={Colors.primary} />
+          <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
+            <View style={[styles.container, styles.headerContainer]}>
+              <Image
+                source={
+                  avatarError || !avatarUrl
+                    ? require('@/assets/images/user-placeholder.png')
+                    : { uri: avatarUrl }
+                }
+                style={styles.avatar}
+                onError={(e) => {
+                  console.log('Avatar image failed to load:', e.nativeEvent);
+                  setAvatarError(true);
+                }}
+              />
+              <Text style={styles.name}>{fullName}</Text>
+              {role === "SEER" &&
+                <View style={{ flexDirection: "row", padding: 10, borderRadius: 30, borderWidth: 1, borderColor: Colors.grayBackground, alignItems: "center" }}>
+                  <View style={{
+                    padding: 6, marginRight: 5, borderRadius: 50,
+                    backgroundColor:
+                      status == "ACTIVE" ? Colors.green :
+                        status == "VERIFIED" ? Colors.primary :
+                          status == "BLOCKED" ? Colors.error :
+                            Colors.gray
+                  }} />
+                  <Text style={{ fontFamily: "inter" }}>{
+                    status == "ACTIVE" ? "ĐANG HOẠT ĐỘNG" :
+                      status == "INACTIVE" ? "KHÔNG HOẠT ĐỘNG" :
+                        status == "VERIFIED" ? "DÃ XÁC MINH" :
+                          status == "UNVERIFIED" ? "CHƯA XÁC MINH" :
+                            "BỊ CHẶN"
+                  }</Text>
+                </View>
+              }
+              {description?.length > 0 ?
+                <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10 }}>{description}</Text> :
+                <Text style={{ fontFamily: "inter", fontSize: 15, marginTop: 10, color: Colors.gray }}>Chưa có mô tả.</Text>
+              }
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Lịch sử giao dịch</Text>
-            <Text style={styles.actionSubtitle}>Theo dõi các thanh toán gần đây của bạn</Text>
-          </View>
-        </TouchableOpacity>
 
-        <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
+          {role === "CUSTOMER" && <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />}
+          {role === "CUSTOMER" && <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={customerPerf?.totalSpending ?? 0} />}
 
-      </ScrollView>
+          {role === "SEER" && <SeerStatsRow packCount={packCount} bookingCount={bookingCount} certCount={certCount} />}
+          {role === "SEER" && (
+            <MyServicePackagesCard
+              approved={packageApprovedCount}
+              pending={packagePendingCount}
+              rejected={packageRejectedCount}
+            />
+          )}
 
+          {/* NEW: Hiệu suất của tôi card (different for customer vs seer) */}
+          {role === "CUSTOMER" && (
+            <CustomerPerformanceCard data={customerPerf} loading={perfLoading} />
+          )}
+          {role === "SEER" && (
+            <SeerPerformanceCard data={seerPerf} loading={perfLoading} />
+          )}
+
+          <TouchableOpacity
+            style={[styles.actionCard, styles.cardShadow]}
+            activeOpacity={0.85}
+            onPress={() => router.push("/transaction-history")}
+          >
+            <View style={styles.actionIcon}>
+              <CreditCard size={20} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>Lịch sử giao dịch</Text>
+              <Text style={styles.actionSubtitle}>Theo dõi các thanh toán gần đây của bạn</Text>
+            </View>
+          </TouchableOpacity>
+
+          <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
+
+        </ScrollView>
+      }
     </SafeAreaView>
   );
 }
-
-
 
 type StatCardProps = {
   value: number;
@@ -283,7 +328,7 @@ type InfoProps = {
 
 function ZodiacCard({ zodiac, animal }: { zodiac: string, animal: string }) {
   return (
-    <View style={styles.ZodiacCard}>
+    <View style={[styles.ZodiacCard, styles.cardShadow]}>
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 5 }}>
         <Star size={24} color="#7C3AED" />
         <Text style={styles.zodiacText}>Cung hoàng đạo: {zodiac}</Text>
@@ -312,7 +357,10 @@ function StatsRow({ bookingCount, reviewCount, cashCount }: StatProps) {
         <StatCard value={bookingCount} label="Cuộc hẹn" color={Colors.primary} />
         <StatCard value={reviewCount} label="Bình luận" color={Colors.yellow} />
       </View>
-      <StatCard value={cashCount} label="Tổng chi tiêu (VNĐ)" color={Colors.green} />
+      <View style={[styles.statCard, styles.cardShadow]}>
+        <Text style={[styles.statValue, { color: Colors.lightGreen }]}>{Intl.NumberFormat('vi-VN').format(cashCount)}₫</Text>
+        <Text style={styles.statLabel}>Tổng chi tiêu</Text>
+      </View>
       <View style={{ height: 10 }} />
     </>
   );
@@ -365,7 +413,7 @@ function MyServicePackagesCard({ approved, pending, rejected }: { approved: numb
         </View>
       </View>
       <TouchableOpacity style={styles.serviceFooter} onPress={() => router.push('/my-packages')}>
-        <Text style={styles.serviceFooterText}>Nhấn để xem chi tiết</Text>
+        <Text style={styles.serviceFooterText}>Xem chi tiết</Text>
         <ChevronRight size={20} color={Colors.white} />
       </TouchableOpacity>
     </LinearGradient>
@@ -400,6 +448,136 @@ function PersonalInfoCard({ dob, gender, phone, email }: InfoProps) {
         <Text style={styles.infoText}>{email}</Text>
       </View>
     </View>
+  );
+}
+
+function CustomerPerformanceCard({ data, loading }: { data: any | null, loading: boolean }) {
+  const points = data?.potentialPoint ?? "-";
+  const tier = data?.potentialTier ?? "---";
+  const ranking = data?.ranking ?? "-";
+  const totalBookingRequests = data?.totalBookingRequests ?? 0;
+  const cancelledByCustomer = data?.cancelledByCustomer ?? 0;
+  const totalSpending = data?.totalSpending ?? 0;
+
+  return (
+    <LinearGradient
+      colors={[Colors.secondary, Colors.green]}
+      start={[0, 0]}
+      end={[2, 2]}
+      style={[styles.serviceCard, styles.cardShadow, { marginBottom: 12 }]}
+    >
+      <View style={styles.serviceCardHeader}>
+        <View style={styles.serviceIconWrapper}>
+          <TrendingUp size={24} color={Colors.white} />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={[styles.serviceTitle, { color: Colors.white }]}>Tiềm năng của tôi</Text>
+          <Text style={[styles.serviceSubtitle, { color: Colors.white }]}>Điểm tiềm năng & xếp hạng</Text>
+        </View>
+      </View>
+
+      <View style={styles.serviceInner}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: "center", padding: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.white }}>{tier}</Text>
+            <Text style={styles.subText}>Cấp</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.white }}>#{ranking}</Text>
+            <Text style={styles.subText}>Xếp hạng</Text>
+          </View>
+        </View>
+
+        {/* <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.primary }]}>{totalBookingRequests}</Text>
+            <Text style={styles.serviceStatLabel}>Tổng yêu cầu</Text>
+          </View>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.pink }]}>{cancelledByCustomer}</Text>
+            <Text style={styles.serviceStatLabel}>Bị huỷ</Text>
+          </View>
+        </View> */}
+      </View>
+
+      <TouchableOpacity style={styles.serviceFooter} onPress={() => router.push('/customer-potential')}>
+        <Text style={styles.serviceFooterText}>Xem chi tiết</Text>
+        <ChevronRight size={20} color={Colors.white} />
+      </TouchableOpacity>
+    </LinearGradient>
+  );
+}
+
+function SeerPerformanceCard({ data, loading }: { data: any | null, loading: boolean }) {
+  const tier = data?.performanceTier ?? "---";
+  const points = data?.performancePoint ?? "-";
+  const ranking = data?.ranking ?? "-";
+  const totalPackages = data?.totalPackages ?? 0;
+  const totalRates = data?.totalRates ?? 0;
+  const avgRating = data?.avgRating ?? 0;
+  const totalBookings = data?.totalBookings ?? 0;
+  const completedBookings = data?.completedBookings ?? 0;
+  const cancelledBySeer = data?.cancelledBySeer ?? 0;
+  const totalRevenue = data?.totalRevenue ?? 0;
+  const bonus = data?.bonus ?? 0;
+
+  return (
+    <LinearGradient
+      colors={[Colors.primary, Colors.purple]}
+      start={[0, 0]}
+      end={[.4, .9]}
+      style={[styles.serviceCard, styles.cardShadow, { marginBottom: 12 }]}
+    >
+      <View style={styles.serviceCardHeader}>
+        <View style={styles.serviceIconWrapper}>
+          <TrendingUp size={24} color={Colors.white} />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.serviceTitle}>Hiệu suất của tôi</Text>
+          <Text style={styles.serviceSubtitle}>Thành tích & xếp hạng</Text>
+        </View>
+      </View>
+
+      <View style={styles.serviceInner}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff' }}>{tier}</Text>
+            <Text style={styles.subText}>Cấp</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 22, color: '#fff', fontWeight: '700' }}>#{ranking}</Text>
+            <Text style={styles.subText}>Xếp hạng</Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.lightGreen, fontSize: 32 }]}>{Intl.NumberFormat('vi-VN').format(totalRevenue)}₫</Text>
+            <Text style={styles.serviceStatLabel}>Doanh thu</Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.yellow }]}>{completedBookings}</Text>
+            <Text style={styles.serviceStatLabel}>Lịch hoàn thành</Text>
+          </View>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.yellow }]}>{avgRating.toFixed ? avgRating.toFixed(2) : avgRating}</Text>
+            <Text style={styles.serviceStatLabel}>Đánh giá TB</Text>
+          </View>
+          <View style={styles.serviceStatBox}>
+            <Text style={[styles.serviceStatValue, { color: Colors.green }]}>{Intl.NumberFormat('vi-VN').format(bonus)}₫</Text>
+            <Text style={styles.serviceStatLabel}>Tiền thưởng</Text>
+          </View>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.serviceFooter} onPress={() => router.push('/seer-performance')}>
+        <Text style={styles.serviceFooterText}>Xem chi tiết</Text>
+        <ChevronRight size={20} color={Colors.white} />
+      </TouchableOpacity>
+    </LinearGradient>
   );
 }
 
@@ -625,7 +803,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -641,7 +819,7 @@ const styles = StyleSheet.create({
     fontFamily: "inter",
   },
   serviceInner: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 12,
     padding: 10,
   },
@@ -667,11 +845,13 @@ const styles = StyleSheet.create({
   serviceFooter: {
     marginTop: 12,
     flexDirection: 'row',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    alignItems: "center"
   },
   serviceFooterText: {
     color: 'rgba(255,255,255,0.95)',
     fontSize: 14,
     fontFamily: "inter",
   },
+  subText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 4, fontFamily: "inter" }
 })
