@@ -1,6 +1,6 @@
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 
 const setAuthHeader = (headers, token) => {
   if (!headers || !token) {
@@ -398,6 +398,16 @@ export const registerSeer = (data) => {
 };
 
 export const verifyEmail = (data) => API.post("/core/auth/verify-email", data);
+
+export const getCertificates = (params) => API.get("/core/certificates", { params });
+
+export const createCertificate = (formData) => API.post("/core/certificates", formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+
+export const deleteCertificate = (id) => API.delete(`/core/certificates/${id}`);
 
 // export const getNotifications = (params) => API.get("/notification", { params });
 
