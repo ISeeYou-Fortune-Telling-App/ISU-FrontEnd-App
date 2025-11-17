@@ -1,9 +1,10 @@
 import Colors from "@/src/constants/colors";
-import { getReviewReplies, getServicePackageInteractions, getServicePackageReviews, postServicePackageReview } from "@/src/services/api";
+import { getReviewReplies, getServicePackageInteractions, getServicePackageReviews, postServicePackageReview, updateServicePackageReview } from "@/src/services/api";
 import { router, useLocalSearchParams } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { ArrowLeft, Calendar, Send, ThumbsDown, ThumbsUp } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const categoryColors = [
@@ -29,12 +30,19 @@ const ServicePackageReviewsScreen = () => {
   const [comment, setComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [editingReview, setEditingReview] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
+        
+        // Get current user ID
+        const userId = await SecureStore.getItemAsync("userId");
+        setCurrentUserId(userId);
         
         let packageDetail = null;
         if (!rootReviewId) {
@@ -54,6 +62,7 @@ const ServicePackageReviewsScreen = () => {
           ref_review_id: review.parentReviewId,
           comment: review.comment,
           reviewedAt: review.createdAt,
+          userId: review.user.userId,
           customer: {
             customerName: review.user.fullName || review.user.username,
             customerAvatar: review.user.avatarUrl
@@ -101,6 +110,7 @@ const ServicePackageReviewsScreen = () => {
           ref_review_id: review.parentReviewId,
           comment: review.comment,
           reviewedAt: review.createdAt,
+          userId: review.user.userId,
           customer: {
             customerName: review.user.fullName || review.user.username,
             customerAvatar: review.user.avatarUrl
@@ -147,6 +157,7 @@ const ServicePackageReviewsScreen = () => {
         ref_review_id: review.parentReviewId,
         comment: review.comment,
         reviewedAt: review.createdAt,
+        userId: review.user.userId,
         customer: {
           customerName: review.user.fullName || review.user.username,
           customerAvatar: review.user.avatarUrl
@@ -193,6 +204,7 @@ const ServicePackageReviewsScreen = () => {
         ref_review_id: review.parentReviewId,
         comment: review.comment,
         reviewedAt: review.createdAt,
+        userId: review.user.userId,
         customer: {
           customerName: review.user.fullName || review.user.username,
           customerAvatar: review.user.avatarUrl
@@ -226,6 +238,7 @@ const ServicePackageReviewsScreen = () => {
         ref_review_id: parentReviewId || null,
         comment: response.data.data.comment,
         reviewedAt: response.data.data.createdAt,
+        userId: response.data.data.user.userId,
         customer: {
           customerName: response.data.data.user.fullName || response.data.data.user.username,
           customerAvatar: response.data.data.user.avatarUrl
@@ -267,9 +280,88 @@ const ServicePackageReviewsScreen = () => {
     postReview(comment, replyingTo || undefined);
   };
 
-  const renderReviewItem = ({ item, depth = 0, colorIndex = 0 }: { item: any; depth?: number; colorIndex?: number }) => {
+  const handleLongPress = (item: any) => {
+    if (currentUserId && item.userId === currentUserId) {
+      setEditingReview(item);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleEditPress = () => {
+    setShowEditModal(false);
+    setComment(editingReview.comment);
+    setReplyingTo(null);
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingReview(null);
+    setComment('');
+  };
+
+  const updateReview = async (reviewId: string, commentText: string) => {
+    if (!commentText.trim()) return;
+
+    try {
+      setPosting(true);
+      const response = await updateServicePackageReview(reviewId, {
+        comment: commentText.trim(),
+        parentReviewId: editingReview.ref_review_id
+      });
+
+      const updatedReview = {
+        review_id: response.data.data.reviewId,
+        ref_review_id: response.data.data.parentReviewId,
+        comment: response.data.data.comment,
+        reviewedAt: response.data.data.createdAt,
+        userId: response.data.data.user.userId,
+        customer: {
+          customerName: response.data.data.user.fullName || response.data.data.user.username,
+          customerAvatar: response.data.data.user.avatarUrl
+        }
+      };
+
+      // Update in main reviews list
+      setServicePackage((prev: any) => ({
+        ...prev,
+        reviews: prev.reviews.map((review: any) => 
+          review.review_id === reviewId ? updatedReview : review
+        )
+      }));
+
+      // Update in loaded replies if it's a reply
+      if (editingReview.ref_review_id) {
+        setLoadedReplies(prev => {
+          const newMap = new Map(prev);
+          const parentReplies = newMap.get(editingReview.ref_review_id) || [];
+          newMap.set(
+            editingReview.ref_review_id,
+            parentReplies.map((reply: any) => 
+              reply.review_id === reviewId ? updatedReview : reply
+            )
+          );
+          return newMap;
+        });
+      }
+
+      setComment('');
+      setEditingReview(null);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể cập nhật bình luận');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleUpdatePress = () => {
+    if (editingReview) {
+      updateReview(editingReview.review_id, comment);
+    }
+  };
+
+  const renderReviewItem = ({ item, depth = 0 }: { item: any; depth?: number }) => {
     const MAX_DEPTH = 10; // Maximum nesting levels
-    const currentColor = categoryColors[colorIndex % categoryColors.length];
+    const currentColor = categoryColors[depth % categoryColors.length];
     const marginLeft = depth * 10; // Small margin left for nested comments
     const avatarStyle = styles.avatar;
     const commentContainerStyle = (item.ref_review_id && !(rootReviewId && item.review_id === rootReviewId))
@@ -285,13 +377,17 @@ const ServicePackageReviewsScreen = () => {
       <View>
         <View style={commentContainerStyle}>
           <Image source={{ uri: item.customer.customerAvatar }} style={avatarStyle} />
-          <View style={styles.commentContent}>
+          <TouchableOpacity 
+            style={styles.commentContent} 
+            activeOpacity={0.9}
+            onLongPress={() => handleLongPress(item)}
+            onPress={() => toggleTextExpansion(item.review_id)}
+            delayLongPress={500}
+          >
             <Text style={styles.customerName}>{item.customer.customerName}</Text>
-            <TouchableOpacity onPress={() => toggleTextExpansion(item.review_id)}>
-              <Text style={styles.commentText} numberOfLines={isTextExpanded ? undefined : 3}>
-                {item.comment}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.commentText} numberOfLines={isTextExpanded ? undefined : 3}>
+              {item.comment}
+            </Text>
             <View style={styles.commentFooter}>
               <Calendar size={14} color="gray" />
               <Text style={styles.commentDate}>{new Date(item.reviewedAt).toLocaleDateString('vi-VN')}</Text>
@@ -310,11 +406,11 @@ const ServicePackageReviewsScreen = () => {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
         {(isExpanded || rootReviewId) && replies.map((reply: any, index: number) => (
           <View key={reply.review_id}>
-            {renderReviewItem({ item: reply, depth: depth + 1 >= MAX_DEPTH ? 0 : depth + 1, colorIndex: colorIndex + 1 })}
+            {renderReviewItem({ item: reply, depth: depth + 1 >= MAX_DEPTH ? 0 : depth + 1 })}
           </View>
         ))}
       </View>
@@ -387,10 +483,9 @@ const ServicePackageReviewsScreen = () => {
             ? (rootReviewParam ? [JSON.parse(rootReviewParam)] : servicePackage?.reviews?.filter((review: any) => review.review_id === rootReviewId) || [])
             : servicePackage?.reviews?.filter((review: any) => review.ref_review_id === null) || []
           }
-          renderItem={({ item, index }) => renderReviewItem({ 
+          renderItem={({ item }) => renderReviewItem({ 
             item, 
-            depth: 0, 
-            colorIndex: index 
+            depth: 0
           })}
           keyExtractor={(item) => item.review_id}
           contentContainerStyle={styles.listContent}
@@ -406,12 +501,16 @@ const ServicePackageReviewsScreen = () => {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
           style={styles.keyboardAvoidingView}
         >
-          {replyingTo && (
+          {(replyingTo || editingReview) && (
             <View style={styles.replyIndicator}>
               <Text style={styles.replyIndicatorText}>
-                Đang trả lời bình luận
+                {editingReview ? 'Đang chỉnh sửa bình luận' : 'Đang trả lời bình luận'}
               </Text>
-              <TouchableOpacity onPress={() => setReplyingTo(null)}>
+              <TouchableOpacity onPress={() => {
+                setReplyingTo(null);
+                setEditingReview(null);
+                setComment('');
+              }}>
                 <Text style={styles.cancelReplyText}>Hủy</Text>
               </TouchableOpacity>
             </View>
@@ -427,7 +526,7 @@ const ServicePackageReviewsScreen = () => {
             />
             <TouchableOpacity 
               style={[styles.iconButton, styles.sendButton, (!comment.trim() || posting) && styles.sendButtonDisabled]} 
-              onPress={handleSendPress}
+              onPress={editingReview ? handleUpdatePress : handleSendPress}
               disabled={!comment.trim() || posting}
             >
               {posting ? (
@@ -439,6 +538,37 @@ const ServicePackageReviewsScreen = () => {
           </View>
         </KeyboardAvoidingView>
       )}
+      
+      {/* Edit Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCancelEdit}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1}
+          onPress={handleCancelEdit}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity 
+                style={styles.modalOption}
+                onPress={handleEditPress}
+              >
+                <Text style={styles.modalOptionText}>Chỉnh sửa bình luận</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalOption, styles.modalCancelOption]}
+                onPress={handleCancelEdit}
+              >
+                <Text style={[styles.modalOptionText, styles.modalCancelText]}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -627,7 +757,36 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 12,
     fontWeight: 'bold',
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  modalOption: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalCancelOption: {
+    borderBottomWidth: 0,
+    marginTop: 8,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: Colors.primary,
+  },
+  modalCancelText: {
+    color: 'gray',
+  },
 });
 
 export default ServicePackageReviewsScreen;

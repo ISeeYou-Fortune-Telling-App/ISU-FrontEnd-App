@@ -189,6 +189,8 @@ export const getServicePackageReviews = (id, params = {}) =>
   API.get(`/core/service-packages/${id}/reviews`, { params });
 export const postServicePackageReview = (id, payload) =>
   API.post(`/core/service-packages/${id}/reviews`, payload);
+export const updateServicePackageReview = (reviewId, payload) =>
+  API.put(`/core/service-packages/reviews/${reviewId}`, payload);
 export const getReviewReplies = (reviewId, params = {}) =>
   API.get(`/core/service-packages/reviews/${reviewId}/replies`, { params });
 export const getKnowledgeItems = (params) => API.get("/core/knowledge-items", { params });
@@ -402,9 +404,20 @@ export const getNotifications = (params) => API.get("/notification/", { params }
 
 export const getMyNotifications = (params) => API.get("/notification/me", { params });
 
-export const getCertificates = (params) => API.get("/core/certificates", { params });
+export const getCertificates = (userId, params) => {
+  if (!userId) {
+    return Promise.reject(new Error("Missing userId"));
+  }
+  return API.get(`/core/certificates/by-user/${userId}`, { params });
+};
 
 export const createCertificate = (formData) => API.post("/core/certificates", formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+
+export const updateCertificate = (id, formData) => API.patch(`/core/certificates/${id}`, formData, {
   headers: {
     'Content-Type': 'multipart/form-data',
   },

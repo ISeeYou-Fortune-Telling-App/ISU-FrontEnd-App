@@ -2,15 +2,16 @@ import Colors from "@/src/constants/colors";
 import { deleteCertificate, getCertificates } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { LucideFileText, LucideX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -47,6 +48,7 @@ interface ApiResponse {
 interface CertificateItemProps {
   certificate: Certificate;
   onRemove: () => void;
+  onClick: () => void;
 }
 
 const categoryPalette: Record<string, { background: string; text: string }> = {
@@ -103,6 +105,7 @@ const StatusFilter = ({
 const CertificateItem = ({
   certificate,
   onRemove,
+  onClick,
 }: CertificateItemProps) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -131,7 +134,7 @@ const CertificateItem = ({
   };
 
   return (
-    <View style={styles.certificateItem}>
+    <TouchableOpacity style={styles.certificateItem} onPress={onClick}>
       <View style={styles.certificateIcon}>
         <LucideFileText size={24} color="#E53935" />
       </View>
@@ -180,13 +183,14 @@ const CertificateItem = ({
       >
         <LucideX size={22} color="#E53935" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 export default function ManageCertificateScreen() {
   const params = useLocalSearchParams();
   
+  const [allCertificates, setAllCertificates] = useState<Certificate[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -196,10 +200,39 @@ export default function ManageCertificateScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCertificates(true);
-  }, [selectedStatus]);
+    const loadUserId = async () => {
+      try {
+        const id = await SecureStore.getItemAsync("userId");
+        if (id) {
+          setUserId(id);
+        } else {
+          Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng");
+        }
+      } catch (error) {
+        console.error("Error loading userId:", error);
+        Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+      }
+    };
+    loadUserId();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadCertificates(true);
+    }
+  }, [userId]);
+
+  // Filter certificates when status changes
+  useEffect(() => {
+    if (selectedStatus === "ALL") {
+      setCertificates(allCertificates);
+    } else {
+      setCertificates(allCertificates.filter(cert => cert.status === selectedStatus));
+    }
+  }, [selectedStatus, allCertificates]);
 
   // Check for refresh parameter when component mounts or params change
   useEffect(() => {
@@ -212,6 +245,11 @@ export default function ManageCertificateScreen() {
 
   const loadCertificates = async (reset: boolean = false) => {
     if (loading || (loadingMore && !reset)) return;
+
+    if (!userId) {
+      console.log('No userId available, skipping load');
+      return;
+    }
 
     if (!reset && certificates.length >= totalCount && totalCount > 0) {
       setHasMore(false);
@@ -233,23 +271,20 @@ export default function ManageCertificateScreen() {
         sortType: "desc",
         sortBy: "createdAt",
       };
-      if (selectedStatus !== "ALL") {
-        params.status = selectedStatus;
-      }
 
-      console.log('Requesting page:', page);
-      const response: { data: ApiResponse } = await getCertificates(params);
+      console.log('Requesting page:', page, 'for userId:', userId);
+      const response: { data: ApiResponse } = await getCertificates(userId, params);
       if (response.data.statusCode === 200) {
         const newCertificates = response.data.data;
         const paging = response.data.paging;
 
         let newTotalLength = 0;
         if (reset) {
-          setCertificates(newCertificates);
+          setAllCertificates(newCertificates);
           newTotalLength = newCertificates.length;
           setCurrentPage(2);
         } else {
-          setCertificates(prev => {
+          setAllCertificates(prev => {
             const existingKeys = new Set(prev.map(cert => `${cert.id}-${cert.createdAt}`));
             const uniqueNewCertificates = newCertificates.filter(cert => !existingKeys.has(`${cert.id}-${cert.createdAt}`));
             newTotalLength = prev.length + uniqueNewCertificates.length;
@@ -288,7 +323,7 @@ export default function ManageCertificateScreen() {
           onPress: async () => {
             try {
               await deleteCertificate(id);
-              setCertificates((prev) => prev.filter((cert) => cert.id !== id));
+              setAllCertificates((prev) => prev.filter((cert) => cert.id !== id));
             } catch (error) {
               console.error("Error deleting certificate:", error);
               Alert.alert("Lỗi", "Không thể xóa chứng chỉ. Vui lòng thử lại.");
@@ -300,8 +335,8 @@ export default function ManageCertificateScreen() {
   };
 
   const handleLoadMore = () => {
-    console.log('handleLoadMore called:', { hasMore, loadingMore, certLength: certificates.length, totalCount, currentPage });
-    if (hasMore && !loadingMore && certificates.length < totalCount) {
+    console.log('handleLoadMore called:', { hasMore, loadingMore, certLength: allCertificates.length, totalCount, currentPage });
+    if (hasMore && !loadingMore && allCertificates.length < totalCount) {
       console.log('Loading more certificates...');
       loadCertificates(false);
     }
@@ -317,6 +352,7 @@ export default function ManageCertificateScreen() {
     <CertificateItem
       certificate={item}
       onRemove={() => handleRemoveCertificate(item.id)}
+      onClick={() => router.push(`/add-certificate?mode=view&certificateId=${item.id}`)}
     />
   );
 
@@ -365,7 +401,7 @@ export default function ManageCertificateScreen() {
         />
 
         <Text style={styles.certificatesTitle}>
-          Chứng chỉ đã tải lên ({totalCount})
+          Chứng chỉ đã tải lên ({certificates.length})
         </Text>
       </View>
 
