@@ -1,10 +1,12 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
+import { resolveSocketUrl } from "@/src/utils/network";
 import { getChatConversations } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import io, { Socket } from "socket.io-client";
 import * as SecureStore from "expo-secure-store";
 import {
   ActivityIndicator,
@@ -52,6 +54,13 @@ const DEFAULT_PAGING: PagingState = {
   totalPages: 1,
   limit: 20,
 };
+
+const sortByLatest = (items: Conversation[]): Conversation[] =>
+  [...items].sort((a, b) => {
+    const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
+    const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
+    return timeB - timeA;
+  });
 
 const formatTimestamp = (value?: string | number | Date | null): string => {
   if (!value) {
@@ -143,13 +152,7 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
 };
 
 const normalizeConversations = (items: any[], currentUserId: string | null): Conversation[] =>
-  items
-    .map((item, index) => mapConversation(item, index, currentUserId))
-    .sort((a, b) => {
-      const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
-      const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
-      return timeB - timeA;
-    });
+  sortByLatest(items.map((item, index) => mapConversation(item, index, currentUserId)));
 
 const mergeConversations = (
   existing: Conversation[],
@@ -163,11 +166,7 @@ const mergeConversations = (
   existing.forEach((item) => merged.set(item.id, item));
   incoming.forEach((item) => merged.set(item.id, item));
 
-  return Array.from(merged.values()).sort((a, b) => {
-    const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
-    const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
-    return timeB - timeA;
-  });
+  return sortByLatest(Array.from(merged.values()));
 };
 
 export default function MessageScreen() {
@@ -183,8 +182,87 @@ export default function MessageScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [paging, setPaging] = useState<PagingState>(DEFAULT_PAGING);
   const [selectedStatus, setSelectedStatus] = useState<ConversationStatusFilter>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const joinedRoomsRef = useRef<Set<string>>(new Set());
+  const [socketConnected, setSocketConnected] = useState(false);
+  const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
 
   const resolvedLimit = paging.limit > 0 ? paging.limit : DEFAULT_PAGING.limit;
+
+  const handleSessionActivated = useCallback(
+    (data: any) => {
+      const conversationId =
+        typeof data?.conversationId === "string" ? data.conversationId : data?.conversationId?.toString();
+      if (!conversationId) {
+        return;
+      }
+      setConversations((prev) => {
+        let found = false;
+        const updated = prev.map((item) => {
+          if (item.id !== conversationId) {
+            return item;
+          }
+          found = true;
+          return {
+            ...item,
+            status: "ACTIVE",
+            lastTimestamp: data?.sessionStartTime ?? item.lastTimestamp ?? Date.now(),
+          };
+        });
+        if (!found) {
+          fetchConversations({ page: 1, silent: true });
+          return prev;
+        }
+        return sortByLatest(updated);
+      });
+    },
+    [fetchConversations],
+  );
+
+  const handleReceiveMessage = useCallback(
+    (payload: any) => {
+      const conversationId =
+        typeof payload?.conversationId === "string"
+          ? payload.conversationId
+          : payload?.conversationId?.toString();
+      if (!conversationId) {
+        return;
+      }
+      const senderId =
+        typeof payload?.senderId === "string" ? payload.senderId : payload?.senderId?.toString() ?? null;
+      const text =
+        payload?.textContent ??
+        payload?.content ??
+        payload?.lastMessageContent ??
+        payload?.message ??
+        "";
+      const createdAt = payload?.createdAt ?? payload?.timestamp ?? Date.now();
+
+      setConversations((prev) => {
+        let found = false;
+        const updated = prev.map((item) => {
+          if (item.id !== conversationId) {
+            return item;
+          }
+          found = true;
+          const isMine = senderId && currentUserId && senderId === currentUserId;
+          const unreadCount = isMine ? item.unreadCount ?? 0 : (item.unreadCount ?? 0) + 1;
+          return {
+            ...item,
+            lastMessage: text || item.lastMessage,
+            lastTimestamp: createdAt,
+            unreadCount,
+          };
+        });
+        if (!found) {
+          fetchConversations({ page: 1, silent: true });
+          return prev;
+        }
+        return sortByLatest(updated);
+      });
+    },
+    [currentUserId, fetchConversations],
+  );
 
   useEffect(() => {
     let active = true;
@@ -205,6 +283,65 @@ export default function MessageScreen() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId || !socketBaseUrl) {
+      return;
+    }
+    const socket = io(`${socketBaseUrl}/chat`, {
+      transports: ["websocket", "polling"],
+      query: { userId: currentUserId },
+      autoConnect: false,
+    });
+    socketRef.current = socket;
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+    };
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+      joinedRoomsRef.current.clear();
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("session_activated", handleSessionActivated);
+    socket.on("receive_message", handleReceiveMessage);
+    socket.connect();
+
+    return () => {
+      joinedRoomsRef.current.forEach((conversationId) => {
+        socket.emit("leave_conversation", conversationId, () => {});
+      });
+      joinedRoomsRef.current.clear();
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("session_activated", handleSessionActivated);
+      socket.off("receive_message", handleReceiveMessage);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [currentUserId, socketBaseUrl, handleReceiveMessage, handleSessionActivated]);
+
+  useEffect(() => {
+    if (!socketConnected) {
+      return;
+    }
+    const socket = socketRef.current;
+    if (!socket) {
+      return;
+    }
+    conversations.forEach((conversation) => {
+      if (!conversation.id || joinedRoomsRef.current.has(conversation.id)) {
+        return;
+      }
+      socket.emit("join_conversation", conversation.id, (status: string) => {
+        if (status === "success") {
+          joinedRoomsRef.current.add(conversation.id);
+        }
+      });
+    });
+  }, [conversations, socketConnected]);
 
   const fetchConversations = useCallback(
     async (

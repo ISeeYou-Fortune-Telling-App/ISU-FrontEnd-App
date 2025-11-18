@@ -494,7 +494,8 @@ export default function AIChatScreen() {
   const [messages, setMessages] = useState<AIMessage[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState<string>("");
   const [selectedImages, setSelectedImages] = useState<Attachment[]>([]);
-  const [isSending, setIsSending] = useState<boolean>(false);
+const [isSending, setIsSending] = useState<boolean>(false);
+const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
   const [topK, setTopK] = useState<(typeof TOP_K_OPTIONS)[number]>(DEFAULT_TOP_K);
   const [topKPickerVisible, setTopKPickerVisible] = useState<boolean>(false);
 
@@ -587,6 +588,10 @@ export default function AIChatScreen() {
     }
 
     const attachmentsSnapshot = selectedImages;
+    const requiresAnalysis = attachmentsSnapshot.some((attachment) => attachment.analysisType !== "none");
+    if (requiresAnalysis) {
+      setIsAnalysisPending(true);
+    }
     const now = Date.now();
     const outgoingMessage: AIMessage = {
       id: `user-${now}`,
@@ -647,6 +652,10 @@ export default function AIChatScreen() {
         setMessages((prev) => [...prev, analysisError]);
         scrollToEnd();
       }
+    }
+
+    if (requiresAnalysis) {
+      setIsAnalysisPending(false);
     }
 
     const combinedQuestionParts = [trimmed, ...attachmentNotes, ...analysisSummaries].filter(
@@ -867,7 +876,12 @@ export default function AIChatScreen() {
             isSending ? (
               <View style={styles.loadingIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.loadingText}>AI đang trả lời...</Text>
+                <View>
+                  <Text style={styles.loadingText}>AI đang trả lời...</Text>
+                  {isAnalysisPending ? (
+                    <Text style={styles.loadingSubtext}>Hãy chờ từ 1p đến 2p để AI xử lí.</Text>
+                  ) : null}
+                </View>
               </View>
             ) : null
           }
@@ -1217,6 +1231,11 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 13,
     color: Colors.gray,
+  },
+  loadingSubtext: {
+    fontSize: 12,
+    color: Colors.gray,
+    marginTop: 2,
   },
   previewRow: {
     flexDirection: "row",
