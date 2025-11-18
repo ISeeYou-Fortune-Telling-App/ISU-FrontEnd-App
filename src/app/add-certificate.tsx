@@ -1,5 +1,5 @@
-import AddCertificateScreen from "../screens/AddCertificateScreen";
+import CertificateDetailScreen from "../screens/CertificateDetailScreen";
 
 export default function AddCertificate() {
-  return <AddCertificateScreen/>
+  return <CertificateDetailScreen/>
 }
