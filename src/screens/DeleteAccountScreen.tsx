@@ -7,6 +7,7 @@ import { Button, Checkbox, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/colors";
 import { deleteAccount } from "../services/api";
+import { logoutCometChatUser } from "../services/cometchat";
 
 type RoleKey = "CUSTOMER" | "SEER";
 
@@ -103,12 +104,14 @@ export default function DeleteAccountScreen() {
       }
 
       await deleteAccount(currentUserId, trimmedReason);
+      await logoutCometChatUser();
 
       await Promise.all([
         SecureStore.deleteItemAsync("authToken"),
         SecureStore.deleteItemAsync("refreshToken"),
         SecureStore.deleteItemAsync("userRole"),
         SecureStore.deleteItemAsync("userId"),
+        SecureStore.deleteItemAsync("cometChatUid"),
       ]);
 
       setAcknowledged(false);

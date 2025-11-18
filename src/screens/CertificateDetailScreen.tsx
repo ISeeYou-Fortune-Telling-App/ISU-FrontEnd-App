@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { createCertificate, getKnowledgeCategories } from "@/src/services/api";
+import { createCertificate, getKnowledgeCategories, updateCertificate } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
@@ -7,43 +7,25 @@ import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
+    Linking,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Helper functions to map category names to icons and colors
-const getIconForCategory = (categoryName: string): string => {
-  const iconMap: Record<string, string> = {
-    "Cung Hoàng Đạo": "star",
-    "Nhân Tướng Học": "eye", 
-    "Ngũ Hành": "coins",
-    "Chỉ Tay": "hand",
-    "Tarot": "sparkles",
-    "Khác": "moreHorizontal"
-  };
-  return iconMap[categoryName] || "star";
+const CATEGORY_MAPPINGS: Record<string, { icon: string; color: string; bgColor: string }> = {
+  "Cung Hoàng Đạo": { icon: "star", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip },
+  "Nhân Tướng Học": { icon: "eye", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip },
+  "Ngũ Hành": { icon: "coins", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip },
+  "Chỉ Tay": { icon: "hand", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip },
+  "Tarot": { icon: "sparkles", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip },
+  "Khác": { icon: "moreHorizontal", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip }
 };
 
-const getColorForCategory = (categoryName: string) => {
-  const colorMap: Record<string, { icon: string; chip: string }> = {
-    "Cung Hoàng Đạo": Colors.categoryColors.zodiac,
-    "Nhân Tướng Học": Colors.categoryColors.physiognomy,
-    "Ngũ Hành": Colors.categoryColors.elements,
-    "Chỉ Tay": Colors.categoryColors.palmistry,
-    "Tarot": Colors.categoryColors.tarot,
-    "Khác": Colors.categoryColors.other
-  };
-  return colorMap[categoryName] || Colors.categoryColors.zodiac;
-};
-
-// Category Icon component
 const CategoryIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
   return (
     <View style={[styles.categoryIcon, { backgroundColor: bgColor }]}>
@@ -57,7 +39,6 @@ const CategoryIcon = ({ icon, color, bgColor }: { icon: string; color: string; b
   );
 };
 
-// Category checkbox component
 const CategoryCheckbox = ({ 
   label, 
   icon, 
@@ -97,12 +78,13 @@ const CategoryCheckbox = ({
   );
 };
 
-export default function AddCertificateScreen() {
-  // Get params if any
+export default function CertificateDetailScreen() {
   const params = useLocalSearchParams();
-  const mode = params.mode as string || 'registration'; // Default to registration for backward compatibility
+  const mode = params.mode as string || 'registration';
+  const certificateId = params.certificateId as string;
+  const isViewMode = mode === 'view';
+  const [isEditingEnabled, setIsEditingEnabled] = useState(false);
   
-  // Certificate form state
   const [certName, setCertName] = useState('');
   const [certIssuer, setCertIssuer] = useState('');
   const [certIssueDate, setCertIssueDate] = useState('');
@@ -116,38 +98,103 @@ export default function AddCertificateScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingCertificate, setLoadingCertificate] = useState(false);
 
-  // Fetch categories from API
+  useEffect(() => {
+    if (isViewMode && certificateId) {
+      setSelectedCategories([]);
+      
+      const loadCertificate = async () => {
+        setLoadingCertificate(true);
+        try {
+          const { getCertificates } = await import('@/src/services/api');
+          const userId = await SecureStore.getItemAsync('userId');
+          
+          if (userId) {
+            const response = await getCertificates(userId, { page: 1, limit: 100 });
+            const certificate = response.data.data.find((cert: any) => cert.id === certificateId);
+            
+            if (certificate) {
+              setCertName(certificate.certificateName);
+              setCertIssuer(certificate.issuedBy);
+              
+              const issueDate = new Date(certificate.issuedAt);
+              setCertIssueDate(formatDate(issueDate));
+              
+              if (certificate.expirationDate) {
+                const expiryDate = new Date(certificate.expirationDate);
+                setCertExpiryDate(formatDate(expiryDate));
+              }
+              
+              setCertDescription(certificate.certificateDescription || '');
+              setCharCount((certificate.certificateDescription || '').length);
+              
+              if (certificate.certificateUrl) {
+                setCertFile({
+                  uri: certificate.certificateUrl,
+                  name: certificate.certificateName + ' - Certificate',
+                  type: 'application/pdf'
+                });
+              }
+              
+              if (certificate.categories && Array.isArray(certificate.categories) && categories.length > 0) {
+                const matchedIds = categories
+                  .filter((cat: any) => certificate.categories.includes(cat.name))
+                  .map((cat: any) => cat.id);
+                setSelectedCategories(matchedIds);
+              } else if (certificate.categories && Array.isArray(certificate.categories)) {
+                (window as any).__tempCertCategories = certificate.categories;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading certificate:', error);
+        } finally {
+          setLoadingCertificate(false);
+        }
+      };
+      loadCertificate();
+    };
+  }, [isViewMode, certificateId, categories]);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const response = await getKnowledgeCategories();
-        //console.log('AddCertificateScreen - Categories API response:', response);
         
         const categoriesData = response?.data?.data || [];
         const arr = Array.isArray(categoriesData) ? categoriesData : [];
         
-        const transformedCategories = arr.map((category: any) => ({
-          id: category.id,
-          name: category.name,
-          color: getColorForCategory(category.name).icon,
-          bgColor: getColorForCategory(category.name).chip,
-          icon: getIconForCategory(category.name) as any
-        }));
+        const transformedCategories = arr.map((category: any) => {
+          const mapping = CATEGORY_MAPPINGS[category.name] || { icon: "star", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip };
+          return {
+            id: category.id,
+            name: category.name,
+            color: mapping.color,
+            bgColor: mapping.bgColor,
+            icon: mapping.icon as any
+          };
+        });
         
-        console.log('AddCertificateScreen - Transformed categories:', transformedCategories);
         setCategories(transformedCategories);
+        
+        if (isViewMode && (window as any).__tempCertCategories) {
+          const certCategoryNames = (window as any).__tempCertCategories;
+          const matchedIds = transformedCategories
+            .filter((cat: any) => certCategoryNames.includes(cat.name))
+            .map((cat: any) => cat.id);
+          setSelectedCategories(matchedIds);
+          delete (window as any).__tempCertCategories;
+        }
       } catch (error) {
-        console.error('AddCertificateScreen - Error fetching categories:', error);
-        // Fallback to hardcoded categories if API fails
-        const fallbackCategories = [
-          { id: "1a1d3003-cad8-4805-8e04-2170d12e5bcf", name: "Cung Hoàng Đạo", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip, icon: "star" as any },
-          { id: "2b2d3003-cad8-4805-8e04-2170d12e5bcf", name: "Nhân Tướng Học", color: Colors.categoryColors.physiognomy.icon, bgColor: Colors.categoryColors.physiognomy.chip, icon: "eye" as any },
-          { id: "3c3d3003-cad8-4805-8e04-2170d12e5bcf", name: "Ngũ Hành", color: Colors.categoryColors.elements.icon, bgColor: Colors.categoryColors.elements.chip, icon: "coins" as any },
-          { id: "4d4d3003-cad8-4805-8e04-2170d12e5bcf", name: "Chỉ Tay", color: Colors.categoryColors.palmistry.icon, bgColor: Colors.categoryColors.palmistry.chip, icon: "hand" as any },
-          { id: "5e5d3003-cad8-4805-8e04-2170d12e5bcf", name: "Tarot", color: Colors.categoryColors.tarot.icon, bgColor: Colors.categoryColors.tarot.chip, icon: "sparkles" as any },
-          { id: "6f6d3003-cad8-4805-8e04-2170d12e5bcf", name: "Khác", color: Colors.categoryColors.other.icon, bgColor: Colors.categoryColors.other.chip, icon: "moreHorizontal" as any }
-        ];
+        console.error('CertificateDetailScreen - Error fetching categories:', error);
+        const fallbackCategories = Object.entries(CATEGORY_MAPPINGS).map(([name, mapping], index) => ({
+          id: `fallback-${index}`,
+          name,
+          color: mapping.color,
+          bgColor: mapping.bgColor,
+          icon: mapping.icon as any
+        }));
         setCategories(fallbackCategories);
       } finally {
         setLoadingCategories(false);
@@ -157,7 +204,6 @@ export default function AddCertificateScreen() {
     fetchCategories();
   }, []);
 
-  // Toggle category selection
   const toggleCategory = (categoryId: string) => {
     if (selectedCategories.includes(categoryId)) {
       setSelectedCategories(selectedCategories.filter(id => id !== categoryId));
@@ -166,7 +212,6 @@ export default function AddCertificateScreen() {
     }
   };
 
-  // Handle description change
   const handleDescriptionChange = (text: string) => {
     if (text.length <= 1000) {
       setCertDescription(text);
@@ -174,7 +219,23 @@ export default function AddCertificateScreen() {
     }
   };
 
-  // Handle file picking
+  const handleFileView = async () => {
+    if (certFile && certFile.uri) {
+      try {
+        const canOpen = await Linking.canOpenURL(certFile.uri);
+        if (canOpen) {
+          await Linking.openURL(certFile.uri);
+        } else {
+          console.error('Cannot open URL:', certFile.uri);
+          alert('Không thể mở file. Vui lòng thử lại.');
+        }
+      } catch (error) {
+        console.error('Error opening file:', error);
+        alert('Có lỗi khi mở file.');
+      }
+    }
+  };
+
   const handleFilePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -195,7 +256,6 @@ export default function AddCertificateScreen() {
     }
   };
 
-  // Date picker functions
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -213,7 +273,6 @@ export default function AddCertificateScreen() {
     setShowExpiryDatePicker(false);
   };
 
-  // Handle adding certificate and navigate back
   const handleAddCertificate = async () => {
     if (!certName.trim() || !certIssuer.trim() || !certIssueDate || !certExpiryDate) {
       alert("Vui lòng điền đầy đủ thông tin chứng chỉ");
@@ -227,13 +286,11 @@ export default function AddCertificateScreen() {
 
     setSubmitting(true);
 
-    // Convert dates to ISO format
     const issuedAt = `${certIssueDate.split('/')[2]}-${certIssueDate.split('/')[1].padStart(2, '0')}-${certIssueDate.split('/')[0].padStart(2, '0')}T00:00:00`;
     const expirationDate = `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`;
 
     try {
-      if (mode === 'create') {
-        // Create certificate via API
+      if (mode === 'create' || (mode === 'view' && isEditingEnabled)) {
         const formData = new FormData();
         formData.append('certificateName', certName.trim());
         formData.append('certificateDescription', certDescription.trim());
@@ -241,7 +298,7 @@ export default function AddCertificateScreen() {
         formData.append('issuedAt', issuedAt);
         formData.append('expirationDate', expirationDate);
         
-        if (certFile) {
+        if (certFile && !certFile.uri.startsWith('http')) {
           formData.append('certificateFile', {
             uri: certFile.uri,
             name: certFile.name,
@@ -253,11 +310,13 @@ export default function AddCertificateScreen() {
           formData.append('categoryIds', categoryId);
         });
 
-        await createCertificate(formData);
-        // Navigate back with success parameter to trigger reload
+        if (mode === 'view' && certificateId) {
+          await updateCertificate(certificateId, formData);
+        } else {
+          await createCertificate(formData);
+        }
         router.replace("/manage-certificate?refresh=true");
       } else {
-        // Registration mode - save to SecureStore
         const certificateData = {
           id: Date.now().toString(),
           certificateName: certName.trim(),
@@ -265,18 +324,15 @@ export default function AddCertificateScreen() {
           issuedBy: certIssuer.trim(),
           issuedAt,
           expirationDate,
-          certificateFile: certFile, // Include the file
+          certificateFile: certFile,
           categoryIds: selectedCategories
         };
 
-        // Get existing certificates
         const existingCerts = await SecureStore.getItemAsync("tempCertificates");
         const certificates = existingCerts ? JSON.parse(existingCerts) : [];
 
-        // Add new certificate
         certificates.push(certificateData);
 
-        // Save back to SecureStore
         await SecureStore.setItemAsync("tempCertificates", JSON.stringify(certificates));
       }
 
@@ -291,11 +347,10 @@ export default function AddCertificateScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header similar to other pages */}
       <View style={styles.header}>
         <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
         <View style={styles.titleContainer}>
-          <Text variant="titleLarge" style={styles.title}>Thêm chứng chỉ</Text>
+          <Text variant="titleLarge" style={styles.title}>{isViewMode ? 'Chi tiết chứng chỉ' : 'Thêm chứng chỉ'}</Text>
         </View>
         <View style={styles.headerPlaceholder} />
       </View>
@@ -307,31 +362,47 @@ export default function AddCertificateScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.pageTitle}>Thêm chứng chỉ</Text>
+          <Text style={styles.pageTitle}>{isViewMode ? 'Chi tiết chứng chỉ' : 'Thêm chứng chỉ'}</Text>
           <Text style={styles.description}>
-            Tải lên chứng chỉ hoặc bằng cấp liên quan đến chuyên môn của bạn
+            {isViewMode ? 'Xem thông tin chi tiết của chứng chỉ' : 'Tải lên chứng chỉ hoặc bằng cấp liên quan đến chuyên môn của bạn'}
           </Text>
           
           <Text style={styles.inputLabel}>Tên chứng chỉ</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Nhập tên chứng chỉ"
-            value={certName}
-            onChangeText={setCertName}
-            style={styles.input}
-          />
+          {isViewMode && !isEditingEnabled ? (
+            <ScrollView style={styles.viewModeFieldScroll} nestedScrollEnabled={true}>
+              <View style={styles.viewModeFieldBox}>
+                <Text style={styles.viewModeFieldText}>{certName || 'Không có tên'}</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <TextInput
+              mode="outlined"
+              placeholder="Nhập tên chứng chỉ"
+              value={certName}
+              onChangeText={setCertName}
+              style={styles.input}
+            />
+          )}
           
           <Text style={styles.inputLabel}>Tổ chức cấp</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Nhập tên tổ chức cấp chứng chỉ"
-            value={certIssuer}
-            onChangeText={setCertIssuer}
-            style={styles.input}
-          />
+          {isViewMode && !isEditingEnabled ? (
+            <ScrollView style={styles.viewModeFieldScroll} nestedScrollEnabled={true}>
+              <View style={styles.viewModeFieldBox}>
+                <Text style={styles.viewModeFieldText}>{certIssuer || 'Không có thông tin'}</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <TextInput
+              mode="outlined"
+              placeholder="Nhập tên tổ chức cấp chứng chỉ"
+              value={certIssuer}
+              onChangeText={setCertIssuer}
+              style={styles.input}
+            />
+          )}
           
           <Text style={styles.inputLabel}>Ngày nhận</Text>
-          <TouchableOpacity onPress={() => setShowIssueDatePicker(true)}>
+          <TouchableOpacity onPress={() => (!isViewMode || isEditingEnabled) && setShowIssueDatePicker(true)} disabled={isViewMode && !isEditingEnabled}>
             <TextInput
               mode="outlined"
               placeholder="dd/mm/yyyy"
@@ -339,6 +410,7 @@ export default function AddCertificateScreen() {
               editable={false}
               pointerEvents="none"
               style={styles.input}
+              textColor={isViewMode && !isEditingEnabled ? '#666666' : undefined}
               left={<TextInput.Icon icon="calendar" />}
             />
           </TouchableOpacity>
@@ -350,7 +422,7 @@ export default function AddCertificateScreen() {
           />
           
           <Text style={styles.inputLabel}>Ngày hết hạn</Text>
-          <TouchableOpacity onPress={() => setShowExpiryDatePicker(true)}>
+          <TouchableOpacity onPress={() => (!isViewMode || isEditingEnabled) && setShowExpiryDatePicker(true)} disabled={isViewMode && !isEditingEnabled}>
             <TextInput
               mode="outlined"
               placeholder="dd/mm/yyyy"
@@ -358,6 +430,7 @@ export default function AddCertificateScreen() {
               editable={false}
               pointerEvents="none"
               style={styles.input}
+              textColor={isViewMode && !isEditingEnabled ? '#666666' : undefined}
               left={<TextInput.Icon icon="calendar" />}
             />
           </TouchableOpacity>
@@ -381,62 +454,115 @@ export default function AddCertificateScreen() {
                   color={category.color}
                   bgColor={category.bgColor}
                   selected={selectedCategories.includes(category.id)}
-                  onPress={() => toggleCategory(category.id)}
+                  onPress={() => (!isViewMode || isEditingEnabled) && toggleCategory(category.id)}
                 />
               ))
             )}
           </View>
-          <Text style={styles.categoryCountText}>Đã chọn {selectedCategories.length}/6 danh mục</Text>
+          <Text style={styles.categoryCountText}>
+            {isViewMode ? `Danh mục: ${selectedCategories.length}` : `Đã chọn ${selectedCategories.length}/6 danh mục`}
+          </Text>
           
           <Text style={styles.inputLabel}>Mô tả chứng chỉ</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Mô tả ngắn gọn chứng chỉ của bạn..."
-            value={certDescription}
-            onChangeText={handleDescriptionChange}
-            multiline
-            numberOfLines={4}
-            style={styles.textArea}
-          />
+          {isViewMode && !isEditingEnabled ? (
+            <ScrollView style={styles.viewModeDescriptionScroll} nestedScrollEnabled={true}>
+              <View style={styles.viewModeDescriptionBox}>
+                <Text style={styles.viewModeDescriptionText}>{certDescription || 'Không có mô tả'}</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <TextInput
+              mode="outlined"
+              placeholder="Mô tả ngắn gọn chứng chỉ của bạn..."
+              value={certDescription}
+              onChangeText={handleDescriptionChange}
+              multiline
+              numberOfLines={4}
+              style={styles.textArea}
+              editable={true}
+            />
+          )}
           <Text style={styles.charCountText}>{charCount}/1000 ký tự</Text>
           
           <Text style={styles.inputLabel}>File chứng chỉ</Text>
-          <TouchableOpacity style={styles.filePickButton} onPress={handleFilePick}>
-            <MaterialIcons name="file-upload" size={24} color={Colors.primary} />
-            <Text style={styles.filePickText}>
-              {certFile ? certFile.name : "Chọn file để tải lên"}
+          <TouchableOpacity 
+            style={[styles.filePickButton, isViewMode && !isEditingEnabled && certFile && styles.fileViewButton]} 
+            onPress={isViewMode && !isEditingEnabled && certFile ? handleFileView : handleFilePick}
+          >
+            <MaterialIcons 
+              name={isViewMode && !isEditingEnabled ? (certFile ? "open-in-new" : "description") : "file-upload"} 
+              size={24} 
+              color={isViewMode && !isEditingEnabled && certFile ? Colors.primary : isViewMode && !isEditingEnabled ? Colors.gray : Colors.primary} 
+            />
+            <Text style={[styles.filePickText, isViewMode && !isEditingEnabled && !certFile && { color: Colors.gray }]}>
+              {certFile ? (isViewMode && !isEditingEnabled ? `Xem file: ${certFile.name}` : certFile.name) : "Chọn file để tải lên"}
             </Text>
           </TouchableOpacity>
           
-          {/* Extra space at bottom for scrolling past buttons */}
           <View style={{ height: 80 }} />
         </ScrollView>
         
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "position" : undefined}
-          style={styles.footerContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-        >
-          <View style={styles.footer}>
-            <Button
-              mode="outlined"
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              Hủy
-            </Button>
-            <Button
-              mode="contained"
-              style={styles.addButton}
-              labelStyle={{ color: 'white' }}
-              onPress={handleAddCertificate}
-              disabled={!certName.trim() || submitting}
-              loading={submitting}
-            >
-              Thêm chứng chỉ
-            </Button>
-          </View>
-        </KeyboardAvoidingView>
+        <View style={styles.footer}>
+          {isViewMode && !isEditingEnabled ? (
+            <>
+              <Button
+                mode="outlined"
+                style={styles.cancelButton}
+                onPress={() => router.back()}
+              >
+                Quay lại
+              </Button>
+              <Button
+                mode="contained"
+                style={styles.addButton}
+                labelStyle={{ color: 'white' }}
+                onPress={() => setIsEditingEnabled(true)}
+              >
+                Chỉnh sửa
+              </Button>
+            </>
+          ) : isViewMode && isEditingEnabled ? (
+            <>
+              <Button
+                mode="outlined"
+                style={styles.cancelButton}
+                onPress={() => setIsEditingEnabled(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                mode="contained"
+                style={styles.addButton}
+                labelStyle={{ color: 'white' }}
+                onPress={handleAddCertificate}
+                disabled={!certName.trim() || submitting}
+                loading={submitting}
+              >
+                Lưu thay đổi
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                mode="outlined"
+                style={styles.cancelButton}
+                onPress={() => router.back()}
+              >
+                Hủy
+              </Button>
+              <Button
+                mode="contained"
+                style={styles.addButton}
+                labelStyle={{ color: 'white' }}
+                onPress={handleAddCertificate}
+                disabled={!certName.trim() || submitting}
+                loading={submitting}
+              >
+                Thêm chứng chỉ
+              </Button>
+            </>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -495,6 +621,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: "#fff",
   },
+  viewModeFieldScroll: {
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: '#666666',
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  viewModeFieldBox: {
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  viewModeFieldText: {
+    fontSize: 16,
+    color: '#666666',
+    lineHeight: 24,
+  },
   categoriesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -549,6 +691,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     minHeight: 100,
   },
+  viewModeTextArea: {
+    height: 160,
+  },
+  descriptionContainer: {
+    marginBottom: 10,
+  },
+  viewModeDescriptionScroll: {
+    maxHeight: 160,
+    borderWidth: 1,
+    borderColor: '#666666',
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  viewModeDescriptionBox: {
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  viewModeDescriptionText: {
+    fontSize: 16,
+    color: '#666666',
+    lineHeight: 24,
+  },
   charCountText: {
     textAlign: "right",
     color: Colors.gray,
@@ -565,16 +729,14 @@ const styles = StyleSheet.create({
     padding: 16,
     marginVertical: 12,
   },
+  fileViewButton: {
+    borderStyle: "solid",
+    borderWidth: 1.5,
+    backgroundColor: '#f8f9fa',
+  },
   filePickText: {
     marginLeft: 12,
     color: Colors.primary,
-  },
-  footerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
   },
   footer: {
     flexDirection: "row",
@@ -586,11 +748,13 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     marginRight: 8,
-    borderColor: Colors.gray,
+    borderColor: Colors.primary,
+    borderRadius: 10,
   },
   addButton: {
-    flex: 2,
+    flex: 1,
     marginLeft: 8,
     backgroundColor: Colors.primary,
+    borderRadius: 10,
   },
 });

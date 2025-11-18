@@ -1,15 +1,17 @@
+import { CallProvider } from "@/src/contexts/CallContext";
+import { initCometChat, loginCometChatUser } from "@/src/services/cometchat";
 import messaging from "@react-native-firebase/messaging";
-import * as Device from 'expo-device';
+import * as Device from "expo-device";
 import { useFonts } from "expo-font";
-import * as Linking from 'expo-linking';
-import * as Notifications from 'expo-notifications';
+import * as Linking from "expo-linking";
+import * as Notifications from "expo-notifications";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { theme } from '../constants/theme';
+import { theme } from "../constants/theme";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -68,6 +70,29 @@ export default function RootLayout() {
     inter: require("@/assets/fonts/Inter-VariableFont.ttf"),
     segoeui: require("@/assets/fonts/SVN-SegoeUI.ttf")
   });
+
+  useEffect(() => {
+    initCometChat().catch((error) => {
+      console.warn("Unable to init CometChat", error);
+    });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [uid, authToken] = await Promise.all([
+          SecureStore.getItemAsync("cometChatUid"),
+          SecureStore.getItemAsync("authToken"),
+        ]);
+
+        if (uid && authToken) {
+          await loginCometChatUser(uid);
+        }
+      } catch (error) {
+        console.warn("Unable to login to CometChat", error);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const handleDeepLink = (url: string) => {
@@ -136,39 +161,41 @@ export default function RootLayout() {
   return (
     <PaperProvider theme={theme}>
       <SafeAreaProvider>
-        <Stack initialRouteName="auth">
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-          <Stack.Screen name="password-recovery" options={{ headerShown: false }} />
-          <Stack.Screen name="seer-registration" options={{ headerShown: false }} />
-          <Stack.Screen name="seer-registration-step2" options={{ headerShown: false }} />
-          <Stack.Screen name="seer-registration-step3" options={{ headerShown: false }} />
-          <Stack.Screen name="add-certificate" options={{ headerShown: false }} />
-          <Stack.Screen name="notification" options={{ headerShown: false }} />
-          <Stack.Screen name="chat-detail" options={{ headerShown: false }} />
-          <Stack.Screen name="delete-account" options={{ headerShown: false }} />
-          <Stack.Screen name="ai-chat" options={{ headerShown: false }} />
-          <Stack.Screen name="profile-setting" options={{ headerShown: false }} />
-          <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-          <Stack.Screen name="create-package" options={{ headerShown: false }} />
-          <Stack.Screen name="update-package" options={{ headerShown: false }} />
-          <Stack.Screen name="report" options={{ headerShown: false }} />
-          <Stack.Screen name="service-package-reviews" options={{ headerShown: false }} />
-          <Stack.Screen name="book-package" options={{ headerShown: false }} />
-          <Stack.Screen name="booking-detail" options={{ headerShown: false }} />
-          <Stack.Screen name="knowledge-detail" options={{ headerShown: false }} />
-          <Stack.Screen name="my-packages" options={{ headerShown: false }} />
-          <Stack.Screen name="package-detail" options={{ headerShown: false }} />
-          <Stack.Screen name="transaction-history" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="otp-verification" options={{ headerShown: false }} />
-          <Stack.Screen name="customer-potential" options={{ headerShown: false }} />
-          <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
-          <Stack.Screen name="manage-certificate" options={{ headerShown: false }} />
-          <Stack.Screen name="seer-profile" options={{ headerShown: false }} />
+        <CallProvider>
+          <Stack initialRouteName="auth">
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="auth" options={{ headerShown: false }} />
+            <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+            <Stack.Screen name="password-recovery" options={{ headerShown: false }} />
+            <Stack.Screen name="seer-registration" options={{ headerShown: false }} />
+            <Stack.Screen name="seer-registration-step2" options={{ headerShown: false }} />
+            <Stack.Screen name="seer-registration-step3" options={{ headerShown: false }} />
+            <Stack.Screen name="add-certificate" options={{ headerShown: false }} />
+            <Stack.Screen name="notification" options={{ headerShown: false }} />
+            <Stack.Screen name="chat-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="delete-account" options={{ headerShown: false }} />
+            <Stack.Screen name="ai-chat" options={{ headerShown: false }} />
+            <Stack.Screen name="profile-setting" options={{ headerShown: false }} />
+            <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+            <Stack.Screen name="create-package" options={{ headerShown: false }} />
+            <Stack.Screen name="update-package" options={{ headerShown: false }} />
+            <Stack.Screen name="report" options={{ headerShown: false }} />
+            <Stack.Screen name="service-package-reviews" options={{ headerShown: false }} />
+            <Stack.Screen name="book-package" options={{ headerShown: false }} />
+            <Stack.Screen name="booking-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="knowledge-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="my-packages" options={{ headerShown: false }} />
+            <Stack.Screen name="package-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="transaction-history" options={{ headerShown: false }} />
+            <Stack.Screen name="search" options={{ headerShown: false }} />
+            <Stack.Screen name="otp-verification" options={{ headerShown: false }} />
+            <Stack.Screen name="customer-potential" options={{ headerShown: false }} />
+            <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
+            <Stack.Screen name="manage-certificate" options={{ headerShown: false }} />
+            <Stack.Screen name="seer-profile" options={{ headerShown: false }} />
         </Stack>
+        </CallProvider>
       </SafeAreaProvider>
     </PaperProvider>
   );
