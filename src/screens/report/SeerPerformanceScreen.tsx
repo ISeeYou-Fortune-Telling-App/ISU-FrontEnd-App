@@ -192,8 +192,8 @@ export default function SeerPerformanceScreen() {
                 </View>
 
                 <View style={styles.cardFooterRow}>
-                  <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth}>
-                    <Text style={{ color: "#fff" }}>Xem tháng hiện tại</Text>
+                  <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth} disabled={month == now.getMonth() + 1}>
+                    <Text style={{ color: month == now.getMonth() + 1 ? Colors.gray : Colors.white }}>Xem tháng hiện tại</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -203,8 +203,11 @@ export default function SeerPerformanceScreen() {
               {/* Extra detail card */}
               <LinearGradient colors={["#fff", "#F7F7F7"]} style={styles.detailCard}>
                 <RNText style={styles.cardTitle}>Chi tiết</RNText>
-                <RNText style={styles.cardText}>Thưởng: {formattedVND(data?.bonus ?? 0)}</RNText>
-                <RNText style={styles.cardText}>Huỷ bởi thầy: {data?.cancelledBySeer ?? 0}</RNText>
+                <View style={{ flexDirection: "row" }}>
+                  <RNText style={styles.cardText}>Thưởng: </RNText>
+                  <RNText style={[styles.cardText, { color: Colors.lightGreen }]}>{formattedVND(data?.bonus ?? 0)}</RNText>
+                </View>
+                <RNText style={styles.cardText}>Số lịch bị huỷ bởi bạn: {data?.cancelledBySeer ?? 0}</RNText>
               </LinearGradient>
             </>
           )}

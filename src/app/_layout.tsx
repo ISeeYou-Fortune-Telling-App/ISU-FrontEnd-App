@@ -167,6 +167,7 @@ export default function RootLayout() {
           <Stack.Screen name="customer-potential" options={{ headerShown: false }} />
           <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
           <Stack.Screen name="manage-certificate" options={{ headerShown: false }} />
+          <Stack.Screen name="seer-profile" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </PaperProvider>

@@ -150,6 +150,7 @@ export default function HomeScreen() {
                 avatarUrl: detail.seer.avatarUrl,
                 isLike: p.isLike,
                 isDislike: p.isDislike,
+                seerId: detail.seer.seerId
               };
             } catch (detailErr) {
               console.error(`Error fetching details for package ${p.id}:`, detailErr);
@@ -418,7 +419,7 @@ export default function HomeScreen() {
       const arr = Array.isArray(payload) ? payload : [];
       const mapped = arr.map((c: any) => ({ id: String(c.id), name: c.name, description: c.description }));
       setCategories(mapped);
-      return mapped; // <-- return the mapped list
+      return mapped;
     } catch (e) {
       console.error('Failed to fetch categories', e);
       return [];
@@ -484,7 +485,13 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ width: 34 }} />
             <Text style={[styles.servicesTitle, { marginBottom: 0 }]}>Kết quả tìm kiếm</Text>
-            <TouchableOpacity onPress={() => router.replace({ pathname: '/(tabs)/home', params: {} })} style={styles.iconButton}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => {
+              setLoading(true);
+              router.replace({
+                pathname: '/(tabs)/home', params: {}
+              });
+              setLoading(false);
+            }}>
               <X size={22} color={Colors.primary} />
             </TouchableOpacity>
           </View>
@@ -709,12 +716,15 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
             setAvatarError(true);
           }}
         />
-        <View style={styles.packageHeaderText}>
+        <TouchableOpacity style={styles.packageHeaderText} onPress={() => router.push({
+          pathname: "/seer-profile",
+          params: { seerId: servicePackage.seerId }
+        })}>
           <Text style={styles.seerName}>
             {servicePackage.seer} <Star size={16} color="#FFD700" /> {servicePackage.rating}
           </Text>
           <Text style={styles.packageTime}>{servicePackage.time}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <TouchableOpacity
             onPress={() =>
@@ -956,7 +966,10 @@ type SeerCardProps = {
 const SeerCard = ({ seer }: SeerCardProps) => {
   const [avatarError, setAvatarError] = useState(false);
   return (
-    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={() => {/* TODO: navigate to seer profile */ }}>
+    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={() => router.push({
+      pathname: "/seer-profile",
+      params: { seerId: seer.id }
+    })}>
       <View style={styles.packageHeader}>
         <Image
           source={

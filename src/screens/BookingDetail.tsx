@@ -253,7 +253,7 @@ export default function BookingDetailScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View>
+                        <View style={{flex: 1, marginBottom: 40}}>
                             {/* Status card */}
                             <View style={styles.statusCard}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -523,7 +523,7 @@ export default function BookingDetailScreen() {
                 <View style={styles.footer} pointerEvents="box-none">
                     <View style={styles.footerInner}>
                         {role === "SEER" && ["PENDING", "CONFIRMED"].includes(booking?.status) &&
-                            <>
+                            <View style={{gap: 3, flexDirection: "row", flex: 1}}>
                                 <TouchableOpacity style={styles.secondaryButton} onPress={() => { Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng'); }}>
                                     <Text>Đổi lịch</Text>
                                 </TouchableOpacity>
@@ -547,7 +547,7 @@ export default function BookingDetailScreen() {
                                 }}>
                                     <Text>Huỷ lịch</Text>
                                 </TouchableOpacity>
-                            </>
+                            </View>
                         }
                         {role === "CUSTOMER" && ["PENDING", "CONFIRMED"].includes(booking?.status) &&
                             <TouchableOpacity

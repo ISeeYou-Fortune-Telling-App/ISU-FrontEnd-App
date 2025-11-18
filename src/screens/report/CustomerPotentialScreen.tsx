@@ -101,7 +101,6 @@ export default function CustomerPotentialScreen() {
         <ArrowLeft size={28} onPress={() => router.back()} />
         <View style={styles.titleContainer}>
           <Text variant="titleLarge" style={styles.title}>Tiềm năng của tôi</Text>
-          <Text style={styles.subtitle}>{MONTHS[month - 1]} / {year}</Text>
         </View>
         <View style={{ width: 28 }} />
       </View>
@@ -137,8 +136,6 @@ export default function CustomerPotentialScreen() {
         </SafeAreaView>
         :
         <ScrollView style={{ flex: 1, paddingHorizontal: 12 }}>
-          <View style={{ height: 12 }} />
-
           {error ? (
             <View style={styles.center}>
               <Text>{error}</Text>
@@ -161,10 +158,10 @@ export default function CustomerPotentialScreen() {
               <View style={styles.cardBody}>
                 <View>
                   <RNText style={styles.bigNumber}>{data?.potentialPoint ?? "-"}</RNText>
-                  <RNText style={styles.smallText}>{data?.potentialTier ?? "—"}</RNText>
+                  <RNText style={styles.smallText}>Tổng điểm ({data?.potentialTier ?? "—"})</RNText>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <RNText style={styles.rank}>#{data?.ranking ?? "-"}</RNText>
+                  <RNText style={styles.bigNumber}>#{data?.ranking ?? "-"}</RNText>
                   <RNText style={styles.smallText}>Xếp hạng</RNText>
                 </View>
               </View>
@@ -172,7 +169,7 @@ export default function CustomerPotentialScreen() {
               <View style={styles.statsRow}>
                 <View style={styles.statBox}>
                   <RNText style={styles.statNumber}>{data?.totalBookingRequests ?? 0}</RNText>
-                  <RNText style={styles.statLabel}>Tổng yêu cầu</RNText>
+                  <RNText style={styles.statLabel}>Lịch yêu cầu</RNText>
                 </View>
                 <View style={styles.statBox}>
                   <RNText style={styles.statNumber}>{data?.cancelledByCustomer ?? 0}</RNText>
@@ -185,11 +182,8 @@ export default function CustomerPotentialScreen() {
               </View>
 
               <View style={styles.cardFooterRow}>
-                <TouchableOpacity style={styles.ghostBtn} onPress={() => router.back()}>
-                  <Text>Quay lại</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth}>
-                  <Text style={{ color: "#fff" }}>Xem tháng hiện tại</Text>
+                <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth} disabled={month == now.getMonth() + 1}>
+                  <Text style={{ color: month == now.getMonth() + 1 ? Colors.gray : Colors.white }}>Xem tháng hiện tại</Text>
                 </TouchableOpacity>
               </View>
             </LinearGradient>
@@ -322,7 +316,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     padding: 14,
-    marginTop: 12,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   iconCircle: {
@@ -332,20 +325,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardSub: { fontSize: 12, color: "#555" },
+  cardTitle: { fontSize: 18, fontWeight: "700" },
+  cardSub: { fontSize: 12, color: "#555", fontFamily: "inter" },
 
   cardBody: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
   bigNumber: { fontSize: 28, fontWeight: "800" },
-  smallText: { color: "#666" },
+  smallText: { color: "#666", fontFamily: "inter" },
   rank: { fontWeight: "800", fontSize: 18 },
 
   statsRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
   statBox: { flex: 1, alignItems: "center" },
   statNumber: { fontWeight: "700" },
-  statLabel: { color: "#555", fontSize: 12, marginTop: 4 },
+  statLabel: { color: "#555", fontSize: 12, marginTop: 4, fontFamily: "inter" },
 
-  cardFooterRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  cardFooterRow: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
   ghostBtn: {
     backgroundColor: "#fff",
     paddingVertical: 8,

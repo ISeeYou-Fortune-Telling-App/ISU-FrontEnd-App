@@ -420,6 +420,8 @@ export const getMyCustomerPotential = (params) => API.get("/report/my-customer-p
 
 export const getMySeerPerformance = (params) => API.get("/report/my-seer-performance", { params });
 
+export const getUser = (id) => API.get(`/core/account/${id}`);
+
 export default API;
 // /notification
 // /report 
