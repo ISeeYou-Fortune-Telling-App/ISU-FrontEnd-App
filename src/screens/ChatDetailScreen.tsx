@@ -1,10 +1,10 @@
 import Colors from "@/src/constants/colors";
+import { useCall } from "@/src/contexts/CallContext";
 import {
   deleteChatMessage,
   getChatConversation,
   getChatMessages,
   markConversationMessagesRead,
-  recallChatMessage,
   sendChatMessage,
   uploadChatFile,
 } from "@/src/services/api";
@@ -145,6 +145,53 @@ const normalizeSystemText = (text?: string | null) => {
   return text;
 };
 
+const pickFirstString = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const resolvePartnerCometChatUid = (conversation: any, viewerId: string | null) => {
+  if (!conversation) {
+    return null;
+  }
+
+  const normalizedViewerId = viewerId ? String(viewerId) : null;
+  const viewerIsSeer =
+    normalizedViewerId &&
+    conversation?.seerId &&
+    String(conversation.seerId) === normalizedViewerId;
+  const viewerIsCustomer =
+    normalizedViewerId &&
+    conversation?.customerId &&
+    String(conversation.customerId) === normalizedViewerId;
+
+  const partnerCandidate = viewerIsSeer
+    ? conversation?.customer ?? conversation?.customerProfile
+    : viewerIsCustomer
+      ? conversation?.seer ?? conversation?.seerProfile
+      : conversation?.partner;
+
+  return (
+    pickFirstString(
+      partnerCandidate?.cometChatUid,
+      partnerCandidate?.cometchatUid,
+      partnerCandidate?.comet_chat_uid,
+      partnerCandidate?.cometUid,
+      partnerCandidate?.chatUid,
+      partnerCandidate?.uid,
+      viewerIsSeer ? conversation?.customerCometChatUid : undefined,
+      viewerIsCustomer ? conversation?.seerCometChatUid : undefined,
+      conversation?.partner?.cometChatUid,
+      conversation?.partner?.cometchatUid,
+      conversation?.partner?.comet_chat_uid,
+    ) ?? null
+  );
+};
+
 const mapApiMessage = (
   item: any,
   currentUserId: string | null,
@@ -211,8 +258,10 @@ const mapApiMessage = (
 export default function ChatDetailScreen() {
   const router = useRouter();
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
+  const { startVideoCall, status: callStatus } = useCall();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const socketRef = useRef<Socket | null>(null);
+  const readSyncRef = useRef(false);
   const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -220,6 +269,7 @@ export default function ChatDetailScreen() {
   const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string>("Cuộc trò chuyện");
   const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null);
+  const [partnerCometChatUid, setPartnerCometChatUid] = useState<string | null>(null);
   const [isPartnerOnline, setIsPartnerOnline] = useState<boolean>(false);
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>("UNKNOWN");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -253,6 +303,8 @@ export default function ChatDetailScreen() {
         return "Nhập tin nhắn...";
     }
   }, [normalizedConversationStatus]);
+
+  const isCallDisabled = !partnerCometChatUid || callStatus !== "idle";
 
   const showSessionNotice = useCallback(
     (type: "info" | "warning" | "error", message: string) => {
@@ -312,6 +364,74 @@ export default function ChatDetailScreen() {
     },
     [conversationId, currentUserId],
   );
+
+  const syncReadReceipts = useCallback(async () => {
+    if (!conversationId || !hasPendingReadReceipts || readSyncRef.current) {
+      return;
+    }
+    readSyncRef.current = true;
+    try {
+      const response = await getChatMessages(conversationId, {
+        page: 1,
+        limit: 100,
+        sortType: "asc",
+        sortBy: "createdAt",
+      });
+      const payload = response?.data?.data;
+      const normalized = Array.isArray(payload)
+        ? payload
+            .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
+            .sort((a, b) => a.createdAt - b.createdAt)
+        : [];
+
+      if (!normalized.length) {
+        return;
+      }
+
+      setMessages((prev) => {
+        const serverMap = new Map(normalized.map((msg) => [msg.id, msg]));
+        let changed = false;
+        const merged = prev.map((message) => {
+          const serverVersion = serverMap.get(message.id);
+          if (!serverVersion) {
+            return message;
+          }
+          serverMap.delete(message.id);
+          const nextMessage = {
+            ...message,
+            status: serverVersion.status,
+            isRecalled: serverVersion.isRecalled,
+            content: serverVersion.isRecalled ? undefined : serverVersion.content,
+            attachments: serverVersion.attachments,
+            createdAt: serverVersion.createdAt,
+          };
+          if (
+            message.status !== nextMessage.status ||
+            message.isRecalled !== nextMessage.isRecalled
+          ) {
+            changed = true;
+          }
+          return nextMessage;
+        });
+
+        if (serverMap.size > 0) {
+          changed = true;
+          serverMap.forEach((msg) => merged.push(msg));
+        }
+
+        if (!changed) {
+          return prev;
+        }
+
+        merged.sort((a, b) => a.createdAt - b.createdAt);
+        return merged;
+      });
+    } catch (error) {
+      console.warn("Không thể đồng bộ trạng thái đã xem", error);
+    } finally {
+      readSyncRef.current = false;
+    }
+  }, [conversationId, currentUserId, hasPendingReadReceipts]);
 
   const emitSocketMessage = useCallback(
     (payload: {
@@ -387,9 +507,11 @@ export default function ChatDetailScreen() {
       if (!data?.userId) {
         return;
       }
+      setIsPartnerOnline(true);
       showSessionNotice("info", `Người dùng ${data.userId} vừa tham gia cuộc trò chuyện.`);
+      syncReadReceipts();
     },
-    [showSessionNotice],
+    [showSessionNotice, syncReadReceipts],
   );
 
   const handleUserLeft = useCallback(
@@ -397,6 +519,7 @@ export default function ChatDetailScreen() {
       if (!data?.userId) {
         return;
       }
+      setIsPartnerOnline(false);
       showSessionNotice("info", `Người dùng ${data.userId} đã rời cuộc trò chuyện.`);
     },
     [showSessionNotice],
@@ -542,12 +665,12 @@ export default function ChatDetailScreen() {
   }, [conversationId, socketConnected, socketReadyVersion]);
 
   const fetchMessages = useCallback(
-    async (options: { silent?: boolean; refreshing?: boolean } = {}) => {
+    async (options: { silent?: boolean; refreshing?: boolean; skipConversationMeta?: boolean } = {}) => {
       if (!conversationId) {
         return;
       }
 
-      const { silent = false, refreshing = false } = options;
+      const { silent = false, refreshing = false, skipConversationMeta = false } = options;
 
       if (refreshing) {
         setIsRefreshing(true);
@@ -564,20 +687,26 @@ export default function ChatDetailScreen() {
             sortType: "asc",
             sortBy: "createdAt",
           }),
-          getChatConversation(conversationId),
+          skipConversationMeta
+            ? Promise.resolve({ data: { data: null } })
+            : getChatConversation(conversationId),
         ]);
 
-        if (conversationResult.status !== "fulfilled") {
-          throw conversationResult.reason ?? new Error("Không thể tải cuộc trò chuyện");
-        }
+        const conversation = conversationResult.status === "fulfilled"
+          ? conversationResult.value?.data?.data ?? null
+          : null;
 
-        const conversation = conversationResult.value?.data?.data ?? null;
-        if (conversation) {
-          if (conversation.status || conversation.conversationStatus) {
-            setConversationStatus(
-              normalizeConversationStatus(conversation.status ?? conversation.conversationStatus),
-            );
+        if (!skipConversationMeta) {
+          if (conversationResult.status !== "fulfilled") {
+            throw conversationResult.reason ?? new Error("Không thể tải cuộc trò chuyện");
           }
+
+          if (conversation) {
+            if (conversation.status || conversation.conversationStatus) {
+              setConversationStatus(
+                normalizeConversationStatus(conversation.status ?? conversation.conversationStatus),
+              );
+            }
           const viewerIsSeer =
             currentUserId &&
             conversation.seerId &&
@@ -602,14 +731,20 @@ export default function ChatDetailScreen() {
             );
           }
 
+          const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
+          setPartnerCometChatUid(remoteUid);
+
           setIsPartnerOnline(
             (conversation.status ?? "").toString().toUpperCase() === "ACTIVE",
           );
-        }
+          } else {
+            setPartnerCometChatUid(null);
+          }
 
-        markConversationMessagesRead(conversationId).catch((err) => {
-          console.warn("Không thể đánh dấu đã đọc:", err);
-        });
+          markConversationMessagesRead(conversationId).catch((err) => {
+            console.warn("Không thể đánh dấu đã đọc:", err);
+          });
+        }
 
         let legacyError = false;
         let rawMessages: any[] = [];
@@ -660,6 +795,23 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  useEffect(() => {
+    if (!conversationId || !hasPendingReadReceipts) {
+      return;
+    }
+    let cancelled = false;
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        syncReadReceipts();
+      }
+    }, 5000);
+    syncReadReceipts();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [conversationId, hasPendingReadReceipts, syncReadReceipts]);
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -720,6 +872,19 @@ export default function ChatDetailScreen() {
       Alert.alert("Không thể chọn video", "Vui lòng thử lại sau.");
     }
   }, []);
+
+  const handleVideoCallPress = useCallback(async () => {
+    if (!partnerCometChatUid) {
+      Alert.alert("Cuộc gọi video", "Không tìm thấy tài khoản CometChat của người còn lại.");
+      return;
+    }
+
+    try {
+      await startVideoCall(partnerCometChatUid);
+    } catch (err) {
+      console.error("Không thể bắt đầu cuộc gọi video", err);
+    }
+  }, [partnerCometChatUid, startVideoCall]);
 
   const [isAttachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [messageMenuState, setMessageMenuState] = useState<{
@@ -915,41 +1080,6 @@ export default function ChatDetailScreen() {
     [],
   );
 
-  const handleRecallMessage = useCallback(
-    (message: ChatMessage) => {
-      if (!message.id || message.status === "sending" || message.isRecalled) {
-        return;
-      }
-
-      Alert.alert("Thu hồi tin nhắn", "Tin nhắn sẽ bị thu hồi cho tất cả mọi người.", [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Thu hồi",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await recallChatMessage(message.id);
-              setMessages((prev) =>
-                prev.map((item) =>
-                  item.id === message.id
-                    ? { ...item, isRecalled: true, content: undefined, attachments: undefined }
-                    : item,
-                ),
-              );
-              fetchMessages({ silent: true });
-            } catch (err: any) {
-              console.error("Recall message failed", err);
-              const messageText =
-                err?.response?.data?.message ?? "Không thể thu hồi tin nhắn. Vui lòng thử lại.";
-              Alert.alert("Lỗi", messageText);
-            }
-          },
-        },
-      ]);
-    },
-    [fetchMessages],
-  );
-
   const handleMessageOptions = useCallback(
     (message: ChatMessage, event: GestureResponderEvent) => {
       if (!message.id || message.status === "sending") {
@@ -967,6 +1097,17 @@ export default function ChatDetailScreen() {
     }
     return (input.trim().length > 0 || Boolean(selectedAttachment)) && !isSending;
   }, [input, isConversationActive, isSending, selectedAttachment]);
+
+  const hasPendingReadReceipts = useMemo(
+    () =>
+      messages.some(
+        (message) =>
+          message.role === "outgoing" &&
+          !message.isRecalled &&
+          message.status !== "read",
+      ),
+    [messages],
+  );
 
   const renderMessage = useCallback(
     ({ item }: { item: ChatMessage }) => {
@@ -1041,6 +1182,7 @@ export default function ChatDetailScreen() {
 
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get("window").width;
+  const screenHeight = Dimensions.get("window").height;
 
   const headerInfo = useMemo(
     () => (
@@ -1151,7 +1293,19 @@ export default function ChatDetailScreen() {
             <Ionicons name="arrow-back" size={24} color={Colors.black} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trò chuyện</Text>
-          <View style={styles.headerPlaceholder} />
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleVideoCallPress}
+              disabled={isCallDisabled}
+              style={[styles.headerIconButton, isCallDisabled && styles.headerIconButtonDisabled]}
+            >
+              <Ionicons
+                name="videocam"
+                size={22}
+                color={isCallDisabled ? Colors.gray : Colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -1303,48 +1457,59 @@ export default function ChatDetailScreen() {
             <TouchableWithoutFeedback onPress={closeMessageMenu}>
               <View style={styles.popoverBackdrop} />
             </TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.messagePopover,
-                {
-                  top: Math.max(messageMenuState.y - 110, 80),
-                  left: Math.min(
-                    Math.max(messageMenuState.x - 100, 16),
-                    screenWidth - 170,
-                  ),
-                },
-              ]}
-            >
-              <View style={styles.popoverArrowUp} />
-              {messageMenuState.message.role === "outgoing" && !messageMenuState.message.isRecalled ? (
-                <TouchableOpacity
-                  style={styles.popoverOption}
-                  onPress={() => {
-                    handleRecallMessage(messageMenuState.message);
-                    closeMessageMenu();
-                  }}
-                >
-                  <Text style={styles.popoverOptionText}>Thu hồi</Text>
-                </TouchableOpacity>
-              ) : null}
-              {!messageMenuState.message.isRecalled ? (
-                <TouchableOpacity
-                  style={styles.popoverOption}
-                  onPress={() => {
-                    handleDeleteMessage(messageMenuState.message);
-                    closeMessageMenu();
-                  }}
-                >
-                  <Text style={styles.popoverOptionText}>Xóa phía tôi</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.popoverOption, styles.popoverOptionLast]}
-                onPress={closeMessageMenu}
-              >
-                <Text style={styles.popoverOptionText}>Hủy</Text>
-              </TouchableOpacity>
-            </View>
+            {(() => {
+              const align =
+                messageMenuState.message.role === "outgoing" ? "right" : "left";
+              const MENU_WIDTH = 196;
+              const horizontalOffset = 18;
+              const computedLeft =
+                align === "right"
+                  ? Math.max(messageMenuState.x - MENU_WIDTH - horizontalOffset, 12)
+                  : Math.min(messageMenuState.x + horizontalOffset, screenWidth - MENU_WIDTH - 12);
+              const computedTop = Math.min(
+                Math.max(messageMenuState.y - 60, 80),
+                screenHeight - 200,
+              );
+              return (
+                <View style={[styles.messageMenuCard, { top: computedTop, left: computedLeft, width: MENU_WIDTH }]}>
+                  <View
+                    style={[
+                      styles.messageMenuArrow,
+                      align === "right" ? styles.messageMenuArrowRight : styles.messageMenuArrowLeft,
+                    ]}
+                  />
+                  {!messageMenuState.message.isRecalled ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.messageMenuOption}
+                        onPress={() => {
+                          handleDeleteMessage(messageMenuState.message);
+                          closeMessageMenu();
+                        }}
+                      >
+                        <View style={[styles.messageMenuIcon, styles.messageMenuIconDanger]}>
+                          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.messageMenuLabel}>Xóa phía tôi</Text>
+                          <Text style={styles.messageMenuHint}>Tin nhắn sẽ biến mất khỏi thiết bị</Text>
+                        </View>
+                      </TouchableOpacity>
+                      <View style={styles.messageMenuDivider} />
+                    </>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.messageMenuOption}
+                    onPress={closeMessageMenu}
+                  >
+                    <View style={styles.messageMenuIcon}>
+                      <Ionicons name="close" size={18} color="#0f172a" />
+                    </View>
+                    <Text style={styles.messageMenuLabel}>Đóng</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
           </View>
         ) : null}
       </KeyboardAvoidingView>
@@ -1378,9 +1543,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.black,
   },
-  headerPlaceholder: {
-    width: 24,
-    height: 24,
+  headerActions: {
+    width: 48,
+    alignItems: "flex-end",
+  },
+  headerIconButton: {
+    padding: 6,
+    borderRadius: 18,
+    backgroundColor: "#f1f5f9",
+  },
+  headerIconButtonDisabled: {
+    opacity: 0.5,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -1817,7 +1990,7 @@ const styles = StyleSheet.create({
   },
   popoverBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15,23,42,0.25)",
+    backgroundColor: "transparent",
   },
   attachmentPopover: {
     position: "absolute",
@@ -1831,19 +2004,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
-    zIndex: 20,
-  },
-  messagePopover: {
-    position: "absolute",
-    width: 160,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    paddingVertical: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
     zIndex: 20,
   },
   popoverOption: {
@@ -1872,17 +2032,67 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     zIndex: 21,
   },
-  popoverArrowUp: {
+  messageMenuCard: {
     position: "absolute",
-    top: -6,
-    left: 24,
+    backgroundColor: Colors.white,
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+    zIndex: 25,
+  },
+  messageMenuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
+  messageMenuIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(15,23,42,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messageMenuIconDanger: {
+    backgroundColor: "rgba(239,68,68,0.12)",
+  },
+  messageMenuLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  messageMenuHint: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  messageMenuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#e2e8f0",
+    marginVertical: 4,
+  },
+  messageMenuArrow: {
+    position: "absolute",
     width: 12,
     height: 12,
     backgroundColor: Colors.white,
     transform: [{ rotate: "45deg" }],
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e2e8f0",
-    zIndex: 21,
+    zIndex: -1,
+  },
+  messageMenuArrowLeft: {
+    left: -6,
+    top: 24,
+  },
+  messageMenuArrowRight: {
+    right: -6,
+    top: 24,
   },
 });

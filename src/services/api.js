@@ -1,4 +1,5 @@
 import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
+import { logoutCometChatUser } from "@/src/services/cometchat";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
@@ -92,10 +93,12 @@ API.interceptors.response.use(
 
     const refreshToken = await SecureStore.getItemAsync("refreshToken");
     if (!refreshToken) {
+      await logoutCometChatUser();
       await SecureStore.deleteItemAsync("authToken");
       await SecureStore.deleteItemAsync("refreshToken");
       await SecureStore.deleteItemAsync("userRole");
       await SecureStore.deleteItemAsync("userId");
+      await SecureStore.deleteItemAsync("cometChatUid");
       return Promise.reject(error);
     }
 
@@ -151,10 +154,12 @@ API.interceptors.response.use(
       return API(originalRequest);
     } catch (refreshError) {
       processRefreshQueue(null, refreshError);
+      await logoutCometChatUser();
       await SecureStore.deleteItemAsync("authToken");
       await SecureStore.deleteItemAsync("refreshToken");
       await SecureStore.deleteItemAsync("userRole");
       await SecureStore.deleteItemAsync("userId");
+      await SecureStore.deleteItemAsync("cometChatUid");
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
