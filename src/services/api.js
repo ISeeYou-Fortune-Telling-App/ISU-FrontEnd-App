@@ -1,5 +1,5 @@
-import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 import { logoutCometChatUser } from "@/src/services/cometchat";
+import { ensureHttpProtocol, resolveHostFromExpo } from "@/src/utils/network";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
@@ -439,7 +439,8 @@ export const getMyCustomerPotential = (params) => API.get("/report/my-customer-p
 export const getMySeerPerformance = (params) => API.get("/report/my-seer-performance", { params });
 
 export const getUser = (id) => API.get(`/core/account/${id}`);
+export const getSeerSalaryHistory = (params) => API.get("/core/bookings/payment/my-seer-salary", { params });
 
 export default API;
 // /notification
-// /report 
+// /report
