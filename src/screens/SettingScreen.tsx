@@ -1,6 +1,5 @@
 import Colors from "@/src/constants/colors";
 import { logoutUser } from "@/src/services/api";
-import { logoutCometChatUser } from "@/src/services/cometchat";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -47,12 +46,12 @@ export default function SettingScreen() {
                             onPress: async () => {
                                 const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
                                 await logoutUser(fcmToken);
-                                await logoutCometChatUser();
+                                //await logoutCometChatUser();
                                 await SecureStore.deleteItemAsync("authToken");
                                 await SecureStore.deleteItemAsync("refreshToken");
                                 await SecureStore.deleteItemAsync("userRole");
                                 await SecureStore.deleteItemAsync("userId");
-                                await SecureStore.deleteItemAsync("cometChatUid");
+                                //await SecureStore.deleteItemAsync("cometChatUid");
                                 router.dismissAll();
                                 router.replace("/auth");
                             },

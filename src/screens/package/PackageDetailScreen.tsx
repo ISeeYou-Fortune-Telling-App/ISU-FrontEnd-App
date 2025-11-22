@@ -1,6 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { deleteServicePackage, getPackageBookingReviews, getServicePackageDetail, getServicePackageReviews } from "@/src/services/api";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -26,7 +26,6 @@ export default function PackageDetailScreen() {
   const [avatarErrors, setAvatarErrors] = useState<{ [key: number]: boolean }>({});
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
-
 
   const handleDelete = async () => {
     if (!id) {
@@ -92,8 +91,24 @@ export default function PackageDetailScreen() {
   }
 
   const seer = pkg.seer || {};
+  const categories = pkg.categories || [];
   const categoryName = pkg.category?.name ?? "Khác";
   const statusColor = pkg.status === "AVAILABLE" ? "#4ade80" : pkg.status === "HIDDEN" ? "#facc15" : Colors.error;
+  const badge = getStatusBadge(pkg.status);
+
+  const getCategoryKeyFromName = (name: string) => {
+    if (!name) return "other";
+    const n = name.toLowerCase();
+    if (n.includes("tarot")) return "tarot";
+    if (n.includes("cung") || n.includes("đạo") || n.includes("hoàng")) return "zodiac";
+    if (n.includes("chỉ tay")) return "palmistry";
+    if (n.includes("phong")) return "fengshui";
+    if (n.includes("tử vi")) return "horoscope";
+    if (n.includes("bói") || n.includes("bài") || n.includes("card")) return "card";
+    if (n.includes("nhân") || n.includes("tướng")) return "physiognomy";
+    if (n.includes("ngũ") || n.includes("hành")) return "elements";
+    return "other";
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -125,15 +140,23 @@ export default function PackageDetailScreen() {
               setCoverError(true);
             }}
           />
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{categoryName}</Text>
+          <View style={styles.categoryChipsRow}>
+            {categories.map((c: any) => {
+              const key = getCategoryKeyFromName(c.name || c);
+              const col = (Colors.categoryColors as any)[key] || (Colors.categoryColors as any).other;
+              return (
+                <View key={c.id || c} style={[styles.chip, { backgroundColor: col.chip }]}>
+                  <Text style={[styles.chipText, { color: col.icon }]} numberOfLines={1}>{c.name || c}</Text>
+                </View>
+              );
+            })}
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            <Text style={styles.statusBadgeText}>
-              {pkg.status === "AVAILABLE" && "Đã duyệt"}
-              {pkg.status === "HIDDEN" && "Chờ duyệt"}
-              {pkg.status === "REJECTED" && "Bị từ chối"}
-            </Text>
+
+          <View style={[styles.statusBadge, { backgroundColor: badge.color, flexDirection: 'row', alignItems: 'center' }]}>
+            {badge.icon && (
+              <MaterialCommunityIcons name={badge.icon as any} size={16} color={badge.textColor || Colors.white} style={{ marginRight: 2 }} />
+            )}
+            <Text style={[styles.statusBadgeText, badge.textColor ? { color: badge.textColor } : {}]}>{badge.label}</Text>
           </View>
         </View>
 
@@ -154,7 +177,7 @@ export default function PackageDetailScreen() {
           </View>
 
           {/* Seer info */}
-          <Card style={styles.seerCard}>
+          {/* <Card style={styles.seerCard}>
             <View style={styles.seerRow}>
               <Image
                 source={
@@ -175,7 +198,7 @@ export default function PackageDetailScreen() {
                 </Text>
               </View>
             </View>
-          </Card>
+          </Card> */}
 
           {/* Info */}
           <Card style={styles.infoCard}>
@@ -223,7 +246,7 @@ export default function PackageDetailScreen() {
               </TouchableOpacity>
             )}
           </Card>
-          
+
           {/* ✅ Reviews */}
           <Card style={styles.reviewCard}>
             <Text style={styles.infoTitle}>Đánh giá ({reviews.length})</Text>
@@ -313,13 +336,6 @@ export default function PackageDetailScreen() {
               pathname: "/update-package",
               params: {
                 packageId: pkg.packageId,
-                packageTitle: pkg.packageTitle,
-                packageContent: pkg.packageContent,
-                duration: pkg.durationMinutes,
-                packagePrice: pkg.price,
-                category: pkg.category,
-                imageUrl: pkg.imageUrl,
-                commission: pkg.commissionRate
               },
             })}>
               <Text style={styles.editText}>Chỉnh sửa</Text>
@@ -336,6 +352,15 @@ export default function PackageDetailScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+type PackageStatus = "AVAILABLE" | "REJECTED" | "HAVE_REPORT" | "HIDDEN";
+
+function getStatusBadge(status: PackageStatus) {
+  if (status === "AVAILABLE") return { label: "Đã duyệt", color: Colors.green, icon: "check-circle" };
+  if (status === "HIDDEN") return { label: "Chờ duyệt", color: Colors.yellow, icon: "clock-outline" };
+  if (status === "REJECTED") return { label: "Bị từ chối", color: Colors.purple, textColor: Colors.white, icon: "close-circle" };
+  return { label: status, color: Colors.gray };
 }
 
 type Review = {
@@ -419,6 +444,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   categoryBadgeText: { color: Colors.white, fontSize: 12 },
+  categoryChipsRow: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center", flexWrap: "wrap" },
+  chip: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, marginRight: 6, maxWidth: 140 },
+  chipText: { fontSize: 12, fontFamily: "inter" },
+  overflowChip: { backgroundColor: "#e5e7eb" },
   statusBadge: {
     position: "absolute",
     top: 12,

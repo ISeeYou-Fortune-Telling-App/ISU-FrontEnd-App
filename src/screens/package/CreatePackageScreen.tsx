@@ -1,4 +1,3 @@
-// CreatePackageScreen.tsx
 import Colors from "@/src/constants/colors";
 import { createServicePackage, getKnowledgeCategories } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -35,6 +34,7 @@ export default function CreatePackageScreen() {
   const [content, setContent] = useState("");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
   const [image, setImage] = useState<any>(null);
+  // updated type: include weekDayName
   const [availableTimeSlots, setAvailableTimeSlots] = useState<
     { weekDate: number; availableFrom: string; availableTo: string }[]
   >([]);
@@ -168,7 +168,11 @@ export default function CreatePackageScreen() {
     setAvailableTimeSlots((prev) => {
       const exists = prev.some((p) => p.weekDate === activeDay);
       if (exists) {
-        return prev.map((p) => (p.weekDate === activeDay ? { ...p, availableFrom: tempFrom, availableTo: tempTo } : p));
+        return prev.map((p) =>
+          p.weekDate === activeDay
+            ? { ...p, availableFrom: tempFrom, availableTo: tempTo }
+            : p
+        );
       } else {
         return [...prev, { weekDate: activeDay, availableFrom: tempFrom, availableTo: tempTo }];
       }
@@ -189,7 +193,7 @@ export default function CreatePackageScreen() {
   const displayTime = (t: string) => (t ? t.slice(0, 5) : "");
 
   const handleSubmit = async () => {
-    if (!title || !content || !priceRaw || !durationMinutes || selectedCategoryIds.length === 0 || !image) {
+    if (!title || !content || !priceRaw || !durationMinutes || !image || !availableTimeSlots) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
       return;
     }
@@ -201,7 +205,7 @@ export default function CreatePackageScreen() {
         content
           .replace(/<div>/g, "")
           .replace(/<\/div>/g, "\n")
-          .replace(/<br\s*\/?>/g, "\n")
+          .replace(/<br\s*\/?>(?:\n)?/g, "\n")
           .replace(/<[^>]+>/g, "") // remove remaining tags
           .trim()
       );
@@ -212,13 +216,9 @@ export default function CreatePackageScreen() {
       formData.append("durationMinutes", durationMinutes);
       formData.append("price", priceRaw);
 
-      // multiple category ids
       selectedCategoryIds.forEach((id) => formData.append("categoryIds[]", id));
 
-      // append availableTimeSlots as JSON strings (backend must accept)
-      availableTimeSlots.forEach((time) => {
-        formData.append("availableTimeSlots[]", JSON.stringify(time));
-      });
+      formData.append("availableTimeSlots", JSON.stringify(availableTimeSlots));
 
       if (image) {
         const fileName = image.fileName || image.uri.split("/").pop() || "upload.jpg";
@@ -261,6 +261,9 @@ export default function CreatePackageScreen() {
       }, 1500);
     } catch (err: any) {
       console.error("createServicePackage error:", err);
+      console.log("ERROR DATA:", err.response?.data);
+      console.log("ERROR STATUS:", err.response?.status);
+      console.log("ERROR HEADERS:", err.response?.headers);
       Alert.alert("Lỗi", "Không thể tạo gói dịch vụ. Hãy thử lại sau.");
       setSubmitting(false);
     }
@@ -433,12 +436,10 @@ export default function CreatePackageScreen() {
                     .slice()
                     .sort((a, b) => a.weekDate - b.weekDate)
                     .map((s) => {
-                      // find label from dayMap inverse
-                      const label = Object.keys(dayMap).find((k) => dayMap[k] === s.weekDate) || s.weekDate.toString();
                       return (
                         <View key={s.weekDate} style={styles.selectedSummary}>
                           <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <Text style={{ fontWeight: "700", marginRight: 8 }}>{label}</Text>
+                            <Text style={{ fontWeight: "700", marginRight: 8 }}>{s.weekDate == 8 ? "Chủ Nhật" : "Thứ " + s.weekDate}</Text>
                             <TouchableOpacity onPress={() => removeCommittedDay(s.weekDate)}>
                               <MaterialIcons name="close" size={16} color="#999" />
                             </TouchableOpacity>

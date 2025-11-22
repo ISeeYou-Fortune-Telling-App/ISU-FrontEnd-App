@@ -1,7 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
 import { loginUser, registerUser } from "@/src/services/api";
-import { loginCometChatUser } from "@/src/services/cometchat";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
@@ -185,22 +184,22 @@ export default function AuthScreen() {
             if (payload.userId) {
                 await SecureStore.setItemAsync("userId", payload.userId);
             }
-            const cometChatUid =
-                payload?.cometChatUid ||
-                payload?.cometchatUid ||
-                payload?.comet_chat_uid ||
-                payload?.comet_uid ||
-                null;
+            // const cometChatUid =
+            //     payload?.cometChatUid ||
+            //     payload?.cometchatUid ||
+            //     payload?.comet_chat_uid ||
+            //     payload?.comet_uid ||
+            //     null;
 
-            if (cometChatUid) {
-                await SecureStore.setItemAsync("cometChatUid", cometChatUid);
-                loginCometChatUser(cometChatUid).catch((error) => {
-                    console.warn("Không thể đăng nhập CometChat", error);
-                });
-            } else {
-                await SecureStore.deleteItemAsync("cometChatUid");
-                console.warn("Login payload missing CometChat UID");
-            }
+            // if (cometChatUid) {
+            //     await SecureStore.setItemAsync("cometChatUid", cometChatUid);
+            //     loginCometChatUser(cometChatUid).catch((error) => {
+            //         console.warn("Không thể đăng nhập CometChat", error);
+            //     });
+            // } else {
+            //     await SecureStore.deleteItemAsync("cometChatUid");
+            //     console.warn("Login payload missing CometChat UID");
+            // }
 
             try {
                 if (rememberMe) {
