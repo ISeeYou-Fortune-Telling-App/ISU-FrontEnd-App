@@ -440,7 +440,8 @@ export const getMyCustomerPotential = (params) => API.get("/report/my-customer-p
 export const getMySeerPerformance = (params) => API.get("/report/my-seer-performance", { params });
 
 export const getSeerPerformance = (params) => API.get("/report/seer-performance", { params });
+export const getSeerSalaryHistory = (params) => API.get("/core/bookings/payment/my-seer-salary", { params });
 
 export default API;
 // /notification
-// /report 
+// /report
