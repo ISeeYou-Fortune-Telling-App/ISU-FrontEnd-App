@@ -136,8 +136,43 @@ export const loginCometChatUser = async (uid: string) => {
 
   const attemptLogin = async (retry = 0): Promise<any> => {
     try {
-      return await CometChat.login(uid, authKey);
+      const logged = await CometChat.login(uid, authKey);
+      const sessionUser = await CometChat.getLoggedinUser().catch(() => null);
+      if (!sessionUser) {
+        throw new Error("Login succeeded but no CometChat session is active.");
+      }
+      console.log("[CometChat] login success", sessionUser.getUid?.() ?? uid);
+      return logged;
     } catch (error: any) {
+      console.warn("[CometChat] login error", { code: error?.code, name: error?.name, message: error?.message, retry });
+
+      const code = error?.code || error?.name;
+
+      // If user is missing, try to create and login once.
+      const userNotFound =
+        code === "ERR_UID_NOT_FOUND" ||
+        code === "USER_NOT_FOUND" ||
+        code === "UID_NOT_FOUND" ||
+        code === "ERR_USER_NOT_FOUND" ||
+        code === "ERR_UID_MISSING";
+
+      if (userNotFound && retry === 0) {
+        try {
+          const newUser = new CometChat.User(uid);
+          newUser.setName(uid);
+          await CometChat.createUser(newUser, authKey);
+          console.log("[CometChat] created user", uid);
+          return await CometChat.login(uid, authKey);
+        } catch (createErr: any) {
+          console.warn("[CometChat] create user failed", {
+            code: createErr?.code,
+            name: createErr?.name,
+            message: createErr?.message,
+          });
+          throw createErr;
+        }
+      }
+
       const isLoginInProgress =
         error?.code === "LOGIN_IN_PROGRESS" || error?.name === "LOGIN_IN_PROGRESS";
 

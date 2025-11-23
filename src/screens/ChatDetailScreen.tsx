@@ -27,6 +27,7 @@ import {
   Linking,
   Platform,
   RefreshControl,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -35,6 +36,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
 import { resolveSocketUrl } from "@/src/utils/network";
 const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
 
@@ -289,6 +291,9 @@ export default function ChatDetailScreen() {
     null,
   );
   const [cancelRequestPending, setCancelRequestPending] = useState<boolean>(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
+  const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState<boolean>(false);
+  const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
 
   const normalizedConversationStatus = useMemo(
     () => normalizeConversationStatus(conversationStatus),
@@ -296,6 +301,7 @@ export default function ChatDetailScreen() {
   );
   const statusMeta = STATUS_METADATA[normalizedConversationStatus] ?? STATUS_METADATA.UNKNOWN;
   const isConversationActive = normalizedConversationStatus === "ACTIVE";
+  const isInteractionLocked = !isConversationActive;
   const inputPlaceholder = useMemo(() => {
     switch (normalizedConversationStatus) {
       case "WAITING":
@@ -314,7 +320,7 @@ export default function ChatDetailScreen() {
   const callReceiverType = partnerCometChatUid
     ? CometChat.RECEIVER_TYPE.USER
     : CometChat.RECEIVER_TYPE.GROUP;
-  const isCallDisabled = !callTargetId;
+  const isCallDisabled = isInteractionLocked || !callTargetId;
 
   useEffect(() => {
     if (normalizedConversationStatus === "CANCELLED" || normalizedConversationStatus === "ENDED") {
@@ -551,19 +557,13 @@ export default function ChatDetailScreen() {
         return;
       }
 
+      if (!shouldShowCancelPrompt(targetConversationId)) {
+        return;
+      }
+
       const requesterName = data?.requesterName ?? data?.requesterId ?? "Người dùng";
-      Alert.alert(
-        "Yêu cầu hủy phiên",
-        `${requesterName} muốn hủy phiên trò chuyện này. Bạn có đồng ý không?`,
-        [
-          { text: "Tiếp tục phiên", style: "cancel", onPress: () => respondCancelRequest(false) },
-          {
-            text: "Đồng ý hủy",
-            style: "destructive",
-            onPress: () => respondCancelRequest(true),
-          },
-        ],
-      );
+      setCancelRequesterName(requesterName.toString());
+      setIncomingCancelModalVisible(true);
     },
     [conversationId, respondCancelRequest],
   );
@@ -607,33 +607,42 @@ export default function ChatDetailScreen() {
       return;
     }
 
-    Alert.alert(
-      "Hủy phiên trò chuyện",
-      "Bạn muốn hủy phiên này? Người còn lại sẽ nhận được yêu cầu xác nhận.",
-      [
-        { text: "Giữ phiên", style: "cancel" },
-        {
-          text: "Gửi yêu cầu hủy",
-          style: "destructive",
-          onPress: () => {
-            setCancelRequestPending(true);
-            socketRef.current?.emit(
-              "cancel_session_manually",
-              conversationId,
-              (status?: string, message?: string) => {
-                if (status === "success") {
-                  showSessionNotice("warning", "Đã gửi yêu cầu hủy phiên. Đang chờ phản hồi.");
-                } else {
-                  setCancelRequestPending(false);
-                  Alert.alert("Không thể gửi yêu cầu", message ?? "Vui lòng thử lại sau.");
-                }
-              },
-            );
-          },
-        },
-      ],
-    );
+    setCancelModalVisible(true);
   }, [conversationId, showSessionNotice, socketConnected]);
+
+  const confirmCancelSession = useCallback(() => {
+    if (!conversationId || !socketRef.current) {
+      Alert.alert("Không thể hủy phiên", "Không tìm thấy cuộc trò chuyện hoặc kết nối realtime.");
+      setCancelModalVisible(false);
+      return;
+    }
+
+    setCancelRequestPending(true);
+    socketRef.current.emit(
+      "cancel_session_manually",
+      conversationId,
+      (status?: string, message?: string) => {
+        if (status === "success") {
+          showSessionNotice("warning", "Đã gửi yêu cầu hủy phiên. Đang chờ phản hồi.");
+          setCancelModalVisible(false);
+        } else {
+          setCancelRequestPending(false);
+          setCancelModalVisible(false);
+          Alert.alert("Không thể gửi yêu cầu", message ?? "Vui lòng thử lại sau.");
+        }
+      },
+    );
+  }, [conversationId, showSessionNotice]);
+
+  const handleAcceptIncomingCancel = useCallback(() => {
+    respondCancelRequest(true);
+    setIncomingCancelModalVisible(false);
+  }, [respondCancelRequest]);
+
+  const handleDeclineIncomingCancel = useCallback(() => {
+    respondCancelRequest(false);
+    setIncomingCancelModalVisible(false);
+  }, [respondCancelRequest]);
 
   const handleUserJoined = useCallback(
     (data: any) => {
@@ -965,6 +974,10 @@ export default function ChatDetailScreen() {
   }, [conversationId, hasPendingReadReceipts, syncReadReceipts]);
 
   const handlePickImage = useCallback(async () => {
+    if (isInteractionLocked) {
+      Alert.alert("Phiên đã khóa", statusMeta.description);
+      return;
+    }
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "image/*",
@@ -992,9 +1005,13 @@ export default function ChatDetailScreen() {
       console.error(err);
       Alert.alert("Không thể chọn ảnh", "Vui lòng thử lại sau.");
     }
-  }, []);
+  }, [isInteractionLocked, statusMeta.description]);
 
   const handlePickVideo = useCallback(async () => {
+    if (isInteractionLocked) {
+      Alert.alert("Phiên đã khóa", statusMeta.description);
+      return;
+    }
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "video/*",
@@ -1022,9 +1039,13 @@ export default function ChatDetailScreen() {
       console.error(err);
       Alert.alert("Không thể chọn video", "Vui lòng thử lại sau.");
     }
-  }, []);
+  }, [isInteractionLocked, statusMeta.description]);
 
   const handleVideoCallPress = useCallback(async () => {
+    if (isInteractionLocked) {
+      Alert.alert("Phiên đã kết thúc", statusMeta.description);
+      return;
+    }
     if (!callTargetId) {
       Alert.alert("Cuộc gọi video", "Không tìm thấy thông tin cuộc trò chuyện để gọi.");
       return;
@@ -1036,7 +1057,7 @@ export default function ChatDetailScreen() {
       console.error("Không thể bắt đầu cuộc gọi video", err);
       Alert.alert("Cuộc gọi video", "Không thể bắt đầu cuộc gọi. Vui lòng thử lại.");
     }
-  }, [callReceiverType, callTargetId, startVideoCall]);
+  }, [callReceiverType, callTargetId, isInteractionLocked, startVideoCall, statusMeta.description]);
 
   const [isAttachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [messageMenuState, setMessageMenuState] = useState<{
@@ -1046,8 +1067,12 @@ export default function ChatDetailScreen() {
   } | null>(null);
 
   const handleAttachmentMenu = useCallback(() => {
+    if (isInteractionLocked) {
+      Alert.alert("Phiên đã khóa", statusMeta.description);
+      return;
+    }
     setAttachmentMenuVisible((prev) => !prev);
-  }, []);
+  }, [isInteractionLocked, statusMeta.description]);
 
   const handleSelectImageFromMenu = useCallback(() => {
     setAttachmentMenuVisible(false);
@@ -1252,6 +1277,16 @@ export default function ChatDetailScreen() {
     return (input.trim().length > 0 || Boolean(selectedAttachment)) && !isSending;
   }, [input, isConversationActive, isSending, selectedAttachment]);
 
+  // Khi phiên không còn ACTIVE, đóng menu và bỏ file đính kèm đang chọn
+  useEffect(() => {
+    if (isInteractionLocked) {
+      setAttachmentMenuVisible(false);
+      if (selectedAttachment) {
+        setSelectedAttachment(null);
+      }
+    }
+  }, [isInteractionLocked, selectedAttachment]);
+
   const hasPendingReadReceipts = useMemo(
     () =>
       messages.some(
@@ -1442,6 +1477,88 @@ export default function ChatDetailScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
       >
+        {/* Modal xác nhận hủy phiên (thay Alert để hợp giao diện chat) */}
+        <Modal
+          visible={cancelModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCancelModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setCancelModalVisible(false)}>
+            <View style={styles.modalBackdrop}>
+              <TouchableWithoutFeedback>
+                <View style={styles.cancelModalCard}>
+                  <View style={styles.modalHeader}>
+                    <Ionicons name="alert-circle" size={24} color="#b91c1c" />
+                    <Text style={styles.modalTitle}>Hủy phiên trò chuyện</Text>
+                  </View>
+                  <Text style={styles.modalBodyText}>
+                    Bạn muốn hủy phiên này? Người còn lại sẽ nhận được yêu cầu xác nhận.
+                  </Text>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalGhostButton]}
+                      onPress={() => setCancelModalVisible(false)}
+                      disabled={cancelRequestPending}
+                    >
+                      <Text style={[styles.modalButtonText, styles.modalGhostText]}>Giữ phiên</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalDangerButton, cancelRequestPending && styles.modalButtonDisabled]}
+                      onPress={confirmCancelSession}
+                      disabled={cancelRequestPending}
+                    >
+                      {cancelRequestPending ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={[styles.modalButtonText, styles.modalDangerText]}>Gửi yêu cầu hủy</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Modal phản hồi yêu cầu hủy từ đối phương */}
+        <Modal
+          visible={incomingCancelModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIncomingCancelModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setIncomingCancelModalVisible(false)}>
+            <View style={styles.modalBackdrop}>
+              <TouchableWithoutFeedback>
+                <View style={styles.cancelModalCard}>
+                  <View style={styles.modalHeader}>
+                    <Ionicons name="close-circle" size={24} color="#ef4444" />
+                    <Text style={styles.modalTitle}>Đối phương muốn hủy phiên</Text>
+                  </View>
+                  <Text style={styles.modalBodyText}>
+                    {cancelRequesterName} vừa yêu cầu hủy phiên này. Bạn có đồng ý không?
+                  </Text>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalGhostButton]}
+                      onPress={handleDeclineIncomingCancel}
+                    >
+                      <Text style={[styles.modalButtonText, styles.modalGhostText]}>Tiếp tục phiên</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalDangerButton]}
+                      onPress={handleAcceptIncomingCancel}
+                    >
+                      <Text style={[styles.modalButtonText, styles.modalDangerText]}>Đồng ý hủy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.black} />
@@ -1557,8 +1674,16 @@ export default function ChatDetailScreen() {
           ) : null}
 
           <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.iconButton} onPress={handleAttachmentMenu}>
-              <Ionicons name="attach-outline" size={20} color="#475569" />
+            <TouchableOpacity
+              style={[styles.iconButton, isInteractionLocked && styles.headerIconButtonDisabled]}
+              onPress={handleAttachmentMenu}
+              disabled={isInteractionLocked}
+            >
+              <Ionicons
+                name="attach-outline"
+                size={20}
+                color={isInteractionLocked ? Colors.gray : "#475569"}
+              />
             </TouchableOpacity>
             <TextInput
               style={styles.messageInput}
@@ -2280,5 +2405,80 @@ const styles = StyleSheet.create({
   messageMenuArrowRight: {
     right: -6,
     top: 24,
+  },
+
+  // Cancel modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  cancelModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  modalBodyText: {
+    fontSize: 15,
+    color: "#334155",
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minWidth: 120,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  modalButtonDisabled: {
+    opacity: 0.7,
+  },
+  modalGhostButton: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  modalGhostText: {
+    color: "#0f172a",
+    fontWeight: "600",
+  },
+  modalDangerButton: {
+    backgroundColor: "#ef4444",
+  },
+  modalDangerText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  modalButtonText: {
+    fontSize: 15,
   },
 });

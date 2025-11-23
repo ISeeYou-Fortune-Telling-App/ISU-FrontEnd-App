@@ -20,10 +20,11 @@ const baseURL =
   resolveHostFromExpo() ??
   "http://localhost:8080";
 
+const chatPort = process.env.EXPO_PUBLIC_CHAT_PORT || process.env.EXPO_PUBLIC_SOCKET_PORT || 8082;
 const chatBaseURL =
   ensureHttpProtocol(process.env.EXPO_PUBLIC_CHAT_BASE_URL) ??
-  resolveHostFromExpo(process.env.EXPO_PUBLIC_CHAT_PORT || 8081) ??
-  "http://localhost:8081";
+  resolveHostFromExpo(chatPort) ??
+  `http://localhost:${chatPort}`;
 
 const API = axios.create({
   baseURL,
@@ -309,9 +310,11 @@ export const deleteChatMessage = (messageId) =>
 export const recallChatMessage = (messageId) =>
   ChatAPI.post(`/chat/messages/${messageId}/recall`);
 
+// Upload chat image/video. Explicitly set multipart header for RN to avoid Network Error.
 export const uploadChatFile = (formData) =>
   ChatAPI.post("/chat/messages/file", formData, {
     headers: { "Content-Type": "multipart/form-data" },
+    timeout: 20000,
   });
 
 export const createReport = (payload) => {
