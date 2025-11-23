@@ -18,7 +18,7 @@ export default function MyPackagesScreen() {
             return () => { };
         }, [])
     );
-    
+
     const fetchPackages = async () => {
         setLoading(true);
         try {
@@ -134,9 +134,23 @@ function getStatusBadge(status: PackageStatus) {
     return { label: status, color: Colors.gray };
 }
 
+const getCategoryKeyFromName = (name: string) => {
+    if (!name) return "other";
+    const n = name.toLowerCase();
+    if (n.includes("tarot")) return "tarot";
+    if (n.includes("cung") || n.includes("đạo") || n.includes("hoàng")) return "zodiac";
+    if (n.includes("chỉ tay")) return "palmistry";
+    if (n.includes("phong")) return "fengshui";
+    if (n.includes("tử vi")) return "horoscope";
+    if (n.includes("bói") || n.includes("bài") || n.includes("card")) return "card";
+    if (n.includes("nhân") || n.includes("tướng")) return "physiognomy";
+    if (n.includes("ngũ") || n.includes("hành")) return "elements";
+    return "other";
+};
+
 function PackageCard({ pkg }: { pkg: ServicePackage }) {
     const badge = getStatusBadge(pkg.status);
-    const categoryLabel = pkg.categories?.[0]?.name ?? "";
+    const categories = pkg.categories;
     const [coverError, setCoverError] = useState(false);
     return (
         <TouchableOpacity style={styles.cardWrapper} onPress={() => router.push({ pathname: '/package-detail', params: { id: pkg.id } })}>
@@ -153,9 +167,22 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                     }}
                 />
 
-                {categoryLabel ? (
-                    <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{categoryLabel}</Text></View>
-                ) : null}
+                {categories && <View style={styles.categoryChipsRow}>
+                    {categories.slice(0, 2).map((c: any) => {
+                        const key = getCategoryKeyFromName(c.name || c);
+                        const col = (Colors.categoryColors as any)[key] || (Colors.categoryColors as any).other;
+                        return (
+                            <View key={c.id || c} style={[styles.chip, { backgroundColor: col.chip }]}>
+                                <Text style={[styles.chipText, { color: col.icon }]} numberOfLines={1}>{c.name || c}</Text>
+                            </View>
+                        );
+                    })}
+                    {categories.length > 2 && (
+                        <View style={[styles.chip, styles.overflowChip]}>
+                            <Text style={styles.chipText}>+{categories.length - 2}</Text>
+                        </View>
+                    )}
+                </View>}
 
                 <View style={[styles.statusBadge, { backgroundColor: badge.color, flexDirection: 'row', alignItems: 'center' }]}>
                     {badge.icon && (
@@ -174,11 +201,11 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                 )}
                 <View style={styles.cardMetaRow}>
                     <Text style={styles.cardPrice}>{pkg.price.toLocaleString()} ₫</Text>
-                    <View style={{flexDirection: "row", alignItems: "center"}}>
-                        <Clock size={16} color={Colors.gray}/>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Clock size={16} color={Colors.gray} />
                         <Text style={styles.cardDuration}>{pkg.durationMinutes} phút</Text>
                     </View>
-                    
+
                 </View>
                 {(pkg.status === "AVAILABLE" || pkg.status === "HIDDEN") && (
                     <View style={styles.cardRatingRow}>
@@ -283,20 +310,6 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
     },
-    categoryBadge: {
-        position: "absolute",
-        top: 10,
-        left: 10,
-        backgroundColor: Colors.purple,
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 3,
-    },
-    categoryBadgeText: {
-        color: Colors.white,
-        fontFamily: "inter",
-        fontSize: 13,
-    },
     statusBadge: {
         position: "absolute",
         top: 10,
@@ -377,4 +390,9 @@ const styles = StyleSheet.create({
         marginLeft: 4,
         fontFamily: "inter",
     },
+    categoryChipsRow: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center" },
+    chip: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, marginRight: 6, maxWidth: 140 },
+    chipText: { fontSize: 12, fontFamily: "inter" },
+    overflowChip: { backgroundColor: "#e5e7eb" },
+
 });

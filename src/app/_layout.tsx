@@ -182,6 +182,36 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
+  useEffect(() => {
+    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
+      console.log('📩 Foreground message received!', remoteMessage);
+
+      try {
+        const title = remoteMessage.notification?.title ?? remoteMessage.data?.title;
+        const body = remoteMessage.notification?.body ?? remoteMessage.data?.body;
+        const data = remoteMessage.data ?? {};
+
+        const titleText = typeof title === 'string' ? title : (title ? JSON.stringify(title) : undefined);
+        const bodyText = typeof body === 'string' ? body : (body ? JSON.stringify(body) : undefined);
+
+        // Present a local notification using expo-notifications so the user
+        // sees it while the app is in the foreground.
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: titleText,
+            body: bodyText,
+            data: data,
+          },
+          trigger: null,
+        });
+      } catch (error) {
+        console.warn('Error presenting foreground notification', error);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   if (!fontsLoaded) {
     return null; // block UI until fonts are ready
   }

@@ -4,7 +4,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Bell, Calendar, ChevronRight, CreditCard, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, ChevronRight, CreditCard, HandCoins, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -292,6 +292,22 @@ export default function ProfileScreen() {
               <Text style={styles.actionSubtitle}>Theo dõi các thanh toán gần đây của bạn</Text>
             </View>
           </TouchableOpacity>
+
+          {role === "SEER" && (
+            <TouchableOpacity
+              style={[styles.actionCard, styles.cardShadow]}
+              activeOpacity={0.85}
+              onPress={() => router.push("/seer-salary-history")}
+            >
+              <View style={styles.actionIcon}>
+                <HandCoins size={20} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionTitle}>Lịch sử nhận lương</Text>
+                <Text style={styles.actionSubtitle}>Theo dõi các khoản lương của bạn</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <PersonalInfoCard dob={dob} gender={gender} phone={phone} email={email} />
 

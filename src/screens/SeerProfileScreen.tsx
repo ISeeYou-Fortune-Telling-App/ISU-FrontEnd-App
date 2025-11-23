@@ -25,6 +25,11 @@ export default function SeerProfileScreen() {
     const [avatarError, setAvatarError] = useState(false);
     const [coverError, setCoverError] = useState(false);
 
+    // Pagination states
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
     const getCategoryStyle = (category: string | null) => {
         const categoryMapping: Record<string, { display: string; background: string; text: string; }> = {
             "Cung Hoàng Đạo": { display: "Cung Hoàng Đạo", background: Colors.categoryColors.zodiac.chip, text: Colors.categoryColors.zodiac.icon },
@@ -53,10 +58,18 @@ export default function SeerProfileScreen() {
         }
     }, []);
 
-    // Fetch packages for seer
+    // Fetch packages for seer (supports pagination page param)
     const fetchPackages = useCallback(async (id?: string, page: number = 1) => {
         if (!id) return;
-        setLoading(true);
+
+        // Manage loading states separately for first page vs subsequent pages vs refresh
+        if (page === 1 && !refreshing) setLoading(true);
+        else if (page === 1 && refreshing) {
+            // already setting refreshing true in caller
+        } else {
+            setLoadingMore(true);
+        }
+
         try {
             const res = await getServicePackages({
                 page,
@@ -66,9 +79,14 @@ export default function SeerProfileScreen() {
                 sortBy: "createdAt",
                 status: "AVAILABLE",
             });
+
             if (res.data && res.data.data) {
+                const rawPackages = res.data.data;
+                // Try to read paging info (depends on your API)
+                const paging = res.data.paging;
+
                 const packagesWithDetails = await Promise.all(
-                    res.data.data.map(async (p: any) => {
+                    rawPackages.map(async (p: any) => {
                         try {
                             const detailResponse = await getServicePackageDetail(p.id);
                             const detail = detailResponse.data.data;
@@ -109,7 +127,7 @@ export default function SeerProfileScreen() {
                                 })),
                                 title: p.packageTitle,
                                 content: p.packageContent,
-                                price: `${p.price.toLocaleString("vi-VN")} VNĐ`,
+                                price: `${p.price?.toLocaleString ? p.price.toLocaleString("vi-VN") : p.price} VNĐ`,
                                 duration: `${p.durationMinutes} phút`,
                                 imageUrl: p.imageUrl,
                                 likes: p.likeCount,
@@ -119,18 +137,34 @@ export default function SeerProfileScreen() {
                         }
                     })
                 );
+
                 if (page === 1) setPackages(packagesWithDetails);
                 else setPackages(prev => [...prev, ...packagesWithDetails]);
+
                 setCurrentPage(page);
-                //setHasMore(page < response.data.paging.totalPages && response.data.data.length === pageSize);
+
+                // Determine if there are more pages:
+                if (paging && typeof paging.totalPages !== "undefined") {
+                    setHasMore(page < paging.totalPages);
+                } else {
+                    // fallback: if returned items < pageSize then no more
+                    setHasMore(rawPackages.length === pageSize);
+                }
+            } else {
+                // no data returned: consider no more
+                if (page === 1) setPackages([]);
+                setHasMore(false);
             }
         } catch (err) {
-            setPackages([]);
             console.error('Failed to load seer packages', err);
+            if (page === 1) setPackages([]);
+            setHasMore(false);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
+            setRefreshing(false);
         }
-    }, []);
+    }, [pageSize, refreshing]);
 
     const handleLike = async (packageId: string) => {
         if (likeInFlight[packageId]) return; // prevent double taps
@@ -191,9 +225,26 @@ export default function SeerProfileScreen() {
         }
     };
 
+    // load more handler (infinite scroll)
+    const loadMore = useCallback(() => {
+        // prevent loading more if already fetching or no more pages
+        if (!seerId) return;
+        if (loadingMore || loading) return;
+        if (!hasMore) return;
+        fetchPackages(seerId, currentPage + 1);
+    }, [seerId, loadingMore, loading, hasMore, currentPage, fetchPackages]);
+
+    // pull-to-refresh handler
+    const refreshPackages = useCallback(async () => {
+        if (!seerId) return;
+        setRefreshing(true);
+        setHasMore(true);
+        await fetchPackages(seerId, 1);
+    }, [seerId, fetchPackages]);
+
     useEffect(() => {
         fetchSeerProfile(seerId);
-        fetchPackages(seerId);
+        fetchPackages(seerId, 1);
         (async () => {
             try {
                 const storedRole = await SecureStore.getItemAsync("userRole");
@@ -202,6 +253,7 @@ export default function SeerProfileScreen() {
                 console.warn("Unable to read userRole from SecureStore", e);
             }
         })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [seerId]);
 
     // Profile header for FlatList
@@ -285,7 +337,7 @@ export default function SeerProfileScreen() {
             </View>
             <FlatList
                 data={packages}
-                keyExtractor={(p) => p.id}
+                keyExtractor={(p) => String(p.id)}
                 renderItem={({ item }) => (
                     <ServicePackageCard
                         servicePackage={item}
@@ -309,6 +361,19 @@ export default function SeerProfileScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={{ paddingBottom: 40 }}
                 ListEmptyComponent={loading ? <ActivityIndicator size="large" color={Colors.primary} /> : <Text style={styles.emptyText}>Không có gói dịch vụ nào.</Text>}
+                // Pagination props
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.3}
+                ListFooterComponent={
+                    loadingMore ? (
+                        <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 20 }} />
+                    ) : !hasMore ? (
+                        <Text style={styles.emptyText}>Không có thêm gói dịch vụ.</Text>
+                    ) : null
+                }
+                // Pull-to-refresh
+                refreshing={refreshing}
+                onRefresh={refreshPackages}
             />
         </SafeAreaView>
     );

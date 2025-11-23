@@ -132,7 +132,7 @@ export default function HomeScreen() {
               return {
                 id: detail.packageId,
                 seer: detail.seer.fullName,
-                rating: detail.seer.avgRating,
+                rating: p.seer.avgRating,
                 time: new Date(detail.createdAt).toLocaleDateString(),
                 categories: p.categories || [],
                 categoryDisplays: (p.categories || []).map((cat: any) => ({
@@ -980,7 +980,6 @@ const SeerCard = ({ seer }: SeerCardProps) => {
           style={styles.avatar}
           resizeMode="cover"
           onError={(e) => {
-            console.log('Avatar image failed to load:', e.nativeEvent);
             setAvatarError(true);
           }}
         />
