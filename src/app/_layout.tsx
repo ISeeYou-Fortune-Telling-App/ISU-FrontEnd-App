@@ -1,7 +1,8 @@
-import "@/src/polyfills/native-event-emitter";
 import { CallProvider } from "@/src/contexts/CallContext";
+import "@/src/polyfills/native-event-emitter";
 import { initCometChat, loginCometChatUser, validateCometChatEnv } from "@/src/services/cometchat";
 import { runRealtimeSelfCheck } from "@/src/services/diagnostics";
+import { CometChat } from "@cometchat/chat-sdk-react-native";
 import messaging from "@react-native-firebase/messaging";
 import * as Device from "expo-device";
 import { useFonts } from "expo-font";
@@ -11,7 +12,6 @@ import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { Alert, Platform } from "react-native";
-import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
@@ -236,6 +236,7 @@ export default function RootLayout() {
             <Stack.Screen name="ai-chat" options={{ headerShown: false }} />
             <Stack.Screen name="profile-setting" options={{ headerShown: false }} />
             <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+            <Stack.Screen name="edit-profile-images" options={{ headerShown: false }} />
             <Stack.Screen name="create-package" options={{ headerShown: false }} />
             <Stack.Screen name="update-package" options={{ headerShown: false }} />
             <Stack.Screen name="report" options={{ headerShown: false }} />

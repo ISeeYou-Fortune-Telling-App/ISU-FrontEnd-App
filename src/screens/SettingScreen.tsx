@@ -24,7 +24,7 @@ export default function SettingScreen() {
                 router.push("/edit-profile");
                 break;
             case "IMAGE":
-                //router.push("/edit-images");
+                router.push("/edit-profile-images");
                 break;
             case "MANAGE_CERTIFICATE":
                 router.push("/manage-certificate");

@@ -184,6 +184,12 @@ export const deleteAccount = (userId, reason) => {
 };
 export const getProfile = () => API.get("/core/account/me");
 export const updateProfile = (data) => API.patch("/core/account/me", data);
+export const uploadAvatar = (data) => API.post("/core/account/me/avatar", data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const uploadCover = (data) => API.post("/core/account/me/cover", data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
 export const getUser = (id) => API.get(`/core/account/${id}`);
 export const getServicePackages = (params) => API.get("/core/public/service-packages", { params });
 export const getSeers = (params) => API.get("/core/public/seers", { params });

@@ -26,6 +26,7 @@ export default function PackageDetailScreen() {
   const [avatarErrors, setAvatarErrors] = useState<{ [key: number]: boolean }>({});
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<timeSlot[]>([]);
 
   const handleDelete = async () => {
     if (!id) {
@@ -66,6 +67,7 @@ export default function PackageDetailScreen() {
         setPkg(detailResp.data?.data);
         setComments(CommentResp.data?.data || []);
         setReviews(ReviewResp.data?.data || []);
+        setAvailableTimeSlots(detailResp.data?.data.availableTimeSlots);
       } catch (err) {
         console.error("Failed to load package detail:", err);
       } finally {
@@ -90,25 +92,7 @@ export default function PackageDetailScreen() {
     );
   }
 
-  const seer = pkg.seer || {};
-  const categories = pkg.categories || [];
-  const categoryName = pkg.category?.name ?? "Khác";
-  const statusColor = pkg.status === "AVAILABLE" ? "#4ade80" : pkg.status === "HIDDEN" ? "#facc15" : Colors.error;
   const badge = getStatusBadge(pkg.status);
-
-  const getCategoryKeyFromName = (name: string) => {
-    if (!name) return "other";
-    const n = name.toLowerCase();
-    if (n.includes("tarot")) return "tarot";
-    if (n.includes("cung") || n.includes("đạo") || n.includes("hoàng")) return "zodiac";
-    if (n.includes("chỉ tay")) return "palmistry";
-    if (n.includes("phong")) return "fengshui";
-    if (n.includes("tử vi")) return "horoscope";
-    if (n.includes("bói") || n.includes("bài") || n.includes("card")) return "card";
-    if (n.includes("nhân") || n.includes("tướng")) return "physiognomy";
-    if (n.includes("ngũ") || n.includes("hành")) return "elements";
-    return "other";
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -141,7 +125,7 @@ export default function PackageDetailScreen() {
             }}
           />
           <View style={styles.categoryChipsRow}>
-            {categories.map((c: any) => {
+            {pkg.categories.map((c: any) => {
               const key = getCategoryKeyFromName(c.name || c);
               const col = (Colors.categoryColors as any)[key] || (Colors.categoryColors as any).other;
               return (
@@ -175,30 +159,6 @@ export default function PackageDetailScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Seer info */}
-          {/* <Card style={styles.seerCard}>
-            <View style={styles.seerRow}>
-              <Image
-                source={
-                  avatarError || !seer.avatarUrl
-                    ? require('@/assets/images/user-placeholder.png')
-                    : { uri: seer.avatarUrl }
-                }
-                style={styles.seerAvatar}
-                onError={(e) => {
-                  setAvatarError(true);
-                }}
-              />
-              <View>
-                <Text style={styles.seerName}>{seer.fullName}</Text>
-                <Text style={styles.seerRating}>
-                  ⭐ {seer.avgRating?.toFixed(1) ?? "-"} (
-                  {seer.totalRates ?? 0} đánh giá)
-                </Text>
-              </View>
-            </View>
-          </Card> */}
 
           {/* Info */}
           <Card style={styles.infoCard}>
@@ -244,6 +204,28 @@ export default function PackageDetailScreen() {
                   {showFullDesc ? "Thu gọn" : "Đọc thêm"}
                 </Text>
               </TouchableOpacity>
+            )}
+          </Card>
+
+          {/* Schedule */}
+          <Card style={styles.descCard}>
+            <Text style={styles.infoTitle}>Thời gian rảnh</Text>
+            {availableTimeSlots.length > 0 && (
+              <View style={{ marginTop: 14 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {availableTimeSlots
+                    .slice()
+                    .sort((a, b) => a.weekDate - b.weekDate)
+                    .map((s) => (
+                      <View key={s.weekDate} style={styles.selectedSummary}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontWeight: '700', marginRight: 8 }}>{s.weekDate == 8 ? "Chủ Nhật" : "Thứ " + s.weekDate}</Text>
+                        </View>
+                        <Text>{displayTime(s.availableFrom)} - {displayTime(s.availableTo)}</Text>
+                      </View>
+                    ))}
+                </View>
+              </View>
             )}
           </Card>
 
@@ -348,11 +330,32 @@ export default function PackageDetailScreen() {
             <Text style={styles.scheduleText}>Xoá gói</Text>
           </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const getCategoryKeyFromName = (name: string) => {
+  if (!name) return "other";
+  const n = name.toLowerCase();
+  if (n.includes("tarot")) return "tarot";
+  if (n.includes("cung") || n.includes("đạo") || n.includes("hoàng")) return "zodiac";
+  if (n.includes("chỉ tay")) return "palmistry";
+  if (n.includes("phong")) return "fengshui";
+  if (n.includes("tử vi")) return "horoscope";
+  if (n.includes("bói") || n.includes("bài") || n.includes("card")) return "card";
+  if (n.includes("nhân") || n.includes("tướng")) return "physiognomy";
+  if (n.includes("ngũ") || n.includes("hành")) return "elements";
+  return "other";
+};
+
+type timeSlot = {
+  weekDate: number,
+  availableFrom: string,
+  availableTo: string
+}
+
+const displayTime = (t: string) => (t ? t.slice(0, 5) : '');
 
 type PackageStatus = "AVAILABLE" | "REJECTED" | "HAVE_REPORT" | "HIDDEN";
 
@@ -393,7 +396,7 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ rev }) => {
         onError={() => setAvatarError(true)}
       />
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text style={styles.reviewName} numberOfLines={1}>{rev.customer?.customerName ?? "Người dùng"}</Text>
           <View style={{ flexDirection: "row", marginLeft: 5 }}>
             {[1, 2, 3, 4, 5].map((i) => (
@@ -518,4 +521,13 @@ const styles = StyleSheet.create({
   },
   editText: { fontFamily: "inter", color: Colors.black },
   scheduleText: { fontFamily: "inter", color: Colors.white },
+  selectedSummary: {
+    backgroundColor: Colors.likeChipBg,
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    minWidth: 120,
+    alignItems: 'flex-start',
+  },
 });
