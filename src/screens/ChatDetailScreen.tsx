@@ -1,6 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { useCall } from "@/src/contexts/CallContext";
 import {
+  getAdminConversation,
   deleteChatMessage,
   getChatConversation,
   getChatMessages,
@@ -8,6 +9,7 @@ import {
   sendChatMessage,
   uploadChatFile,
 } from "@/src/services/api";
+import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { Ionicons } from "@expo/vector-icons";
 import io, { Socket } from "socket.io-client";
 import * as DocumentPicker from "expo-document-picker";
@@ -34,6 +36,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { resolveSocketUrl } from "@/src/utils/network";
+const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
 
@@ -273,6 +276,7 @@ export default function ChatDetailScreen() {
   const [isPartnerOnline, setIsPartnerOnline] = useState<boolean>(false);
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>("UNKNOWN");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -284,6 +288,7 @@ export default function ChatDetailScreen() {
   const [sessionNotice, setSessionNotice] = useState<{ type: "info" | "warning" | "error"; message: string } | null>(
     null,
   );
+  const [cancelRequestPending, setCancelRequestPending] = useState<boolean>(false);
 
   const normalizedConversationStatus = useMemo(
     () => normalizeConversationStatus(conversationStatus),
@@ -304,7 +309,23 @@ export default function ChatDetailScreen() {
     }
   }, [normalizedConversationStatus]);
 
-  const isCallDisabled = !partnerCometChatUid || callStatus !== "idle";
+  // Cho phép gọi nếu có đối tượng đích: ưu tiên UID, fallback sang conversationId (group call)
+  const callTargetId = partnerCometChatUid ?? conversationId ?? null;
+  const callReceiverType = partnerCometChatUid
+    ? CometChat.RECEIVER_TYPE.USER
+    : CometChat.RECEIVER_TYPE.GROUP;
+  const isCallDisabled = !callTargetId;
+
+  useEffect(() => {
+    if (normalizedConversationStatus === "CANCELLED" || normalizedConversationStatus === "ENDED") {
+      setCancelRequestPending(false);
+    }
+  }, [normalizedConversationStatus]);
+  const isCustomer = (userRole ?? "").toUpperCase() === "CUSTOMER";
+  const canCancelSession =
+    isCustomer &&
+    (normalizedConversationStatus === "ACTIVE" || normalizedConversationStatus === "WAITING");
+  const cancelButtonDisabled = cancelRequestPending || !canCancelSession;
 
   const showSessionNotice = useCallback(
     (type: "info" | "warning" | "error", message: string) => {
@@ -471,6 +492,7 @@ export default function ChatDetailScreen() {
   const handleSessionCanceled = useCallback(
     (data: any) => {
       setConversationStatus("CANCELLED");
+      setCancelRequestPending(false);
       const message =
         data?.message ??
         (data?.reason
@@ -502,6 +524,117 @@ export default function ChatDetailScreen() {
     [showSessionNotice],
   );
 
+  const respondCancelRequest = useCallback(
+    (confirmed: boolean) => {
+      if (!conversationId || !socketRef.current) {
+        Alert.alert("Không thể phản hồi", "Không tìm thấy phiên trò chuyện hoặc kết nối realtime.");
+        return;
+      }
+
+      socketRef.current.emit(
+        "respond_cancel_request",
+        { conversationId, confirmed },
+        (status?: string, message?: string) => {
+          if (status !== "success") {
+            Alert.alert("Không thể gửi phản hồi", message ?? "Vui lòng thử lại sau.");
+          }
+        },
+      );
+    },
+    [conversationId],
+  );
+
+  const handleIncomingCancelRequest = useCallback(
+    (data: any) => {
+      const targetConversationId = data?.conversationId ?? data?.conversationID ?? data?.conversation_id;
+      if (conversationId && targetConversationId && String(targetConversationId) !== String(conversationId)) {
+        return;
+      }
+
+      const requesterName = data?.requesterName ?? data?.requesterId ?? "Người dùng";
+      Alert.alert(
+        "Yêu cầu hủy phiên",
+        `${requesterName} muốn hủy phiên trò chuyện này. Bạn có đồng ý không?`,
+        [
+          { text: "Tiếp tục phiên", style: "cancel", onPress: () => respondCancelRequest(false) },
+          {
+            text: "Đồng ý hủy",
+            style: "destructive",
+            onPress: () => respondCancelRequest(true),
+          },
+        ],
+      );
+    },
+    [conversationId, respondCancelRequest],
+  );
+
+  const handleCancelResult = useCallback(
+    (data: any) => {
+      const targetConversationId = data?.conversationId ?? data?.conversationID ?? data?.conversation_id;
+      if (conversationId && targetConversationId && String(targetConversationId) !== String(conversationId)) {
+        return;
+      }
+
+      setCancelRequestPending(false);
+
+      const status = (data?.status ?? "success").toString().toLowerCase();
+      const message =
+        data?.message ??
+        (status === "declined"
+          ? "Đối phương đã từ chối hủy phiên."
+          : "Phiên đã được hủy. Bạn có thể đặt lịch lại nếu cần.");
+
+      if (status === "success") {
+        setConversationStatus("CANCELLED");
+        showSessionNotice("error", message);
+        Alert.alert("Phiên đã bị hủy", message);
+      } else {
+        showSessionNotice("info", message);
+        Alert.alert("Phiên tiếp tục", message);
+      }
+    },
+    [conversationId, showSessionNotice],
+  );
+
+  const handleRequestCancelSession = useCallback(() => {
+    if (!conversationId) {
+      Alert.alert("Không thể hủy phiên", "Không tìm thấy cuộc trò chuyện phù hợp.");
+      return;
+    }
+
+    if (!socketRef.current || !socketConnected) {
+      Alert.alert("Kết nối realtime chưa sẵn sàng", "Vui lòng kiểm tra kết nối và thử lại.");
+      return;
+    }
+
+    Alert.alert(
+      "Hủy phiên trò chuyện",
+      "Bạn muốn hủy phiên này? Người còn lại sẽ nhận được yêu cầu xác nhận.",
+      [
+        { text: "Giữ phiên", style: "cancel" },
+        {
+          text: "Gửi yêu cầu hủy",
+          style: "destructive",
+          onPress: () => {
+            setCancelRequestPending(true);
+            socketRef.current?.emit(
+              "cancel_session_manually",
+              conversationId,
+              (status?: string, message?: string) => {
+                if (status === "success") {
+                  showSessionNotice("warning", "Đã gửi yêu cầu hủy phiên. Đang chờ phản hồi.");
+                } else {
+                  setCancelRequestPending(false);
+                  Alert.alert("Không thể gửi yêu cầu", message ?? "Vui lòng thử lại sau.");
+                }
+              },
+            );
+          },
+        },
+      ],
+    );
+  }, [conversationId, showSessionNotice, socketConnected]);
+
   const handleUserJoined = useCallback(
     (data: any) => {
       if (!data?.userId) {
@@ -529,9 +662,13 @@ export default function ChatDetailScreen() {
     let active = true;
     const loadUserContext = async () => {
       try {
-        const storedId = await SecureStore.getItemAsync("userId");
+        const [storedId, storedRole] = await Promise.all([
+          SecureStore.getItemAsync("userId"),
+          SecureStore.getItemAsync("userRole"),
+        ]);
         if (active) {
           setCurrentUserId(storedId ?? null);
+          setUserRole(storedRole ?? null);
         }
       } catch (err) {
         console.error(err);
@@ -549,14 +686,19 @@ export default function ChatDetailScreen() {
       return;
     }
 
+    console.log(
+      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketBaseUrl}/chat (user ${currentUserId})`,
+    );
+
     const socket = io(`${socketBaseUrl}/chat`, {
       transports: ["websocket", "polling"],
       autoConnect: false,
       forceNew: true,
-      query: { userId: currentUserId },
+      query: { userId: currentUserId, EIO: 3 },
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      timeout: 8000,
     });
 
     socketRef.current = socket;
@@ -587,8 +729,11 @@ export default function ChatDetailScreen() {
     socket.on("receive_message", handleIncomingMessage);
     socket.on("session_activated", handleSessionActivated);
     socket.on("session_canceled", handleSessionCanceled);
+    socket.on("session_cancelled", handleSessionCanceled);
     socket.on("session_ending_soon", handleSessionEndingSoon);
     socket.on("session_ended", handleSessionEnded);
+    socket.on("request_cancel_confirmation", handleIncomingCancelRequest);
+    socket.on("cancel_result", handleCancelResult);
     socket.on("user_joined", handleUserJoined);
     socket.on("user_left", handleUserLeft);
 
@@ -601,8 +746,11 @@ export default function ChatDetailScreen() {
       socket.off("receive_message", handleIncomingMessage);
       socket.off("session_activated", handleSessionActivated);
       socket.off("session_canceled", handleSessionCanceled);
+      socket.off("session_cancelled", handleSessionCanceled);
       socket.off("session_ending_soon", handleSessionEndingSoon);
       socket.off("session_ended", handleSessionEnded);
+      socket.off("request_cancel_confirmation", handleIncomingCancelRequest);
+      socket.off("cancel_result", handleCancelResult);
       socket.off("user_joined", handleUserJoined);
       socket.off("user_left", handleUserLeft);
       socket.disconnect();
@@ -616,6 +764,8 @@ export default function ChatDetailScreen() {
     handleSessionCanceled,
     handleSessionEndingSoon,
     handleSessionEnded,
+    handleIncomingCancelRequest,
+    handleCancelResult,
     handleUserJoined,
     handleUserLeft,
     socketBaseUrl,
@@ -680,6 +830,7 @@ export default function ChatDetailScreen() {
 
       try {
         setLoadError(null);
+        const isAdmin = (userRole ?? "").toUpperCase() === "ADMIN";
         const [messagesResult, conversationResult] = await Promise.allSettled([
           getChatMessages(conversationId, {
             page: 1,
@@ -689,7 +840,7 @@ export default function ChatDetailScreen() {
           }),
           skipConversationMeta
             ? Promise.resolve({ data: { data: null } })
-            : getChatConversation(conversationId),
+            : (isAdmin ? getAdminConversation(conversationId) : getChatConversation(conversationId)),
         ]);
 
         const conversation = conversationResult.status === "fulfilled"
@@ -789,7 +940,7 @@ export default function ChatDetailScreen() {
         }
       }
     },
-    [conversationId, currentUserId, legacyStatusWarning],
+    [conversationId, currentUserId, legacyStatusWarning, userRole],
   );
 
   useEffect(() => {
@@ -874,17 +1025,18 @@ export default function ChatDetailScreen() {
   }, []);
 
   const handleVideoCallPress = useCallback(async () => {
-    if (!partnerCometChatUid) {
-      Alert.alert("Cuộc gọi video", "Không tìm thấy tài khoản CometChat của người còn lại.");
+    if (!callTargetId) {
+      Alert.alert("Cuộc gọi video", "Không tìm thấy thông tin cuộc trò chuyện để gọi.");
       return;
     }
 
     try {
-      await startVideoCall(partnerCometChatUid);
+      await startVideoCall(callTargetId, callReceiverType);
     } catch (err) {
       console.error("Không thể bắt đầu cuộc gọi video", err);
+      Alert.alert("Cuộc gọi video", "Không thể bắt đầu cuộc gọi. Vui lòng thử lại.");
     }
-  }, [partnerCometChatUid, startVideoCall]);
+  }, [callReceiverType, callTargetId, startVideoCall]);
 
   const [isAttachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [messageMenuState, setMessageMenuState] = useState<{
@@ -955,6 +1107,8 @@ export default function ChatDetailScreen() {
       let mediaPayload: { imagePath?: string; videoPath?: string } = {};
       if (attachment) {
         const uploadForm = new FormData();
+        // Backend requires conversationId when uploading media; add it explicitly
+        uploadForm.append("conversationId", conversationId);
         const fieldName = attachment.kind === "video" ? "video" : "image";
         uploadForm.append(
           fieldName,
@@ -1294,6 +1448,18 @@ export default function ChatDetailScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trò chuyện</Text>
           <View style={styles.headerActions}>
+            {canCancelSession ? (
+              <TouchableOpacity
+                onPress={handleRequestCancelSession}
+                style={[styles.headerCancelButton, cancelButtonDisabled && styles.headerCancelButtonDisabled]}
+                disabled={cancelButtonDisabled}
+              >
+                <Ionicons name="close-circle" size={18} color="#b91c1c" />
+                <Text style={styles.headerCancelText}>
+                  {cancelRequestPending ? "Đang chờ..." : "Hủy phiên"}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               onPress={handleVideoCallPress}
               disabled={isCallDisabled}
@@ -1544,8 +1710,9 @@ const styles = StyleSheet.create({
     color: Colors.black,
   },
   headerActions: {
-    width: 48,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   headerIconButton: {
     padding: 6,
@@ -1554,6 +1721,25 @@ const styles = StyleSheet.create({
   },
   headerIconButtonDisabled: {
     opacity: 0.5,
+  },
+  headerCancelButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "#fee2e2",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#fecdd3",
+  },
+  headerCancelButtonDisabled: {
+    opacity: 0.65,
+  },
+  headerCancelText: {
+    color: "#b91c1c",
+    fontWeight: "700",
+    fontSize: 13,
   },
   listContent: {
     paddingHorizontal: 16,

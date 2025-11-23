@@ -1,5 +1,7 @@
+import "@/src/polyfills/native-event-emitter";
 import { CallProvider } from "@/src/contexts/CallContext";
-import { initCometChat, loginCometChatUser } from "@/src/services/cometchat";
+import { initCometChat, loginCometChatUser, validateCometChatEnv } from "@/src/services/cometchat";
+import { runRealtimeSelfCheck } from "@/src/services/diagnostics";
 import messaging from "@react-native-firebase/messaging";
 import * as Device from "expo-device";
 import { useFonts } from "expo-font";
@@ -8,7 +10,8 @@ import * as Notifications from "expo-notifications";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
+import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { theme } from "../constants/theme";
@@ -72,20 +75,45 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    const status = validateCometChatEnv();
+    if (!status.ok) {
+      Alert.alert(
+        "Thiếu cấu hình CometChat",
+        `Cần thêm: ${status.missing.join(", ")}. Vui lòng bổ sung ENV để dùng cuộc gọi.`,
+      );
+    }
+
     initCometChat().catch((error) => {
       console.warn("Unable to init CometChat", error);
     });
+
+    runRealtimeSelfCheck()
+      .then((result) => {
+        if (result.findings.length) {
+          console.warn("[HealthCheck]", result.findings.join(" | "));
+        }
+      })
+      .catch((error) => console.warn("[HealthCheck] failed", error));
   }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const [uid, authToken] = await Promise.all([
-          SecureStore.getItemAsync("cometChatUid"),
-          SecureStore.getItemAsync("authToken"),
-        ]);
+        const authToken = await SecureStore.getItemAsync("authToken");
+        if (!authToken) {
+          return;
+        }
 
-        if (uid && authToken) {
+        const existing = await CometChat.getLoggedinUser();
+        if (existing) {
+          return;
+        }
+
+        const uid =
+          (await SecureStore.getItemAsync("cometChatUid")) ||
+          (await SecureStore.getItemAsync("userId"));
+
+        if (uid) {
           await loginCometChatUser(uid);
         }
       } catch (error) {

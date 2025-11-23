@@ -59,6 +59,11 @@ const updateEnvFile = () => {
     return line;
   });
 
+  // Only add AI base if missing; do NOT override existing user setting
+  if (!lines.some((line) => line.startsWith("EXPO_PUBLIC_AI_BASE_URL="))) {
+    nextLines.push(`EXPO_PUBLIC_AI_BASE_URL=${url(8081)}`);
+  }
+
   keys.forEach((key) => {
     if (!seen.has(key)) {
       nextLines.push(`${key}=${updates[key]}`);

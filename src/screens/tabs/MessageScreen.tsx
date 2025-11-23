@@ -1,7 +1,7 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
 import { resolveSocketUrl } from "@/src/utils/network";
-import { getChatConversations } from "@/src/services/api";
+import { getAdminConversations, getChatConversations } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
 
 type Conversation = {
   id: string;
@@ -174,6 +175,7 @@ export default function MessageScreen() {
   const tabBarHeight = useBottomTabBarHeight();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -268,10 +270,13 @@ export default function MessageScreen() {
     let active = true;
     const loadUserId = async () => {
       try {
-        const storedId = await SecureStore.getItemAsync("userId");
-        if (active) {
-          setCurrentUserId(storedId ?? null);
-        }
+        const [storedId, storedRole] = await Promise.all([
+          SecureStore.getItemAsync("userId"),
+          SecureStore.getItemAsync("userRole"),
+        ]);
+        if (!active) return;
+        setCurrentUserId(storedId ?? null);
+        setUserRole(storedRole ?? null);
       } catch (error) {
         console.error(error);
       }
@@ -288,10 +293,19 @@ export default function MessageScreen() {
     if (!currentUserId || !socketBaseUrl) {
       return;
     }
+    console.log(
+      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketBaseUrl}/chat (user ${currentUserId})`,
+    );
+
     const socket = io(`${socketBaseUrl}/chat`, {
       transports: ["websocket", "polling"],
-      query: { userId: currentUserId },
+      query: { userId: currentUserId, EIO: 3 },
       autoConnect: false,
+      forceNew: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 8000,
     });
     socketRef.current = socket;
 
@@ -380,13 +394,22 @@ export default function MessageScreen() {
           setLoadError(null);
         }
 
-        const response = await getChatConversations({
-          page,
-          limit: resolvedLimit,
-          sortType: "desc",
-          sortBy: "createdAt",
-          ...(statusFilter ? { status: statusFilter } : {}),
-        });
+        // ADMIN: fetch admin conversations instead
+        const isAdmin = (userRole ?? "").toUpperCase() === "ADMIN";
+        const response = isAdmin
+          ? await getAdminConversations({
+              page,
+              limit: resolvedLimit,
+              sortType: "desc",
+              sortBy: "createdAt",
+            })
+          : await getChatConversations({
+              page,
+              limit: resolvedLimit,
+              sortType: "desc",
+              sortBy: "createdAt",
+              ...(statusFilter ? { status: statusFilter } : {}),
+            });
 
         const payload = response?.data?.data;
         const list = Array.isArray(payload) ? payload : [];
@@ -427,7 +450,7 @@ export default function MessageScreen() {
         }
       }
     },
-    [currentUserId, resolvedLimit, selectedStatus],
+    [currentUserId, resolvedLimit, selectedStatus, userRole],
   );
 
   useFocusEffect(
@@ -440,7 +463,7 @@ export default function MessageScreen() {
     if (currentUserId) {
       fetchConversations({ page: 1, silent: true });
     }
-  }, [currentUserId, fetchConversations]);
+  }, [currentUserId, userRole, fetchConversations]);
 
   const visibleConversations = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
