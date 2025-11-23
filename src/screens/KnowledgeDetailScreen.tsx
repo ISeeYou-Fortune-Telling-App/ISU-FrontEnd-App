@@ -93,6 +93,7 @@ export default function KnowledgeDetailScreen() {
     }
 
     return content
+      .replace(/\\n/g, "\n")
       .split(/\n{2,}/)
       .map((paragraph, index) => (
         <Text key={`${item?.id}-paragraph-${index}`} style={styles.articleParagraph}>

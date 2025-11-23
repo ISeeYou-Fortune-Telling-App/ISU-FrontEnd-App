@@ -374,7 +374,7 @@ function StatsRow({ bookingCount, reviewCount, cashCount }: StatProps) {
         <StatCard value={reviewCount} label="Bình luận" color={Colors.yellow} />
       </View>
       <View style={[styles.statCard, styles.cardShadow]}>
-        <Text style={[styles.statValue, { color: Colors.lightGreen }]}>{Intl.NumberFormat('vi-VN').format(cashCount)} ₫</Text>
+        <Text style={[styles.statValue, { color: Colors.lightGreen }]}>{cashCount.toLocaleString()} ₫</Text>
         <Text style={styles.statLabel}>Tổng chi tiêu</Text>
       </View>
       <View style={{ height: 10 }} />
@@ -568,11 +568,11 @@ function SeerPerformanceCard({ data, loading }: { data: any | null, loading: boo
 
         <View style={{ marginTop: 12, flexDirection: 'column', justifyContent: 'space-between' }}>
           <View style={styles.serviceStatBox}>
-            <Text style={[styles.serviceStatValue, { color: Colors.lightGreen, fontSize: 32 }]}>{Intl.NumberFormat('vi-VN').format(totalRevenue)} ₫</Text>
+            <Text style={[styles.serviceStatValue, { color: Colors.lightGreen, fontSize: 32 }]}>{totalRevenue.toLocaleString()} ₫</Text>
             <Text style={styles.serviceStatLabel}>Doanh thu</Text>
           </View>
           <View style={styles.serviceStatBox}>
-            <Text style={[styles.serviceStatValue, { color: Colors.green }]}>{Intl.NumberFormat('vi-VN').format(bonus)}₫</Text>
+            <Text style={[styles.serviceStatValue, { color: Colors.green }]}>{bonus.toLocaleString()}₫</Text>
             <Text style={styles.serviceStatLabel}>Tiền thưởng</Text>
           </View>
         </View>

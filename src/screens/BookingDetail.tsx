@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { cancelBooking, confirmBooking, createChatSessionByBooking, getBookingDetail, submitBookingReview } from "@/src/services/api";
+import { cancelBooking, confirmBooking, createChatSessionByBooking, getBookingDetail, getSeerPerformance, submitBookingReview } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -23,14 +23,35 @@ export default function BookingDetailScreen() {
     const [role, setRole] = useState<string>("");
     const [cancelling, setCancelling] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    const [seer, setSeer] = useState<any>(null);
 
     const fetchBookingDetail = async (bookingId: string) => {
         try {
             setLoading(true);
             const res = await getBookingDetail(bookingId);
             const data = res?.data?.data ?? null;
+            fetchSeerStats(data.seer?.id);
             setBooking(data);
             setReview(data?.review);
+        } catch (err) {
+            console.error("Failed to fetch booking detail", err);
+            Alert.alert("Lỗi", "Không thể tải chi tiết lịch hẹn");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const fetchSeerStats = async (id: string) => {
+        try {
+            const now = new Date();
+            const params = {
+                seerId: id,
+                month: now.getMonth() + 1,
+                year: now.getFullYear()
+            }
+            const res = await getSeerPerformance(params);
+            const data = res?.data?.data ?? null;
+            setSeer(data);
         } catch (err) {
             console.error("Failed to fetch booking detail", err);
             Alert.alert("Lỗi", "Không thể tải chi tiết lịch hẹn");
@@ -253,7 +274,7 @@ export default function BookingDetailScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View style={{flex: 1, marginBottom: 40}}>
+                        <View style={{ flex: 1, marginBottom: 40 }}>
                             {/* Status card */}
                             <View style={styles.statusCard}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -299,7 +320,7 @@ export default function BookingDetailScreen() {
                                         />
                                         <View style={{ marginLeft: 12, flex: 1 }}>
                                             <Text style={{ fontWeight: '700' }}>{booking.seer?.fullName}</Text>
-                                            <Text style={{ marginTop: 6, color: '#f59e0b', fontFamily: "inter" }}>⭐ {booking.seer?.avgRating ?? '-'}</Text>
+                                            <Text style={{ marginTop: 6, color: '#f59e0b', fontFamily: "inter" }}>⭐ {seer?.avgRating ?? '-'}</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -523,7 +544,7 @@ export default function BookingDetailScreen() {
                 <View style={styles.footer} pointerEvents="box-none">
                     <View style={styles.footerInner}>
                         {role === "SEER" && ["PENDING", "CONFIRMED"].includes(booking?.status) &&
-                            <View style={{gap: 3, flexDirection: "row", flex: 1}}>
+                            <View style={{ gap: 3, flexDirection: "row", flex: 1 }}>
                                 <TouchableOpacity style={styles.secondaryButton} onPress={() => { Alert.alert('Thông báo', 'Chức năng đổi lịch chưa sẵn sàng'); }}>
                                     <Text>Đổi lịch</Text>
                                 </TouchableOpacity>

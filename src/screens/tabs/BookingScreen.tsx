@@ -107,35 +107,51 @@ export default function BookingScreen() {
     });
   }, [allBookings, selectedDate]);
 
-  const markedDates = useMemo(() => {
+const markedDates = useMemo(() => {
     const upcomingStatuses: BookingStatus[] = ["PENDING", "CONFIRMED"];
     const pastStatuses: BookingStatus[] = ["COMPLETED", "CANCELED", "FAILED"];
+    
     const datesWithUpcoming = allBookings
       .filter((booking) => upcomingStatuses.includes(booking.status))
       .map((booking) => dayjs(booking.scheduledTime).format("YYYY-MM-DD"))
-      .filter((date, index, self) => self.indexOf(date) === index); // unique dates
+      .filter((date, index, self) => self.indexOf(date) === index);
 
     const datesWithPast = allBookings
       .filter((booking) => pastStatuses.includes(booking.status))
       .map((booking) => dayjs(booking.scheduledTime).format("YYYY-MM-DD"))
-      .filter((date, index, self) => self.indexOf(date) === index); // unique dates
+      .filter((date, index, self) => self.indexOf(date) === index);
 
-    const marked: { [key: string]: { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string } } = {};
+    const marked: { [key: string]: any } = {};
 
-    // Mark upcoming dates with blue dot
+    // 1. Những ngày SẮP TỚI: Nền màu nhạt (#e0e7ff), chữ màu chính
     datesWithUpcoming.forEach((date) => {
-      marked[date] = { marked: true, dotColor: Colors.primary };
+      marked[date] = { 
+        selected: true, 
+        selectedColor: '#e0e7ff', // Màu nhạt (tương tự badge CONFIRMED)
+        selectedTextColor: Colors.primary 
+      };
     });
 
-    // Mark past dates with gray dot, but only if not already marked as upcoming
+    // 2. Những ngày ĐÃ QUA: Nền màu xám nhạt, chữ xám
     datesWithPast.forEach((date) => {
       if (!marked[date]) {
-        marked[date] = { marked: true, dotColor: '#9CA3AF' };
+        marked[date] = { 
+          selected: true, 
+          selectedColor: '#f3f4f6', // Màu xám nhạt
+          selectedTextColor: Colors.gray
+        };
       }
     });
 
-    // Handle selected date
-    marked[selectedDate] = { ...marked[selectedDate], selected: true, selectedColor: Colors.primary };
+    // 3. Ngày ĐANG CHỌN (Click vào): Nền màu đậm (Primary), chữ trắng
+    // Cái này sẽ ghi đè (override) style nếu ngày đó trùng với ngày có lịch
+    marked[selectedDate] = { 
+      ...marked[selectedDate], // Giữ lại các tính chất khác nếu cần
+      selected: true, 
+      selectedColor: Colors.primary, // Màu đậm
+      selectedTextColor: 'white' 
+    };
+
     return marked;
   }, [allBookings, selectedDate]);
 

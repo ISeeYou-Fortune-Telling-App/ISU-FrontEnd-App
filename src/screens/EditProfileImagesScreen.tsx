@@ -1,8 +1,7 @@
 import Colors from "@/src/constants/colors";
-// Giả sử uploadAvatar và uploadCover được export từ file api như bạn mô tả
 import { getProfile, uploadAvatar, uploadCover } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker"; // Cần cài: npx expo install expo-image-picker
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -21,15 +20,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function EditProfileImagesScreen() {
     const [loading, setLoading] = useState(false);
     
-    // State dữ liệu từ server
     const [avatarUrl, setAvatarUrl] = useState<string>("");
     const [coverUrl, setCoverUrl] = useState<string>("");
 
-    // State dữ liệu ảnh mới chọn từ máy (local)
     const [newAvatar, setNewAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [newCover, setNewCover] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
-    // State xử lý lỗi hiển thị ảnh
     const [avatarError, setAvatarError] = useState(false);
     const [coverError, setCoverError] = useState(false);
 
@@ -92,12 +88,10 @@ export default function EditProfileImagesScreen() {
                     setLoading(true);
                     try {
                         const promises = [];
-
-                        // Upload Avatar nếu có chọn mới
                         if (newAvatar) {
                             const formData = new FormData();
                             // @ts-ignore: React Native FormData specific handling
-                            formData.append("file", {
+                            formData.append("avatar", {
                                 uri: newAvatar.uri,
                                 name: newAvatar.fileName || `avatar_${Date.now()}.jpg`,
                                 type: newAvatar.mimeType || "image/jpeg",
@@ -105,11 +99,10 @@ export default function EditProfileImagesScreen() {
                             promises.push(uploadAvatar(formData));
                         }
 
-                        // Upload Cover nếu có chọn mới
                         if (newCover) {
                             const formData = new FormData();
                             // @ts-ignore
-                            formData.append("file", {
+                            formData.append("cover", {
                                 uri: newCover.uri,
                                 name: newCover.fileName || `cover_${Date.now()}.jpg`,
                                 type: newCover.mimeType || "image/jpeg",
@@ -169,11 +162,10 @@ export default function EditProfileImagesScreen() {
                             <TouchableOpacity onPress={() => pickImage("avatar")}>
                                 <Image
                                     source={
-                                        // Ưu tiên: Ảnh mới chọn -> Ảnh server (nếu ko lỗi) -> Placeholder
                                         newAvatar 
                                             ? { uri: newAvatar.uri }
                                             : (avatarError || !avatarUrl)
-                                                ? require("@/assets/images/user-placeholder.png") // Placeholder Avatar
+                                                ? require("@/assets/images/user-placeholder.png") 
                                                 : { uri: avatarUrl }
                                     }
                                     style={styles.avatarImage}
@@ -196,11 +188,10 @@ export default function EditProfileImagesScreen() {
                         >
                             <Image
                                 source={
-                                    // Ưu tiên: Ảnh mới chọn -> Ảnh server (nếu ko lỗi) -> Placeholder
                                     newCover
                                         ? { uri: newCover.uri }
                                         : (coverError || !coverUrl)
-                                            ? require("@/assets/images/placeholder.png") // Placeholder Cover
+                                            ? require("@/assets/images/placeholder.png") 
                                             : { uri: coverUrl }
                                 }
                                 style={styles.coverImage}
