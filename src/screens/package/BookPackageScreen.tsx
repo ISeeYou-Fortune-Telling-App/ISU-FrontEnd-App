@@ -1,17 +1,20 @@
 import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
-import { createBooking } from "@/src/services/api.js";
+import { createBooking, getServicePackageDetail } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+//title, , price, duration, seer, avatarUrl
 export default function BookPackageScreen() {
-  const { id, title, rating, price, duration, seer, avatarUrl } = useLocalSearchParams();
+  const { id, rating } = useLocalSearchParams();
+  const [pkg, setPkg] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const { content } = useLocalSearchParams<{ content: string }>();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<string>("");
@@ -30,6 +33,25 @@ export default function BookPackageScreen() {
   const [success, setSuccess] = useState(false);
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await getServicePackageDetail(id);
+      setPkg(res.data?.data);
+    }
+    catch (err) {
+      setError(true);
+      console.error(`Error fetching details for package ${id}:`, err);
+    }
+    finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if(id) fetchData();
+  }, []);
 
   // Handle navigation when user returns from PayPal without completing payment
   useFocusEffect(
@@ -222,164 +244,197 @@ export default function BookPackageScreen() {
           <View style={styles.header}>
             <MaterialIcons name="arrow-back" size={28} color="black" onPress={() => router.back()} />
             <View style={styles.titleContainer}>
-            <Text variant="titleLarge" style={styles.title}>Đặt gói</Text>
-          </View>
-          <View style={{ width: 28 }} />
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-          {/* Package summary card */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Thông tin thầy bói</Text>
-            <View style={styles.rowCenter}>
-              <Image
-                source={
-                  avatarError || !avatarUrl
-                    ? require('@/assets/images/user-placeholder.png')
-                    : { uri: avatarUrl }
-                }
-                style={styles.avatarSmall}
-                onError={(e) => {
-                  console.log('Avatar image failed to load:', e.nativeEvent);
-                  setAvatarError(true);
-                }}
-              />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.seerNameCard}>{seer ?? 'Không Tên'}</Text>
-                <Text style={styles.rating}>⭐ {rating ?? '0.0'}</Text>
-              </View>
+              <Text variant="titleLarge" style={styles.title}>Đặt gói</Text>
             </View>
+            <View style={{ width: 28 }} />
           </View>
 
-          {/* Package detail card */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Chi tiết gói</Text>
-            <Text style={styles.packageTitleCard}>{title}</Text>
-            <Text style={styles.packageContentCard}>{content?.replace(/\\n/g, "\n")}</Text>
+          {error && <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <Text style={styles.errorText}>Lỗi khi lấy chi tiết gói</Text>
+            <Button mode="contained" style={styles.retryButton} onPress={fetchData}>
+              Thử lại
+            </Button>
+          </View>}
 
-            <TouchableOpacity style={styles.categoryChip}>
-              <Text style={styles.categoryChipText}>Cung Hoàng Đạo</Text>
-            </TouchableOpacity>
-
-            <View style={styles.infoRowBox}>
-              <View style={styles.infoBox}>
-                <Text style={styles.infoLabel}>Giá tiền</Text>
-                <Text style={styles.infoValue}>{price ?? '0.000 VNĐ'}</Text>
+          {loading ? <View style={{ flex: 1, justifyContent: "center" }}>
+            <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, alignContent: "center" }} />
+          </View> :
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+              {/* Package summary card */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Thông tin thầy bói</Text>
+                <View style={styles.rowCenter}>
+                  <Image
+                    source={
+                      avatarError || !pkg.seer.avatarUrl
+                        ? require('@/assets/images/user-placeholder.png')
+                        : { uri: pkg.seer.avatarUrl }
+                    }
+                    style={styles.avatarSmall}
+                    onError={(e) => {
+                      console.log('Avatar image failed to load:', e.nativeEvent);
+                      setAvatarError(true);
+                    }}
+                  />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.seerNameCard}>{pkg.seer.fullName ?? 'Không Tên'}</Text>
+                    <Text style={styles.rating}>⭐ {rating ?? '0.0'}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.infoBox}>
-                <Text style={styles.infoLabel}>Thời lượng</Text>
-                <Text style={styles.infoValue}>{duration ?? '0 phút'}</Text>
+
+              {/* Package detail card */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Chi tiết gói</Text>
+                <Text style={styles.packageTitleCard}>{pkg.packageTitle}</Text>
+                <Text style={styles.packageContentCard}>{content?.replace(/\\n/g, "\n")}</Text>
+
+                {pkg.categories && <View style={styles.categoryChipsRow}>
+                  {pkg.categories.map((c: any) => {
+                    const key = getCategoryKeyFromName(c.name || c);
+                    const col = (Colors.categoryColors as any)[key] || (Colors.categoryColors as any).other;
+                    return (
+                      <View key={c.id || c} style={[styles.chip, { backgroundColor: col.chip }]}>
+                        <Text style={[styles.chipText, { color: col.icon }]} numberOfLines={1}>{c.name || c}</Text>
+                      </View>
+                    );
+                  })}
+                </View>}
+
+                <View style={styles.infoRowBox}>
+                  <View style={styles.infoBox}>
+                    <Text style={styles.infoLabel}>Giá tiền</Text>
+                    <Text style={styles.infoValue}>{pkg.price.toLocaleString() ?? '0.000'} VNĐ</Text>
+                  </View>
+                  <View style={styles.infoBox}>
+                    <Text style={styles.infoLabel}>Thời lượng</Text>
+                    <Text style={styles.infoValue}>{pkg.durationMinutes ?? '0'} phút</Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
 
-          {/* Booking inputs */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Ngày hẹn</Text>
-            <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-              <TextInput
-                label="Nhập ngày hẹn gặp"
-                mode="outlined"
-                value={scheduledDate}
-                editable={false}
-                right={<TextInput.Icon icon="calendar" />}
-                style={styles.input}
-              />
-            </TouchableOpacity>
-            <DateTimePickerModal
-              isVisible={showDatePicker}
-              mode="date"
-              minimumDate={new Date()}
-              onConfirm={handleConfirmDate}
-              onCancel={() => setShowDatePicker(false)}
-            />
-
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Giờ hẹn</Text>
-            <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-              <TextInput
-                label="Nhập giờ cụ thể"
-                mode="outlined"
-                value={scheduledTime}
-                editable={false}
-                right={<TextInput.Icon icon="clock" onPress={() => setShowTimePicker(true)} />}
-                style={styles.input}
-              />
-            </TouchableOpacity>
-            <DateTimePickerModal
-              isVisible={showTimePicker}
-              mode="time"
-              onConfirm={handleConfirmTime}
-              onCancel={() => setShowTimePicker(false)}
-            />
-
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phương thức trả tiền</Text>
-            <Menu
-              visible={menuVisible}
-              onDismiss={closeMenu}
-              anchor={
-                <TextInput
-                  label="Chọn phương thức"
-                  mode="outlined"
-                  style={styles.input}
-                  value={paymentMethod}
-                  editable={false}
-                  right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+              {/* Booking inputs */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Ngày hẹn</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                  <TextInput
+                    label="Nhập ngày hẹn gặp"
+                    mode="outlined"
+                    value={scheduledDate}
+                    editable={false}
+                    right={<TextInput.Icon icon="calendar" />}
+                    style={styles.input}
+                  />
+                </TouchableOpacity>
+                <DateTimePickerModal
+                  isVisible={showDatePicker}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onConfirm={handleConfirmDate}
+                  onCancel={() => setShowDatePicker(false)}
                 />
-              }>
-              <Menu.Item onPress={() => { setPaymentMethod("PayPal"); closeMenu(); }} title="PayPal" />
-              <Menu.Item onPress={() => { setPaymentMethod("VNPay"); closeMenu(); }} title="VNPay" />
-            </Menu>
 
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ghi chú</Text>
-            <TextInput
-              label="Ghi chú (tuỳ chọn)"
-              mode="outlined"
-              value={note}
-              onChangeText={setNote}
-              style={styles.input}
-              multiline
-            />
+                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Giờ hẹn</Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)}>
+                  <TextInput
+                    label="Nhập giờ cụ thể"
+                    mode="outlined"
+                    value={scheduledTime}
+                    editable={false}
+                    right={<TextInput.Icon icon="clock" onPress={() => setShowTimePicker(true)} />}
+                    style={styles.input}
+                  />
+                </TouchableOpacity>
+                <DateTimePickerModal
+                  isVisible={showTimePicker}
+                  mode="time"
+                  onConfirm={handleConfirmTime}
+                  onCancel={() => setShowTimePicker(false)}
+                />
+
+                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phương thức trả tiền</Text>
+                <Menu
+                  visible={menuVisible}
+                  onDismiss={closeMenu}
+                  anchor={
+                    <TextInput
+                      label="Chọn phương thức"
+                      mode="outlined"
+                      style={styles.input}
+                      value={paymentMethod}
+                      editable={false}
+                      right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
+                    />
+                  }>
+                  <Menu.Item onPress={() => { setPaymentMethod("PayPal"); closeMenu(); }} title="PayPal" />
+                  <Menu.Item onPress={() => { setPaymentMethod("VNPay"); closeMenu(); }} title="VNPay" />
+                </Menu>
+
+                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ghi chú</Text>
+                <TextInput
+                  label="Ghi chú (tuỳ chọn)"
+                  mode="outlined"
+                  value={note}
+                  onChangeText={setNote}
+                  style={styles.input}
+                  multiline
+                />
+              </View>
+
+            </ScrollView>}
+
+          {/* Sticky footer booking button */}
+          <View style={styles.footer} pointerEvents="box-none">
+            <Button
+              mode="contained"
+              onPress={handleBook}
+              loading={submitting}
+              style={styles.bookButton}
+              contentStyle={{ height: 48 }}
+              disabled={loading}
+            >
+              Đặt lịch
+            </Button>
           </View>
 
-        </ScrollView>
+          <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)}>{snackbarMsg}</Snackbar>
+        </KeyboardAvoidingView>
 
-        {/* Sticky footer booking button */}
-        <View style={styles.footer} pointerEvents="box-none">
-          <Button
-            mode="contained"
-            onPress={handleBook}
-            loading={submitting}
-            style={styles.bookButton}
-            contentStyle={{ height: 48 }}
-          >
-            Đặt lịch
-          </Button>
-        </View>
+        {/* ⏳ Blocking modal with spinner or success animation */}
+        <Modal visible={submitting} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            {!success ? (
+              <View style={styles.modalBox}>
+                <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                <Text style={styles.modalText}>Đang đặt lịch...</Text>
+              </View>
+            ) : (
+              <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
+                <MaterialIcons name="check-circle" size={70} color="#16a34a" />
+                <Text style={styles.successText}>Đặt lịch thành công!</Text>
+              </Animated.View>
+            )}
+          </View>
+        </Modal>
 
-        <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)}>{snackbarMsg}</Snackbar>
-      </KeyboardAvoidingView>
-
-      {/* ⏳ Blocking modal with spinner or success animation */}
-      <Modal visible={submitting} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          {!success ? (
-            <View style={styles.modalBox}>
-              <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
-              <Text style={styles.modalText}>Đang đặt lịch...</Text>
-            </View>
-          ) : (
-            <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
-              <MaterialIcons name="check-circle" size={70} color="#16a34a" />
-              <Text style={styles.successText}>Đặt lịch thành công!</Text>
-            </Animated.View>
-          )}
-        </View>
-      </Modal>
-
-    </SafeAreaView>
+      </SafeAreaView>
     </PaperProvider>
   );
 }
+
+const getCategoryKeyFromName = (name: string) => {
+  if (!name) return "other";
+  const n = name.toLowerCase();
+  if (n.includes("tarot")) return "tarot";
+  if (n.includes("cung") || n.includes("đạo") || n.includes("hoàng")) return "zodiac";
+  if (n.includes("chỉ tay")) return "palmistry";
+  if (n.includes("phong")) return "fengshui";
+  if (n.includes("tử vi")) return "horoscope";
+  if (n.includes("bói") || n.includes("bài") || n.includes("card")) return "card";
+  if (n.includes("nhân") || n.includes("tướng")) return "physiognomy";
+  if (n.includes("ngũ") || n.includes("hành")) return "elements";
+  return "other";
+};
 
 const styles = StyleSheet.create({
   safeAreaView: {
@@ -408,7 +463,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 8,
-    fontFamily: 'Inter'
+    fontFamily: 'inter'
   },
   rowCenter: {
     flexDirection: 'row',
@@ -436,7 +491,8 @@ const styles = StyleSheet.create({
   },
   packageContentCard: {
     marginTop: 8,
-    color: '#374151'
+    color: '#374151',
+    fontFamily: "inter"
   },
   categoryChip: {
     alignSelf: 'flex-start',
@@ -464,7 +520,8 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#6B7280'
+    color: '#6B7280',
+    fontFamily: "inter"
   },
   infoValue: {
     marginTop: 6,
@@ -472,7 +529,7 @@ const styles = StyleSheet.create({
     color: '#10B981'
   },
   input: {
-    marginTop: 8
+
   },
   titleContainer: {
     flex: 1,
@@ -531,5 +588,21 @@ const styles = StyleSheet.create({
     color: "#16a34a",
     fontWeight: "bold",
     fontSize: 18,
+  },
+  categoryChipsRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
+  chip: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, marginRight: 6, maxWidth: 140 },
+  chipText: { fontSize: 12, fontFamily: "inter" },
+  overflowChip: { backgroundColor: "#e5e7eb" },
+  errorText: {
+    fontSize: 16,
+    color: "red",
+    textAlign: "center",
+    paddingHorizontal: 24,
+    marginBottom: 16,
+    fontFamily: "Inter",
+  },
+  retryButton: {
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
   },
 })

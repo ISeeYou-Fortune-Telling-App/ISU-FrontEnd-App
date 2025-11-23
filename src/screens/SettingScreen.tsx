@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { logoutCometChatUser } from "../services/cometchat";
 
 type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMAGE" | "MANAGE_CERTIFICATE";
 
@@ -46,12 +47,12 @@ export default function SettingScreen() {
                             onPress: async () => {
                                 const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
                                 await logoutUser(fcmToken);
-                                //await logoutCometChatUser();
+                                await logoutCometChatUser();
                                 await SecureStore.deleteItemAsync("authToken");
                                 await SecureStore.deleteItemAsync("refreshToken");
                                 await SecureStore.deleteItemAsync("userRole");
                                 await SecureStore.deleteItemAsync("userId");
-                                //await SecureStore.deleteItemAsync("cometChatUid");
+                                await SecureStore.deleteItemAsync("cometChatUid");
                                 router.dismissAll();
                                 router.replace("/auth");
                             },

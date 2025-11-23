@@ -9,6 +9,7 @@ import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Sty
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { loginCometChatUser } from "../services/cometchat";
 
 const isValidMonthDay = (month: number, day: number): boolean => {
     if (month < 1 || month > 12 || day < 1) {
@@ -163,8 +164,7 @@ export default function AuthScreen() {
 
         try {
             setSubmitting(true);
-            const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
-            console.log('Uploaded FCM Token: ', fcmToken);
+            const fcmToken = await SecureStore.getItemAsync("fcmToken");
             const response = await loginUser({ email, password, fcmToken });
             const payload = response?.data?.data;
 
@@ -184,22 +184,22 @@ export default function AuthScreen() {
             if (payload.userId) {
                 await SecureStore.setItemAsync("userId", payload.userId);
             }
-            // const cometChatUid =
-            //     payload?.cometChatUid ||
-            //     payload?.cometchatUid ||
-            //     payload?.comet_chat_uid ||
-            //     payload?.comet_uid ||
-            //     null;
+            const cometChatUid =
+                payload?.cometChatUid ||
+                payload?.cometchatUid ||
+                payload?.comet_chat_uid ||
+                payload?.comet_uid ||
+                null;
 
-            // if (cometChatUid) {
-            //     await SecureStore.setItemAsync("cometChatUid", cometChatUid);
-            //     loginCometChatUser(cometChatUid).catch((error) => {
-            //         console.warn("Không thể đăng nhập CometChat", error);
-            //     });
-            // } else {
-            //     await SecureStore.deleteItemAsync("cometChatUid");
-            //     console.warn("Login payload missing CometChat UID");
-            // }
+            if (cometChatUid) {
+                await SecureStore.setItemAsync("cometChatUid", cometChatUid);
+                loginCometChatUser(cometChatUid).catch((error) => {
+                    console.warn("Không thể đăng nhập CometChat", error);
+                });
+            } else {
+                await SecureStore.deleteItemAsync("cometChatUid");
+                console.warn("Login payload missing CometChat UID");
+            }
 
             try {
                 if (rememberMe) {

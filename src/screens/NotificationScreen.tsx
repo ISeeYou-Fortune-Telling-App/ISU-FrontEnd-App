@@ -145,12 +145,14 @@ export default function NotificationScreen() {
 
 function NotificationItem({ notif, markNotifAsRead, deleteNotif, setNotifications }: { notif: any; markNotifAsRead: (id: string) => Promise<void>; deleteNotif: (id: string) => Promise<void>; setNotifications: React.Dispatch<React.SetStateAction<any[]>> }) {
   const [avatarError, setAvatarError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const handlePress = async () => {
     if (!notif.read) {
       await markNotifAsRead(notif.id);
       setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
-    }
+    };
+    setExpanded(!expanded);
   };
 
   const handleDeleteNotif = () => {
@@ -205,17 +207,21 @@ function NotificationItem({ notif, markNotifAsRead, deleteNotif, setNotification
       />
       <View style={{ width: "75%", marginLeft: 10 }}>
         <Text style={{ fontWeight: notif.read ? "normal" : "bold" }}>{notif.notificationTitle}</Text>
-        <Text style={{ fontFamily: "inter", fontSize: 13 }}>{notif.notificationBody}</Text>
+        <Text style={{ fontFamily: "inter", fontSize: 13 }} numberOfLines={expanded ? undefined : 3}>{notif.notificationBody}</Text>
         <View style={{ flexDirection: "row", marginTop: 5 }}>
+
           <View style={{ flexDirection: "row" }}>
             <Calendar size={15} color={Colors.gray} />
             <Text style={styles.timeText}>{dateStr}</Text>
           </View>
+
           <View style={{ width: 28 }} />
+
           <View style={{ flexDirection: "row" }}>
             <Clock size={15} color={Colors.gray} />
             <Text style={styles.timeText}>{timeStr}</Text>
           </View>
+
         </View>
       </View>
       {!notif.read && (

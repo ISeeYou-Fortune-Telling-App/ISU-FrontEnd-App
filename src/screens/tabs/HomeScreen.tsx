@@ -7,7 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Button, SegmentedButtons } from "react-native-paper";
+import { Button, SegmentedButtons, Switch } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const demoServicePackages = [
@@ -56,7 +56,6 @@ export default function HomeScreen() {
   const [role, setRole] = useState<string>("CUSTOMER");
 
   const [error, setError] = useState<string | null>(null);
-  const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -66,6 +65,7 @@ export default function HomeScreen() {
   const [categories, setCategories] = useState<Array<{ id: string, name: string, description: string }>>([]);
   const [selectedCategory, setSelectedCategory] = useState<{ id: string, name: string, description: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [onlyShowAvailable, setOnlyShowAvailable] = useState(false);
 
   const fetchServicePackages = useCallback(async (page: number = 1, filterCategoryId?: string) => {
     if (page === 1) {
@@ -117,6 +117,7 @@ export default function HomeScreen() {
         packageCategoryIds: filterCategoryId ? [filterCategoryId] : (searchParamsRef.current?.packageCategoryIds ? (Array.isArray(searchParamsRef.current.packageCategoryIds) ? searchParamsRef.current.packageCategoryIds : [searchParamsRef.current.packageCategoryIds]) : undefined),
         seerSpecialityIds: searchParamsRef.current?.seerSpecialityIds ? (Array.isArray(searchParamsRef.current.seerSpecialityIds) ? searchParamsRef.current.seerSpecialityIds : [searchParamsRef.current.seerSpecialityIds]) : undefined,
         status: searchParamsRef.current?.status as string || "AVAILABLE",
+        onlyAvailable: onlyShowAvailable
       };
 
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
@@ -194,7 +195,7 @@ export default function HomeScreen() {
     } finally {
       if (page === 1) setLoading(false); else setLoadingMore(false);
     }
-  }, [router]); // <- removed `categories` from dependency list
+  }, [router, onlyShowAvailable]); // <- removed `categories` from dependency list
 
   const fetchSeers = useCallback(async (page: number = 1) => {
     if (page === 1) {
@@ -353,6 +354,12 @@ export default function HomeScreen() {
     }
   }, [searchType, activePage, fetchServicePackages, fetchSeers]);
 
+  useEffect(() => {
+    if (searchType === "packages") {
+      fetchServicePackages(currentPage, selectedCategory?.id);
+    }
+  }, [onlyShowAvailable]);
+
   const handleLike = async (packageId: string) => {
     if (likeInFlight[packageId]) return; // prevent double taps
     try {
@@ -486,11 +493,17 @@ export default function HomeScreen() {
             <View style={{ width: 34 }} />
             <Text style={[styles.servicesTitle, { marginBottom: 0 }]}>Kết quả tìm kiếm</Text>
             <TouchableOpacity style={styles.iconButton} onPress={() => {
-              setLoading(true);
+              searchParamsRef.current = {};
+
+              setActivePage("home");
+              setSearchType("packages");
+              setOnlyShowAvailable(false); // Reset luôn switch nếu cần
+
               router.replace({
                 pathname: '/(tabs)/home', params: {}
               });
-              setLoading(false);
+
+              fetchServicePackages(1);
             }}>
               <X size={22} color={Colors.primary} />
             </TouchableOpacity>
@@ -543,13 +556,6 @@ export default function HomeScreen() {
           ) : (
             <ServicePackageCard
               servicePackage={item}
-              expanded={Boolean(expandedPackages[item.id])}
-              onToggle={() =>
-                setExpandedPackages((prev) => ({
-                  ...prev,
-                  [item.id]: !prev[item.id],
-                }))
-              }
               onLike={handleLike}
               onDislike={handleDislike}
               isLiking={Boolean(likeInFlight[item.id])}
@@ -570,6 +576,10 @@ export default function HomeScreen() {
             <View style={styles.loadingMoreContainer}>
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
+            </View>
+          ) : servicePackages.length > 0 ? (
+            <View style={styles.loadingMoreContainer}>
+              <Text style={styles.loadingMoreText}>Không có thêm gói nữa.</Text>
             </View>
           ) : null
         }
@@ -599,6 +609,17 @@ export default function HomeScreen() {
                   onPress={() => router.push("/create-package")}>
                   Tạo gói dịch vụ mới
                 </Button>
+              </View>
+            }
+
+            {role === "CUSTOMER" &&
+              <View style={[styles.servicesContainer, { flexDirection: "row", justifyContent: "space-between" }, styles.cardShadow]}>
+                <Text style={styles.text}>Chỉ show các gói có thể đặt ngay lúc này: </Text>
+                <Switch
+                  value={onlyShowAvailable}
+                  onValueChange={setOnlyShowAvailable}
+                  thumbColor={onlyShowAvailable ? Colors.primary : Colors.grayBackground}
+                />
               </View>
             }
 
@@ -666,8 +687,6 @@ const popularServices = [
 
 type ServicePackageCardProps = {
   servicePackage: any;
-  expanded: boolean;
-  onToggle: () => void;
   onLike?: (id: string) => void;
   onDislike?: (id: string) => void;
   isLiking?: boolean;
@@ -677,11 +696,12 @@ type ServicePackageCardProps = {
   isDislike: boolean;
 };
 
-const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDislike, onBooking, userRole, isLike, isDislike }: ServicePackageCardProps) => {
+const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, userRole, isLike, isDislike }: ServicePackageCardProps) => {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [int, setInt] = useState(isLike ? "LIKE" : isDislike ? "DISLIKE" : "");
+  const [expanded, setExpanded] = useState(false);
 
   function handleInteraction(interactionType: string) {
     if (interactionType === "LIKE") {
@@ -701,7 +721,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
   }
 
   return (
-    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85} onPress={onToggle}>
+    <TouchableOpacity style={styles.packageCard} activeOpacity={0.85}>
       {/* --- HEADER --- */}
       <View style={styles.packageHeader}>
         <Image
@@ -763,7 +783,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
 
       {/* --- CONTENT --- */}
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-      <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3}>
+      <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3} onPress={() => setExpanded(!expanded)}>
         {servicePackage.content?.replace(/\\n/g, "\n")}
       </Text>
 

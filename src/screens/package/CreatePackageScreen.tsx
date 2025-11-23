@@ -326,7 +326,7 @@ export default function CreatePackageScreen() {
                 const digits = text.replace(/\D/g, "");
                 setPriceRaw(digits);
                 if (!digits) setPrice("");
-                else setPrice(Number(digits).toLocaleString("vi-VN"));
+                else setPrice(Number(digits).toLocaleString());
               }}
               keyboardType="numeric"
               maxLength={11}

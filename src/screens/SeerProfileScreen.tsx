@@ -71,14 +71,15 @@ export default function SeerProfileScreen() {
         }
 
         try {
-            const res = await getServicePackages({
+            const params: any = {
                 page,
                 limit: pageSize,
                 seerId: id,
                 sortType: "desc",
                 sortBy: "createdAt",
                 status: "AVAILABLE",
-            });
+            };
+            const res = await getServicePackages(params);
 
             if (res.data && res.data.data) {
                 const rawPackages = res.data.data;
@@ -93,7 +94,7 @@ export default function SeerProfileScreen() {
                             return {
                                 id: detail.packageId,
                                 seer: detail.seer.fullName,
-                                rating: detail.seer.avgRating,
+                                rating: p.seer.avgRating,
                                 time: new Date(detail.createdAt).toLocaleDateString(),
                                 categories: p.categories || [],
                                 categoryDisplays: (p.categories || []).map((cat: any) => ({
@@ -718,12 +719,12 @@ const styles = StyleSheet.create({
     avatar: { width: 120, height: 120, borderRadius: 9999, backgroundColor: '#ddd', borderWidth: 2, borderColor: Colors.primary },
     avatarSmall: { width: 50, height: 50, borderRadius: 50, backgroundColor: '#ddd', borderWidth: 2, borderColor: Colors.grayBackground },
     name: { marginTop: 12, fontSize: 20, fontWeight: '700' },
-    rating: { color: Colors.primary, fontSize: 16, marginTop: 4 },
-    profileDescription: { color: 'gray', fontSize: 14, textAlign: 'center', marginTop: 8 },
+    rating: { color: Colors.primary, fontSize: 16, marginTop: 4, fontFamily: "inter" },
+    profileDescription: { color: 'gray', fontFamily: "inter", textAlign: 'center', marginTop: 8 },
     statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16, marginBottom: 8 },
     statItem: { alignItems: 'center', flex: 1 },
     statValue: { fontWeight: '700', fontSize: 16, color: Colors.primary },
-    statLabel: { color: 'gray', fontSize: 12, marginTop: 2 },
+    statLabel: { color: 'gray', fontSize: 12, marginTop: 2, fontFamily: "inter" },
     emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: 'gray' },
     packageCard: {
         backgroundColor: Colors.white,
