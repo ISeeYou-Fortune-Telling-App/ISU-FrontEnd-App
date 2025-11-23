@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type KnowledgeItemDetail = {
@@ -43,8 +44,7 @@ export default function KnowledgeDetailScreen() {
     setError(null);
     try {
       const response = await getKnowledgeItemDetail(knowledgeId as string);
-      const payload =
-        response?.data?.data ?? response?.data ?? response;
+      const payload = response?.data?.data ?? response?.data ?? response;
 
       if (!payload) {
         throw new Error("Không nhận được dữ liệu.");
@@ -82,25 +82,6 @@ export default function KnowledgeDetailScreen() {
       router.push("/(tabs)/knowledge");
     }
   }, [router]);
-
-  const renderContent = (content: string) => {
-    if (!content) {
-      return (
-        <Text style={styles.emptyContentText}>
-          Nội dung của bài viết đang được cập nhật.
-        </Text>
-      );
-    }
-
-    return content
-      .replace(/\\n/g, "\n")
-      .split(/\n{2,}/)
-      .map((paragraph, index) => (
-        <Text key={`${item?.id}-paragraph-${index}`} style={styles.articleParagraph}>
-          {paragraph.trim()}
-        </Text>
-      ));
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -151,17 +132,83 @@ export default function KnowledgeDetailScreen() {
             />
           ) : null}
 
-          <View style={styles.articleContainer}>{renderContent(item.content)}</View>
+          <View style={styles.articleContainer}>
+            {item.content ? (
+              <Markdown style={markdownStyles}>
+                {item.content.replace(/\\n/g, "\n")}
+              </Markdown>
+            ) : (
+              <Text style={styles.emptyContentText}>
+                Nội dung của bài viết đang được cập nhật.
+              </Text>
+            )}
+          </View>
         </ScrollView>
       ) : (
         <View style={styles.centeredContainer}>
           <Ionicons name="file-tray-outline" size={40} color={Colors.gray} />
-          <Text style={styles.emptyContentText}>Bài viết không tồn tại hoặc đã bị ẩn.</Text>
+          <Text style={styles.emptyContentText}>
+            Bài viết không tồn tại hoặc đã bị ẩn.
+          </Text>
         </View>
       )}
     </SafeAreaView>
   );
 }
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.dark_gray,
+    marginBottom: 10, 
+  },
+  heading1: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: Colors.black,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  heading2: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.black,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  heading3: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.black,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  bullet_list: {
+    marginBottom: 8,
+  },
+  ordered_list: {
+    marginBottom: 8,
+  },
+  list_item: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.dark_gray,
+    marginVertical: 2,
+  },
+  blockquote: {
+    backgroundColor: Colors.grayBackground || "#f5f5f5",
+    padding: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    marginVertical: 8,
+  },
+  code_inline: {
+    backgroundColor: "#eee",
+    fontFamily: "Courier",
+    fontSize: 14,
+  },
+});
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -262,11 +309,7 @@ const styles = StyleSheet.create({
   articleContainer: {
     gap: 12,
   },
-  articleParagraph: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: Colors.dark_gray,
-  },
+  // articleParagraph đã được xóa vì không dùng nữa
   emptyContentText: {
     fontSize: 14,
     color: Colors.gray,
