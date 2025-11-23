@@ -13,11 +13,11 @@ const inferAiBaseFromApiBase = () => {
 
   try {
     const url = new URL(apiBase);
-    const fallbackPort = process.env.EXPO_PUBLIC_AI_BASE_PORT ?? "8081";
-    url.port = fallbackPort;
+    // Force AI calls to hit core backend port 8081 even if API base is gateway 8080
+    url.port = "8081";
     return stripTrailingSlash(url.toString());
   } catch {
-    return null;
+    return stripTrailingSlash(apiBase);
   }
 };
 
@@ -32,7 +32,8 @@ const resolveAiChatBaseUrl = () => {
     return inferred;
   }
 
-  const expoResolved = resolveHostFromExpo(Number(process.env.EXPO_PUBLIC_AI_BASE_PORT) || 8081);
+  // Fall back to the Expo host using the core API port (default 8080).
+  const expoResolved = resolveHostFromExpo(Number(process.env.EXPO_PUBLIC_API_BASE_PORT) || 8081);
   if (expoResolved) {
     return stripTrailingSlash(expoResolved);
   }
@@ -64,15 +65,29 @@ const createFormData = (uri: string, name?: string | null, mimeType?: string | n
   return formData;
 };
 
-export const analyzePalmImage = (uri: string, name?: string | null, mimeType?: string | null) => {
+export const analyzePalmImage = (
+  uri: string,
+  name?: string | null,
+  mimeType?: string | null,
+  selectedOption: number = 1,
+) => {
   const data = createFormData(uri, name, mimeType);
+  data.append("selected_option", String(selectedOption));
+
   return API.post(buildAiChatUrl("/ai-chat/analyze-palm"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
-export const analyzeFaceImage = (uri: string, name?: string | null, mimeType?: string | null) => {
+export const analyzeFaceImage = (
+  uri: string,
+  name?: string | null,
+  mimeType?: string | null,
+  selectedOption: number = 1,
+) => {
   const data = createFormData(uri, name, mimeType);
+  data.append("selected_option", String(selectedOption));
+
   return API.post(buildAiChatUrl("/ai-chat/analyze-face"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -93,6 +108,30 @@ export const chatWithAI = async (payload: Record<string, unknown>) => {
     const fallbackText = await response.text().catch(() => "");
     throw new Error(
       fallbackText?.length ? fallbackText : `AI request failed with status ${response.status}`,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+  return { data };
+};
+
+export const getAiChatHistory = async (page = 1, limit = 20) => {
+  const token = await SecureStore.getItemAsync("authToken");
+  const response = await fetch(
+    buildAiChatUrl(`/ai-chat/my-chat-history?page=${page}&limit=${limit}`),
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const fallbackText = await response.text().catch(() => "");
+    throw new Error(
+      fallbackText?.length ? fallbackText : `AI history failed with status ${response.status}`,
     );
   }
 

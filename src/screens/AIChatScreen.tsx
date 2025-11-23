@@ -1,10 +1,16 @@
 import Colors from "@/src/constants/colors";
-import { analyzeFaceImage, analyzePalmImage, chatWithAI } from "@/src/services/aiChat";
+import {
+  analyzeFaceImage,
+  analyzePalmImage,
+  chatWithAI,
+  getAiChatHistory,
+} from "@/src/services/aiChat";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +27,7 @@ import {
   TouchableWithoutFeedback,
   View,
   Modal,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -130,24 +137,34 @@ const buildKnowledgeReference = (name: string): KnowledgeReference | null => {
   };
 };
 
-const TOP_K_OPTIONS = [5, 20, 40] as const;
-const TOP_K_DESCRIPTIONS: Record<(typeof TOP_K_OPTIONS)[number], string> = {
-  5: "Chuẩn xác",
-  20: "Cân bằng",
-  40: "Sáng tạo",
-};
+const CHAT_OPTIONS = [
+  { value: 1 as const, label: "Nhanh", description: "Ưu tiên tốc độ", etaSeconds: 30 },
+  { value: 2 as const, label: "Cân bằng", description: "Trả lời đầy đủ", etaSeconds: 90 },
+  { value: 3 as const, label: "Chuyên sâu", description: "Đào sâu phân tích", etaSeconds: 240 },
+];
+type ChatOptionValue = (typeof CHAT_OPTIONS)[number]["value"];
 
-const DEFAULT_TOP_K = 20;
+const CHAT_OPTION_MAP = CHAT_OPTIONS.reduce<Record<number, (typeof CHAT_OPTIONS)[number]>>(
+  (acc, curr) => {
+    acc[curr.value] = curr;
+    return acc;
+  },
+  {},
+);
 
-const INITIAL_MESSAGES: AIMessage[] = [
+const DEFAULT_SELECTED_OPTION: ChatOptionValue = 2;
+
+const createInitialMessages = (): AIMessage[] => [
   {
-    id: "intro",
+    id: `intro-${Date.now()}`,
     role: "assistant",
     createdAt: Date.now(),
     content:
       "Xin chào! Mình là Trợ lý AI của I See You. Bạn có thể đặt câu hỏi về cảm xúc, sự nghiệp hoặc những trăn trở hằng ngày, mình sẽ phân tích và phản hồi nhanh nhất có thể.",
   },
 ];
+
+const SESSION_STORAGE_KEY = "aiChat:lastSession";
 
 const stripSseArtifacts = (input: string): string => {
   if (!input) {
@@ -170,6 +187,25 @@ const formatTimestamp = (timestamp: number) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+const formatEtaLabel = (seconds: number) => {
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}p${secs > 0 ? `${secs}s` : ""}`;
+  }
+  return `${seconds}s`;
+};
+
+const formatCountdown = (ms: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes > 0) {
+    return `${minutes}p${seconds.toString().padStart(2, "0")}s`;
+  }
+  return `${seconds}s`;
+};
 
 const normalizeConfidence = (value: any): number | undefined => {
   if (typeof value !== "number" || Number.isNaN(value)) {
@@ -491,17 +527,173 @@ export default function AIChatScreen() {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<AIMessage>>(null);
 
-  const [messages, setMessages] = useState<AIMessage[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<AIMessage[]>(createInitialMessages());
   const [input, setInput] = useState<string>("");
   const [selectedImages, setSelectedImages] = useState<Attachment[]>([]);
-const [isSending, setIsSending] = useState<boolean>(false);
-const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
-  const [topK, setTopK] = useState<(typeof TOP_K_OPTIONS)[number]>(DEFAULT_TOP_K);
-  const [topKPickerVisible, setTopKPickerVisible] = useState<boolean>(false);
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
+  const [selectedOption, setSelectedOption] = useState<ChatOptionValue>(DEFAULT_SELECTED_OPTION);
+  const [optionPickerVisible, setOptionPickerVisible] = useState<boolean>(false);
+  const [countdownDeadline, setCountdownDeadline] = useState<number | null>(null);
+  const [remainingMs, setRemainingMs] = useState<number>(0);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [historyModalVisible, setHistoryModalVisible] = useState<boolean>(false);
+  const [historyItems, setHistoryItems] = useState<AIMessage[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyLoaded, setHistoryLoaded] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [hasLoadedSession, setHasLoadedSession] = useState<boolean>(false);
+
+  const currentOption = useMemo(() => CHAT_OPTION_MAP[selectedOption], [selectedOption]);
+
+  const clearCountdown = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setCountdownDeadline(null);
+    setRemainingMs(0);
+  }, []);
+
+  const startCountdownForOption = useCallback(
+    (optionValue: ChatOptionValue) => {
+      const option = CHAT_OPTION_MAP[optionValue];
+      if (!option) return;
+      const deadline = Date.now() + option.etaSeconds * 1000;
+      setCountdownDeadline(deadline);
+      setRemainingMs(option.etaSeconds * 1000);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!countdownDeadline) {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      return;
+    }
+
+    const tick = () => {
+      const diff = countdownDeadline - Date.now();
+      setRemainingMs(Math.max(diff, 0));
+      if (diff <= 0) {
+        clearCountdown();
+      }
+    };
+
+    tick();
+    countdownRef.current = setInterval(tick, 1000) as any;
+
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+  }, [countdownDeadline, clearCountdown]);
+
+  useEffect(() => {
+    return () => {
+      clearCountdown();
+    };
+  }, [clearCountdown]);
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+        if (!raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      } catch (error) {
+        console.error("Khôi phục phiên AI chat thất bại", error);
+      } finally {
+        setHasLoadedSession(true);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSession) return;
+    AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(messages)).catch((err) =>
+      console.warn("Lưu phiên AI chat thất bại", err),
+    );
+  }, [messages, hasLoadedSession]);
+
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await getAiChatHistory(1, 100);
+      const payload = response?.data?.data ?? response?.data ?? {};
+
+      const items = Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload?.records)
+          ? payload.records
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+      const normalized: AIMessage[] = items
+        .map((item: any, index: number): AIMessage | null => {
+          if (!item) return null;
+          const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+          return {
+            id: `history-${index}-${createdAt}`,
+            role: item.sentByUser ? "user" : "assistant",
+            content: item.textContent ?? item.content ?? "",
+            createdAt,
+            processingTime:
+              typeof item.processingTime === "number" && !Number.isNaN(item.processingTime)
+                ? item.processingTime
+                : undefined,
+          };
+        })
+        .filter((item): item is AIMessage => Boolean(item));
+
+      setHistoryItems(normalized);
+      setHistoryLoaded(true);
+    } catch (error) {
+      console.error("Không thể tải lịch sử AI chat", error);
+      setHistoryError(
+        error?.message ?? "Không thể tải lịch sử trò chuyện. Vui lòng thử lại.",
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    if (historyModalVisible && !historyLoaded && !historyLoading) {
+      fetchHistory();
+    }
+  }, [historyModalVisible, historyLoaded, historyLoading, fetchHistory]);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, []);
+
+  const handleStartNewConversation = useCallback(async () => {
+    setMessages(createInitialMessages());
+    setInput("");
+    setSelectedImages([]);
+    clearCountdown();
+    setIsSending(false);
+    await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => {});
+  }, [clearCountdown]);
 
   const handleReferencePress = useCallback(
     async (reference: KnowledgeReference) => {
@@ -605,6 +797,7 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
     setInput("");
     setSelectedImages([]);
     setIsSending(true);
+    startCountdownForOption(selectedOption);
     scrollToEnd();
 
     const attachmentNotes = attachmentsSnapshot.map((attachment, index) => {
@@ -622,12 +815,27 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
       try {
         const response =
           attachment.analysisType === "palm"
-            ? await analyzePalmImage(attachment.uri, attachment.name, attachment.mimeType)
-            : await analyzeFaceImage(attachment.uri, attachment.name, attachment.mimeType);
+            ? await analyzePalmImage(
+                attachment.uri,
+                attachment.name,
+                attachment.mimeType,
+                selectedOption,
+              )
+            : await analyzeFaceImage(
+                attachment.uri,
+                attachment.name,
+                attachment.mimeType,
+                selectedOption,
+              );
 
         const payload = response?.data?.data ?? response?.data;
         const analysisResult =
-          payload?.analysisResult ?? payload?.answer ?? payload?.result ?? payload?.analysis ?? "";
+          payload?.analysisResult ??
+          payload?.answer ??
+          payload?.result ??
+          payload?.analysis ??
+          payload?.textContent ??
+          "";
 
         if (analysisResult) {
           const label = attachment.analysisType === "palm" ? "lòng bàn tay" : "khuôn mặt";
@@ -677,14 +885,20 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
     try {
       const response = await chatWithAI({
         question: combinedQuestion,
-        topK,
+        selectedOption,
       });
 
       const payloadRoot = response?.data?.data ?? response?.data ?? response;
       const rawAnswer =
         typeof payloadRoot?.answer === "string" && payloadRoot.answer.trim().length > 0
           ? payloadRoot.answer
-          : "";
+          : typeof payloadRoot?.response === "string" && payloadRoot.response.trim().length > 0
+            ? payloadRoot.response
+            : typeof payloadRoot?.result === "string" && payloadRoot.result.trim().length > 0
+              ? payloadRoot.result
+              : typeof payloadRoot?.textContent === "string" && payloadRoot.textContent.trim().length > 0
+                ? payloadRoot.textContent
+                : "";
 
       const parsedFromAnswer = extractKnowledgeReferencesFromAnswer(rawAnswer);
       const normalizedReferences = normalizeReferences(
@@ -725,6 +939,7 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
       };
 
       setMessages((prev) => prev.map((item) => (item.id === assistantId ? aiResponseMessage : item)));
+      clearCountdown();
     } catch (error: any) {
       console.error(error);
       const fallback =
@@ -740,10 +955,11 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
             : item,
         ),
       );
+      clearCountdown();
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, scrollToEnd, selectedImages, topK]);
+  }, [input, isSending, scrollToEnd, selectedImages, selectedOption, startCountdownForOption, clearCountdown]);
 
   const renderMessage = useCallback(
     ({ item }: { item: AIMessage }) => {
@@ -814,6 +1030,23 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
     [handleReferencePress],
   );
 
+  const renderHistoryItem = useCallback(({ item }: { item: AIMessage }) => {
+    const isUser = item.role === "user";
+    return (
+      <View style={styles.historyItem}>
+        <View style={styles.historyItemHeader}>
+          <View style={[styles.historyRolePill, isUser ? styles.historyRoleUser : styles.historyRoleAi]}>
+            <Text style={styles.historyRoleText}>{isUser ? "Bạn" : "AI"}</Text>
+          </View>
+          <Text style={styles.historyTimestamp}>{formatTimestamp(item.createdAt)}</Text>
+        </View>
+        <Text style={styles.historyContent}>
+          {item.content || "—"}
+        </Text>
+      </View>
+    );
+  }, []);
+
   const canSend = useMemo(
     () => input.trim().length > 0 || selectedImages.length > 0,
     [input, selectedImages],
@@ -832,7 +1065,14 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trợ lý AI</Text>
-          <View style={styles.headerPlaceholder} />
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleStartNewConversation} style={styles.headerButton}>
+              <Ionicons name="add-circle-outline" size={22} color={Colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setHistoryModalVisible(true)} style={styles.headerButton}>
+              <Ionicons name="time-outline" size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.headerInfoRow}>
           <View style={styles.aiAvatar}>
@@ -845,16 +1085,23 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
             </Text>
           </View>
         </View>
-        <View style={styles.topKControlRow}>
+        <View style={styles.optionControlRow}>
           <TouchableOpacity
-            style={styles.topKButton}
-            onPress={() => setTopKPickerVisible(true)}
+            style={styles.optionButton}
+            onPress={() => setOptionPickerVisible(true)}
             activeOpacity={0.85}
           >
-            <Ionicons name="options-outline" size={16} color={Colors.primary} />
-            <Text style={styles.topKButtonText}>
-              {`Độ sáng tạo: ${topK} (${TOP_K_DESCRIPTIONS[topK] ?? "Tùy chỉnh"})`}
-            </Text>
+            <Ionicons name="speedometer-outline" size={16} color={Colors.primary} />
+            <View>
+              <Text style={styles.optionButtonText}>
+                {`Chế độ: ${currentOption?.label ?? selectedOption} · ${formatEtaLabel(
+                  currentOption?.etaSeconds ?? 0,
+                )}`}
+              </Text>
+              <Text style={styles.optionButtonSubtext}>
+                {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -877,9 +1124,18 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
               <View style={styles.loadingIndicator}>
                 <ActivityIndicator size="small" color={Colors.primary} />
                 <View>
-                  <Text style={styles.loadingText}>AI đang trả lời...</Text>
+                  <Text style={styles.loadingText}>
+                    {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
+                  </Text>
+                  <Text style={styles.loadingSubtext}>
+                    {remainingMs > 0
+                      ? `Còn ${formatCountdown(remainingMs)} · Chế độ ${
+                          currentOption?.label ?? selectedOption
+                        }`
+                      : "Đang nhận phản hồi..."}
+                  </Text>
                   {isAnalysisPending ? (
-                    <Text style={styles.loadingSubtext}>Hãy chờ từ 1p đến 2p để AI xử lí.</Text>
+                    <Text style={styles.loadingSubtext}>AI đang phân tích ảnh, vui lòng chờ thêm.</Text>
                   ) : null}
                 </View>
               </View>
@@ -942,34 +1198,34 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
       </KeyboardAvoidingView>
 
       <Modal
-        visible={topKPickerVisible}
+        visible={optionPickerVisible}
         animationType="fade"
         transparent
-        onRequestClose={() => setTopKPickerVisible(false)}
+        onRequestClose={() => setOptionPickerVisible(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setTopKPickerVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => setOptionPickerVisible(false)}>
           <View style={styles.modalBackdrop}>
             <TouchableWithoutFeedback onPress={() => {}}>
               <View style={styles.modalCard}>
                 <View style={styles.modalHeader}>
-                  <Ionicons name="options-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.modalTitle}>Chọn độ sáng tạo</Text>
+                  <Ionicons name="speedometer-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.modalTitle}>Chọn chế độ trả lời</Text>
                 </View>
-                {TOP_K_OPTIONS.map((option) => {
-                  const isActive = option === topK;
+                {CHAT_OPTIONS.map((option) => {
+                  const isActive = option.value === selectedOption;
                   return (
                     <TouchableOpacity
-                      key={option}
+                      key={option.value}
                       style={[styles.modalOption, isActive && styles.modalOptionActive]}
                       activeOpacity={0.9}
                       onPress={() => {
-                        setTopK(option);
-                        setTopKPickerVisible(false);
+                        setSelectedOption(option.value);
+                        setOptionPickerVisible(false);
                       }}
                     >
                       <View style={styles.modalOptionInfo}>
                         <Text style={[styles.modalOptionValue, isActive && styles.modalOptionValueActive]}>
-                          {option}
+                          {`${option.label} · ${formatEtaLabel(option.etaSeconds)}`}
                         </Text>
                         <Text
                           style={[
@@ -977,7 +1233,7 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
                             isActive && styles.modalOptionDescriptionActive,
                           ]}
                         >
-                          {TOP_K_DESCRIPTIONS[option]}
+                          {option.description}
                         </Text>
                       </View>
                       {isActive ? (
@@ -988,6 +1244,65 @@ const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal
+        visible={historyModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setHistoryModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setHistoryModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[styles.modalCard, styles.historyCard]}>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="time-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.modalTitle}>Lịch sử trò chuyện</Text>
+                </View>
+
+                <View style={styles.historyScrollWrapper}>
+                  {historyLoading ? (
+                    <View style={styles.historyLoadingRow}>
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                      <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
+                    </View>
+                  ) : historyError ? (
+                    <View style={styles.historyLoadingRow}>
+                      <Ionicons name="warning-outline" size={18} color="#b91c1c" />
+                      <Text style={styles.historyErrorText}>{historyError}</Text>
+                      <TouchableOpacity onPress={fetchHistory}>
+                        <Text style={styles.historyRetry}>Thử lại</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : historyItems.length === 0 ? (
+                    <Text style={styles.historyEmpty}>Chưa có cuộc trò chuyện nào.</Text>
+                  ) : (
+                    <FlatList
+                      style={styles.historyFlatList}
+                      data={historyItems}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderHistoryItem}
+                      contentContainerStyle={styles.historyList}
+                      showsVerticalScrollIndicator
+                      scrollEnabled
+                      nestedScrollEnabled
+                      ListFooterComponent={<View style={{ height: 12 }} />}
+                    />
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.closeHistoryButton}
+                  activeOpacity={0.9}
+                  onPress={() => setHistoryModalVisible(false)}
+                >
+                  <Text style={styles.closeHistoryText}>Đóng</Text>
+                </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1023,6 +1338,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 18,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   headerButton: {
     width: 40,
     height: 40,
@@ -1036,10 +1356,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.white,
     letterSpacing: 0.3,
-  },
-  headerPlaceholder: {
-    width: 40,
-    height: 40,
   },
   headerInfoRow: {
     flexDirection: "row",
@@ -1070,11 +1386,11 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.85)",
     lineHeight: 18,
   },
-  topKControlRow: {
+  optionControlRow: {
     marginTop: 16,
     alignItems: "flex-start",
   },
-  topKButton: {
+  optionButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -1083,10 +1399,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.22)",
   },
-  topKButtonText: {
+  optionButtonText: {
     fontSize: 12,
     fontWeight: "600",
     color: Colors.white,
+  },
+  optionButtonSubtext: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 2,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -1386,5 +1707,95 @@ const styles = StyleSheet.create({
   },
   modalOptionDescriptionActive: {
     color: Colors.primary,
+  },
+  historyCard: {
+    maxHeight: Dimensions.get("window").height * 0.85,
+    width: "92%",
+    alignSelf: "center",
+  },
+  historyLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    flexWrap: "wrap",
+  },
+  historyEmpty: {
+    textAlign: "center",
+    color: Colors.gray,
+    paddingVertical: 12,
+  },
+  historyScrollWrapper: {
+    flex: 1,
+    maxHeight: Dimensions.get("window").height * 0.75,
+    width: "100%",
+    minHeight: 320,
+  },
+  historyFlatList: {
+    flex: 1,
+  },
+  historyErrorText: {
+    color: "#b91c1c",
+    flexShrink: 1,
+  },
+  historyRetry: {
+    color: Colors.primary,
+    fontWeight: "700",
+  },
+  historyList: {
+    gap: 10,
+    paddingVertical: 8,
+  },
+  closeHistoryButton: {
+    marginTop: 8,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+  closeHistoryText: {
+    color: Colors.white,
+    fontWeight: "600",
+  },
+  historyItem: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.borderGray,
+    backgroundColor: "#f8fafc",
+    gap: 8,
+  },
+  historyItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  historyRolePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  historyRoleUser: {
+    backgroundColor: "rgba(24,119,242,0.12)",
+  },
+  historyRoleAi: {
+    backgroundColor: "rgba(16,185,129,0.14)",
+  },
+  historyRoleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark_gray,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  historyTimestamp: {
+    fontSize: 11,
+    color: Colors.gray,
+  },
+  historyContent: {
+    fontSize: 13,
+    color: Colors.dark_gray,
+    lineHeight: 18,
   },
 });

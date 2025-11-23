@@ -10,6 +10,10 @@ import {
   getDefaultCallSettings,
   initCometChat,
   loginCometChatUser,
+  waitForOngoingLogin,
+  startCallRecording,
+  stopCallRecording,
+  createOngoingCallListener,
   rejectIncomingCall,
   startVideoCall,
 } from "@/src/services/cometchat";
@@ -42,10 +46,16 @@ type CallContextValue = {
   status: CallStatus;
   incomingCall: CometChat.Call | null;
   hasActiveCall: boolean;
-  startVideoCall: (receiverUid: string) => Promise<void>;
+  startVideoCall: (
+    receiverId: string,
+    receiverType?: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE],
+  ) => Promise<void>;
   acceptIncomingCall: () => Promise<void>;
   rejectIncomingCall: () => Promise<void>;
   endCall: () => Promise<void>;
+  toggleRecording: () => Promise<void>;
+  isRecording: boolean;
+  isRecordingBusy: boolean;
   isReady: boolean;
 };
 
@@ -82,15 +92,15 @@ const getCallParticipantInfo = (
 
 const useEnsureCometChatUser = () => {
   return useCallback(async () => {
-    const existing = await CometChat.getLoggedinUser();
+    const existing = await waitForOngoingLogin();
     if (existing) {
       return existing;
     }
 
-    const [storedUid, authToken] = await Promise.all([
-      SecureStore.getItemAsync("cometChatUid"),
-      SecureStore.getItemAsync("authToken"),
-    ]);
+    const [authToken] = await Promise.all([SecureStore.getItemAsync("authToken")]);
+    const storedUid =
+      (await SecureStore.getItemAsync("cometChatUid")) ||
+      (await SecureStore.getItemAsync("userId"));
 
     if (!storedUid || !authToken) {
       throw new Error("Missing CometChat credentials");
@@ -105,11 +115,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const [incomingCall, setIncomingCall] = useState<CometChat.Call | null>(null);
   const [outgoingCall, setOutgoingCall] = useState<CometChat.Call | null>(null);
   const [activeCall, setActiveCall] = useState<CometChat.Call | null>(null);
+  const [callSettings, setCallSettings] = useState<CallSettings>(() => getDefaultCallSettings());
   const [callToken, setCallToken] = useState<string | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingBusy, setIsRecordingBusy] = useState(false);
   const ensureCometChatUser = useEnsureCometChatUser();
-  const callSettings: CallSettings = useMemo(() => getDefaultCallSettings(), []);
 
   const resetState = useCallback(() => {
     setStatus("idle");
@@ -117,6 +129,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setOutgoingCall(null);
     setActiveCall(null);
     setCallToken(null);
+    setIsRecording(false);
+    setIsRecordingBusy(false);
+    setCallSettings(getDefaultCallSettings());
   }, []);
 
   const prepareInCallView = useCallback(
@@ -136,6 +151,24 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
+        const callEventListener = createOngoingCallListener({
+          onRecordingStarted: () => setIsRecording(true),
+          onRecordingStopped: () => setIsRecording(false),
+          onCallEnded: () => setIsRecording(false),
+          onSessionTimeout: () => setIsRecording(false),
+        });
+
+        const isAudioOnly = (call as any)?.getType?.() === "audio";
+
+        setCallSettings(
+          getDefaultCallSettings({
+            callEventListener,
+            showRecordingButton: true,
+            startRecordingOnCallStart: false,
+            isAudioOnly,
+          }),
+        );
+
         const { token } = await getCallTokenForSession(sessionId);
         setCallToken(token);
         setStatus("inCall");
@@ -211,8 +244,11 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   }, [callError]);
 
   const handleStartVideoCall = useCallback(
-    async (receiverUid: string) => {
-      if (!receiverUid) {
+    async (
+      receiverId: string,
+      receiverType: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE] = CometChat.RECEIVER_TYPE.USER,
+    ) => {
+      if (!receiverId) {
         setCallError("Không tìm thấy tài khoản CometChat của người nhận.");
         return;
       }
@@ -226,7 +262,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         await ensureCometChatUser();
-        const call = await startVideoCall(receiverUid);
+        const call = await startVideoCall(receiverId, receiverType);
         setOutgoingCall(call);
         setStatus("ringingOut");
       } catch (error: any) {
@@ -317,6 +353,43 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [activeCall, incomingCall, outgoingCall, resetState, status]);
 
+  const handleStartRecording = useCallback(async () => {
+    if (!callToken || status !== "inCall") {
+      setCallError("Chỉ có thể ghi hình khi đang trong cuộc gọi.");
+      return;
+    }
+
+    setIsRecordingBusy(true);
+    try {
+      await startCallRecording();
+    } catch (error) {
+      console.error("startCallRecording", error);
+      setCallError("Không thể bắt đầu ghi hình. Vui lòng thử lại.");
+    } finally {
+      setIsRecordingBusy(false);
+    }
+  }, [callToken, status]);
+
+  const handleStopRecording = useCallback(async () => {
+    setIsRecordingBusy(true);
+    try {
+      await stopCallRecording();
+    } catch (error) {
+      console.error("stopCallRecording", error);
+      setCallError("Không thể dừng ghi hình. Vui lòng thử lại.");
+    } finally {
+      setIsRecordingBusy(false);
+    }
+  }, []);
+
+  const handleToggleRecording = useCallback(async () => {
+    if (isRecording) {
+      await handleStopRecording();
+    } else {
+      await handleStartRecording();
+    }
+  }, [handleStartRecording, handleStopRecording, isRecording]);
+
   const contextValue = useMemo<CallContextValue>(
     () => ({
       status,
@@ -326,15 +399,21 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       acceptIncomingCall: handleAcceptIncoming,
       rejectIncomingCall: handleRejectIncoming,
       endCall: handleEndCall,
+      toggleRecording: handleToggleRecording,
+      isRecording,
+      isRecordingBusy,
       isReady,
     }),
     [
       activeCall,
       handleAcceptIncoming,
       handleEndCall,
+      handleToggleRecording,
       handleRejectIncoming,
       handleStartVideoCall,
       incomingCall,
+      isRecording,
+      isRecordingBusy,
       isReady,
       outgoingCall,
       status,
@@ -371,6 +450,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         onEndCall={handleEndCall}
         isEnding={status === "ending"}
         title={activeInfo.name}
+        onToggleRecording={handleToggleRecording}
+        isRecording={isRecording}
+        isRecordingBusy={isRecordingBusy}
       />
     </CallContext.Provider>
   );
