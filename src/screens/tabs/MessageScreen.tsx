@@ -1,6 +1,7 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
 import { resolveSocketUrl } from "@/src/utils/network";
+import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
 import { getAdminConversations, getChatConversations } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,6 +11,7 @@ import io, { Socket } from "socket.io-client";
 import * as SecureStore from "expo-secure-store";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   ImageBackground,
@@ -20,6 +22,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
@@ -155,7 +159,7 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
 const normalizeConversations = (items: any[], currentUserId: string | null): Conversation[] =>
   sortByLatest(items.map((item, index) => mapConversation(item, index, currentUserId)));
 
-const mergeConversations = (
+  const mergeConversations = (
   existing: Conversation[],
   incoming: Conversation[],
 ): Conversation[] => {
@@ -188,6 +192,9 @@ export default function MessageScreen() {
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const [socketConnected, setSocketConnected] = useState(false);
   const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
+  const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState(false);
+  const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
+  const [incomingCancelConversationId, setIncomingCancelConversationId] = useState<string | null>(null);
 
   const resolvedLimit = paging.limit > 0 ? paging.limit : DEFAULT_PAGING.limit;
 
@@ -266,6 +273,61 @@ export default function MessageScreen() {
     [currentUserId, fetchConversations],
   );
 
+  const respondToCancelRequest = useCallback(
+    (conversationId: string | null, confirmed: boolean) => {
+      if (!conversationId || !socketRef.current) {
+        Alert.alert("Không thể phản hồi", "Thiếu thông tin phiên hoặc kết nối realtime chưa sẵn sàng.");
+        return;
+      }
+
+      socketRef.current.emit(
+        "respond_cancel_request",
+        { conversationId, confirmed },
+        (status?: string, message?: string) => {
+          if (status !== "success") {
+            Alert.alert("Không thể gửi phản hồi", message ?? "Vui lòng thử lại sau.");
+          }
+        },
+      );
+    },
+    [],
+  );
+
+  const handleIncomingCancelRequest = useCallback(
+    (data: any) => {
+      const conversationId =
+        data?.conversationId ?? data?.conversationID ?? data?.conversation_id ?? null;
+
+      if (!shouldShowCancelPrompt(conversationId)) {
+        return;
+      }
+
+      const requesterName = data?.requesterName ?? data?.requesterId ?? "Người dùng";
+      setIncomingCancelConversationId(conversationId ? String(conversationId) : null);
+      setCancelRequesterName(requesterName.toString());
+      setIncomingCancelModalVisible(true);
+    },
+    [respondToCancelRequest],
+  );
+
+  const handleCancelResult = useCallback(
+    (data: any) => {
+      const status = (data?.status ?? "success").toString().toLowerCase();
+      const message =
+        data?.message ??
+        (status === "success"
+          ? "Phiên đã được hủy. Bạn có thể đặt lịch lại nếu cần."
+          : "Đối phương đã từ chối hủy phiên.");
+
+      Alert.alert(status === "success" ? "Phiên đã bị hủy" : "Phiên tiếp tục", message);
+
+      // Refresh list so status/unread counts stay in sync
+      fetchConversations({ page: 1, silent: true });
+      setIncomingCancelModalVisible(false);
+    },
+    [fetchConversations],
+  );
+
   useEffect(() => {
     let active = true;
     const loadUserId = async () => {
@@ -321,6 +383,8 @@ export default function MessageScreen() {
     socket.on("disconnect", handleDisconnect);
     socket.on("session_activated", handleSessionActivated);
     socket.on("receive_message", handleReceiveMessage);
+    socket.on("request_cancel_confirmation", handleIncomingCancelRequest);
+    socket.on("cancel_result", handleCancelResult);
     socket.connect();
 
     return () => {
@@ -332,10 +396,19 @@ export default function MessageScreen() {
       socket.off("disconnect", handleDisconnect);
       socket.off("session_activated", handleSessionActivated);
       socket.off("receive_message", handleReceiveMessage);
+      socket.off("request_cancel_confirmation", handleIncomingCancelRequest);
+      socket.off("cancel_result", handleCancelResult);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, socketBaseUrl, handleReceiveMessage, handleSessionActivated]);
+  }, [
+    currentUserId,
+    socketBaseUrl,
+    handleReceiveMessage,
+    handleSessionActivated,
+    handleIncomingCancelRequest,
+    handleCancelResult,
+  ]);
 
   useEffect(() => {
     if (!socketConnected) {
@@ -560,6 +633,50 @@ export default function MessageScreen() {
 
   return (
     <SafeAreaView style={styles.safeAreaView} edges={["top", "left", "right"]}>
+      {/* Modal phản hồi yêu cầu hủy phiên (seer/khách ở danh sách) */}
+      <Modal
+        visible={incomingCancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIncomingCancelModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIncomingCancelModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.cancelModalCard}>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="close-circle" size={24} color="#ef4444" />
+                  <Text style={styles.modalTitle}>Yêu cầu hủy phiên</Text>
+                </View>
+                <Text style={styles.modalBodyText}>
+                  {cancelRequesterName} muốn hủy phiên này. Bạn có đồng ý không?
+                </Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalGhostButton]}
+                    onPress={() => {
+                      respondToCancelRequest(incomingCancelConversationId, false);
+                      setIncomingCancelModalVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.modalButtonText, styles.modalGhostText]}>Tiếp tục phiên</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalDangerButton]}
+                    onPress={() => {
+                      respondToCancelRequest(incomingCancelConversationId, true);
+                      setIncomingCancelModalVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.modalButtonText, styles.modalDangerText]}>Đồng ý hủy</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
       <TopBarNoSearch />
 
       <ImageBackground source={require('@/assets/images/Fortune-Teller.jpg')} style={{ width: '100%', height: 180 }} resizeMode="cover">
@@ -902,6 +1019,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Colors.white,
+  },
+  // Modal chung cho yêu cầu hủy phiên
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  cancelModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  modalBodyText: {
+    fontSize: 15,
+    color: "#334155",
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minWidth: 120,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  modalGhostButton: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  modalGhostText: {
+    color: "#0f172a",
+    fontWeight: "600",
+  },
+  modalDangerButton: {
+    backgroundColor: "#ef4444",
+  },
+  modalDangerText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  modalButtonText: {
+    fontSize: 15,
   },
   separator: {
     height: 12,

@@ -9,14 +9,13 @@ import {
   getCallTokenForSession,
   getDefaultCallSettings,
   initCometChat,
-  loginCometChatUser,
-  waitForOngoingLogin,
   startCallRecording,
   stopCallRecording,
   createOngoingCallListener,
   rejectIncomingCall,
   startVideoCall,
 } from "@/src/services/cometchat";
+import { bootstrapCometChatUser } from "@/src/services/cometchatBootstrap";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import type { CallSettings } from "@cometchat/calls-sdk-react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -91,23 +90,12 @@ const getCallParticipantInfo = (
 };
 
 const useEnsureCometChatUser = () => {
-  return useCallback(async () => {
-    const existing = await waitForOngoingLogin();
-    if (existing) {
-      return existing;
-    }
-
-    const [authToken] = await Promise.all([SecureStore.getItemAsync("authToken")]);
-    const storedUid =
-      (await SecureStore.getItemAsync("cometChatUid")) ||
-      (await SecureStore.getItemAsync("userId"));
-
-    if (!storedUid || !authToken) {
-      throw new Error("Missing CometChat credentials");
-    }
-
-    return loginCometChatUser(storedUid);
-  }, []);
+  return useCallback(
+    async (options?: { forceRelogin?: boolean }) => {
+      return bootstrapCometChatUser({ forceRelogin: options?.forceRelogin });
+    },
+    [],
+  );
 };
 
 export const CallProvider = ({ children }: { children: ReactNode }) => {
@@ -154,8 +142,30 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         const callEventListener = createOngoingCallListener({
           onRecordingStarted: () => setIsRecording(true),
           onRecordingStopped: () => setIsRecording(false),
-          onCallEnded: () => setIsRecording(false),
-          onSessionTimeout: () => setIsRecording(false),
+          onCallEnded: () => {
+            // Mirror web flow: end session UI + reset state.
+            setIsRecording(false);
+            resetState();
+          },
+          onSessionTimeout: () => {
+            setIsRecording(false);
+            setCallError("Phiên gọi đã hết thời gian. Vui lòng gọi lại nếu cần.");
+            resetState();
+          },
+          onCallEndButtonPressed: async () => {
+            try {
+              await endCurrentCall(sessionId);
+            } catch (err) {
+              console.warn("endCurrentCall from call listener failed", err);
+            } finally {
+              resetState();
+            }
+          },
+          onError: (error) => {
+            console.warn("CometChat ongoing call error", error);
+            setCallError("Có lỗi xảy ra khi hiển thị cuộc gọi. Vui lòng thử lại.");
+            resetState();
+          },
         });
 
         const isAudioOnly = (call as any)?.getType?.() === "audio";
@@ -262,9 +272,27 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         await ensureCometChatUser();
-        const call = await startVideoCall(receiverId, receiverType);
-        setOutgoingCall(call);
-        setStatus("ringingOut");
+        const attempt = async () => {
+          const call = await startVideoCall(receiverId, receiverType);
+          setOutgoingCall(call);
+          setStatus("ringingOut");
+        };
+
+        try {
+          await attempt();
+        } catch (err: any) {
+          const needRelogin =
+            err?.code === "USER_NOT_LOGED_IN" ||
+            err?.code === "AUTH_ERR" ||
+            err?.message?.toLowerCase()?.includes("login");
+
+          if (needRelogin) {
+            await ensureCometChatUser({ forceRelogin: true });
+            await attempt();
+            return;
+          }
+          throw err;
+        }
       } catch (error: any) {
         console.error("startVideoCall", error);
         setCallError(
