@@ -1,6 +1,7 @@
 import { CallProvider } from "@/src/contexts/CallContext";
 import "@/src/polyfills/native-event-emitter";
-import { initCometChat, loginCometChatUser, validateCometChatEnv } from "@/src/services/cometchat";
+import { initCometChat, validateCometChatEnv } from "@/src/services/cometchat";
+import { bootstrapCometChatUser } from "@/src/services/cometchatBootstrap";
 import { runRealtimeSelfCheck } from "@/src/services/diagnostics";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import messaging from "@react-native-firebase/messaging";
@@ -83,6 +84,7 @@ export default function RootLayout() {
       );
     }
 
+    // Init sớm; login sẽ thực hiện ở effect bên dưới
     initCometChat().catch((error) => {
       console.warn("Unable to init CometChat", error);
     });
@@ -99,23 +101,19 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       try {
-        const authToken = await SecureStore.getItemAsync("authToken");
-        if (!authToken) {
-          return;
-        }
-
-        const existing = await CometChat.getLoggedinUser();
-        if (existing) {
-          return;
-        }
-
+        // Chỉ bootstrap khi đã có UID (giống web – không phụ thuộc JWT backend)
         const uid =
           (await SecureStore.getItemAsync("cometChatUid")) ||
           (await SecureStore.getItemAsync("userId"));
 
-        if (uid) {
-          await loginCometChatUser(uid);
+        if (!uid) {
+          // Chưa login backend nên chưa có UID -> bỏ qua
+          return;
         }
+
+        await bootstrapCometChatUser();
+        const user = await CometChat.getLoggedinUser();
+        console.log("[CometChat] Auto-login success:", user?.getUid?.());
       } catch (error) {
         console.warn("Unable to login to CometChat", error);
       }

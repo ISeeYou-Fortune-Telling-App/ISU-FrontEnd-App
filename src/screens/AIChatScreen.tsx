@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -30,6 +31,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import Markdown from "react-native-markdown-display";
 
 type MessageRole = "user" | "assistant" | "system";
 type AnalysisType = "face" | "palm" | "none";
@@ -62,6 +64,11 @@ type AIMessage = {
   createdAt: number;
   processingTime?: number | null;
   references?: KnowledgeReference[];
+  status?: "pending" | "done";
+};
+
+type HistoryEntry = AIMessage & {
+  isPending?: boolean;
 };
 
 const KNOWLEDGE_FILE_MAP = new Map<string, string>([
@@ -153,6 +160,7 @@ const CHAT_OPTION_MAP = CHAT_OPTIONS.reduce<Record<number, (typeof CHAT_OPTIONS)
 );
 
 const DEFAULT_SELECTED_OPTION: ChatOptionValue = 2;
+const HISTORY_STALE_MS = 45000;
 
 const createInitialMessages = (): AIMessage[] => [
   {
@@ -205,6 +213,92 @@ const formatCountdown = (ms: number) => {
     return `${minutes}p${seconds.toString().padStart(2, "0")}s`;
   }
   return `${seconds}s`;
+};
+
+const markdownBase = {
+  body: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: Colors.dark_gray,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 10,
+  },
+  heading1: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: Colors.dark_gray,
+    marginBottom: 10,
+  },
+  heading2: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.dark_gray,
+    marginBottom: 8,
+  },
+  heading3: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.dark_gray,
+    marginBottom: 6,
+  },
+  bullet_list: {
+    marginBottom: 4,
+    paddingLeft: 8,
+  },
+  ordered_list: {
+    marginBottom: 4,
+    paddingLeft: 8,
+  },
+  list_item: {
+    flexDirection: "row" as const,
+    marginBottom: 4,
+    flexShrink: 1,
+  },
+  strong: {
+    fontWeight: "700" as const,
+  },
+  em: {
+    fontStyle: "italic" as const,
+  },
+  code_inline: {
+    backgroundColor: "rgba(15,23,42,0.08)",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+    color: Colors.dark_gray,
+  },
+  link: {
+    color: Colors.primary,
+    textDecorationLine: "underline" as const,
+    fontWeight: "600" as const,
+  },
+  text: {
+    color: Colors.dark_gray,
+  },
+};
+
+const MARKDOWN_STYLES = {
+  assistant: StyleSheet.create(markdownBase),
+  user: StyleSheet.create({
+    ...markdownBase,
+    body: { ...markdownBase.body, color: Colors.white },
+    text: { ...markdownBase.text, color: Colors.white },
+    heading1: { ...markdownBase.heading1, color: Colors.white },
+    heading2: { ...markdownBase.heading2, color: Colors.white },
+    heading3: { ...markdownBase.heading3, color: Colors.white },
+    bullet_list: { ...markdownBase.bullet_list },
+    ordered_list: { ...markdownBase.ordered_list },
+    list_item: { ...markdownBase.list_item },
+    code_inline: {
+      ...markdownBase.code_inline,
+      backgroundColor: "rgba(255,255,255,0.16)",
+      color: Colors.white,
+    },
+    link: { ...markdownBase.link, color: "#cde2ff" },
+  }),
 };
 
 const normalizeConfidence = (value: any): number | undefined => {
@@ -537,11 +631,14 @@ export default function AIChatScreen() {
   const [countdownDeadline, setCountdownDeadline] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number>(0);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
-  const [historyModalVisible, setHistoryModalVisible] = useState<boolean>(false);
-  const [historyItems, setHistoryItems] = useState<AIMessage[]>([]);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
+  const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [historyLoaded, setHistoryLoaded] = useState<boolean>(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLastSynced, setHistoryLastSynced] = useState<Date | null>(null);
+  const appState = useRef(AppState.currentState);
+  const historyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [hasLoadedSession, setHasLoadedSession] = useState<boolean>(false);
 
   const currentOption = useMemo(() => CHAT_OPTION_MAP[selectedOption], [selectedOption]);
@@ -643,25 +740,31 @@ export default function AIChatScreen() {
             ? payload
             : [];
 
-      const normalized: AIMessage[] = items
-        .map((item: any, index: number): AIMessage | null => {
+      const normalized: HistoryEntry[] = items
+        .map((item: any, index: number): HistoryEntry | null => {
           if (!item) return null;
           const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+          const content = item.textContent ?? item.content ?? "";
+          const isPending = !item.sentByUser && (!content || String(content).trim().length === 0);
           return {
-            id: `history-${index}-${createdAt}`,
+            id: String(item.id ?? item.messageId ?? `history-${index}-${createdAt}`),
             role: item.sentByUser ? "user" : "assistant",
-            content: item.textContent ?? item.content ?? "",
+            content,
             createdAt,
             processingTime:
               typeof item.processingTime === "number" && !Number.isNaN(item.processingTime)
                 ? item.processingTime
                 : undefined,
+            isPending,
+            status: isPending ? "pending" : "done",
           };
         })
-        .filter((item): item is AIMessage => Boolean(item));
+        .filter((item): item is HistoryEntry => Boolean(item));
 
       setHistoryItems(normalized);
       setHistoryLoaded(true);
+      setHistoryLastSynced(new Date());
+      mergeHistoryIntoChat(normalized);
     } catch (error) {
       console.error("Không thể tải lịch sử AI chat", error);
       setHistoryError(
@@ -670,17 +773,50 @@ export default function AIChatScreen() {
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [mergeHistoryIntoChat]);
+
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
 
   useEffect(() => {
-    if (historyModalVisible && !historyLoaded && !historyLoading) {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === "active") {
+        if (shouldPollHistory || isHistoryStale) {
+          fetchHistory();
+        }
+      }
+      appState.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchHistory, isHistoryStale, shouldPollHistory]);
+
+  useEffect(() => {
+    if (historyOpen && !historyLoaded && !historyLoading) {
       fetchHistory();
     }
-  }, [historyModalVisible, historyLoaded, historyLoading, fetchHistory]);
+  }, [historyOpen, historyLoaded, historyLoading, fetchHistory]);
+
+  useEffect(() => {
+    if (shouldPollHistory) {
+      // Poll mỗi 5s khi còn item đang xử lý hoặc khi panel mở
+      historyPollRef.current = setInterval(() => fetchHistory(), 5000);
+    } else if (historyPollRef.current) {
+      clearInterval(historyPollRef.current);
+      historyPollRef.current = null;
+    }
+
+    return () => {
+      if (historyPollRef.current) {
+        clearInterval(historyPollRef.current);
+        historyPollRef.current = null;
+      }
+    };
+  }, [shouldPollHistory, fetchHistory]);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -772,6 +908,41 @@ export default function AIChatScreen() {
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setSelectedImages((prev) => prev.filter((item) => item.id !== attachmentId));
   }, []);
+
+  const mergeHistoryIntoChat = useCallback((history: HistoryEntry[]) => {
+    if (!Array.isArray(history)) {
+      return;
+    }
+
+    if (history.length === 0) {
+      if (messages.length === 0) {
+        setMessages(createInitialMessages());
+      }
+      return;
+    }
+
+      const mappedHistory: AIMessage[] = history
+        .map((item) => ({
+          id: item.id,
+          role: item.role,
+          content: item.isPending ? undefined : item.content,
+          createdAt: item.createdAt,
+          processingTime: item.processingTime,
+          status: item.status ?? (item.isPending ? "pending" : "done"),
+        }))
+        .sort((a, b) => a.createdAt - b.createdAt);
+
+    setMessages((prev) => {
+      if (!prev || prev.length === 0) {
+        return mappedHistory;
+      }
+
+      const historyIds = new Set(mappedHistory.map((m) => m.id));
+      const localOnly = prev.filter((m) => !historyIds.has(m.id));
+      const combined = [...mappedHistory, ...localOnly].sort((a, b) => a.createdAt - b.createdAt);
+      return combined;
+    });
+  }, [messages.length]);
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
@@ -877,6 +1048,7 @@ export default function AIChatScreen() {
       role: "assistant",
       createdAt: Date.now(),
       content: "",
+      status: "pending",
     };
 
     setMessages((prev) => [...prev, placeholderMessage]);
@@ -936,6 +1108,7 @@ export default function AIChatScreen() {
           typeof payloadRoot?.processingTime === "number"
             ? payloadRoot.processingTime
             : undefined,
+        status: "done",
       };
 
       setMessages((prev) => prev.map((item) => (item.id === assistantId ? aiResponseMessage : item)));
@@ -951,6 +1124,7 @@ export default function AIChatScreen() {
                 ...item,
                 role: "system",
                 content: fallback,
+                status: "done",
               }
             : item,
         ),
@@ -975,6 +1149,7 @@ export default function AIChatScreen() {
       const isUser = item.role === "user";
       const hasReferences = !isUser && Boolean(item.references?.length);
       const references = item.references ?? [];
+      const isPending = item.status === "pending";
 
       return (
         <View style={[styles.messageRow, isUser ? styles.alignRight : styles.alignLeft]}>
@@ -988,7 +1163,19 @@ export default function AIChatScreen() {
           {item.content || hasReferences ? (
             <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
               {item.content ? (
-                <Text style={[styles.messageText, isUser && styles.userText]}>{item.content}</Text>
+                <Markdown
+                  style={isUser ? MARKDOWN_STYLES.user : MARKDOWN_STYLES.assistant}
+                  onLinkPress={handleMarkdownLinkPress}
+                >
+                  {item.content}
+                </Markdown>
+              ) : null}
+
+              {!item.content && isPending ? (
+                <View style={styles.pendingRow}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={styles.pendingText}>AI đang phân tích yêu cầu, vui lòng chờ...</Text>
+                </View>
               ) : null}
 
               {hasReferences ? (
@@ -1021,36 +1208,132 @@ export default function AIChatScreen() {
               <Text style={[styles.timestampText, isUser && styles.timestampTextUser]}>
                 {formatTimestamp(item.createdAt)}
                 {item.processingTime ? ` (${item.processingTime.toFixed(1)}s)` : ""}
+                {isPending ? " · Đang xử lý" : ""}
               </Text>
             </View>
           ) : null}
         </View>
       );
     },
-    [handleReferencePress],
+    [handleMarkdownLinkPress, handleReferencePress],
   );
 
-  const renderHistoryItem = useCallback(({ item }: { item: AIMessage }) => {
-    const isUser = item.role === "user";
-    return (
-      <View style={styles.historyItem}>
-        <View style={styles.historyItemHeader}>
-          <View style={[styles.historyRolePill, isUser ? styles.historyRoleUser : styles.historyRoleAi]}>
-            <Text style={styles.historyRoleText}>{isUser ? "Bạn" : "AI"}</Text>
+  const hasPendingHistory = useMemo(
+    () => historyItems.some((item) => item.isPending),
+    [historyItems],
+  );
+
+  const hasPendingMessages = useMemo(
+    () => messages.some((message) => message.status === "pending"),
+    [messages],
+  );
+
+  const shouldPollHistory = historyOpen || hasPendingHistory || hasPendingMessages;
+
+  const isHistoryStale = useMemo(() => {
+    if (!historyLastSynced) return true;
+    return Date.now() - historyLastSynced.getTime() > HISTORY_STALE_MS;
+  }, [historyLastSynced]);
+
+  const handleHistoryItemPress = useCallback(
+    (item: HistoryEntry) => {
+      if (item.isPending) {
+        Alert.alert(
+          "Đang xử lý",
+          "AI vẫn đang phân tích nội dung bạn đã gửi. Lịch sử sẽ tự cập nhật, bạn có thể đợi thêm hoặc bấm Làm mới.",
+          [
+            { text: "Đóng", style: "cancel" },
+            { text: "Làm mới", onPress: fetchHistory },
+          ],
+        );
+        return;
+      }
+
+      const { isPending, ...rest } = item;
+      setMessages((prev) => {
+        const next = [...prev.filter((msg) => msg.id !== rest.id), rest].sort(
+          (a, b) => a.createdAt - b.createdAt,
+        );
+        return next;
+      });
+      setHistoryOpen(false);
+      setTimeout(() => scrollToEnd(), 250);
+    },
+    [fetchHistory, scrollToEnd],
+  );
+
+  const handleLoadHistoryIntoChat = useCallback(() => {
+    if (!historyItems.length) return;
+    const ordered = [...historyItems]
+      .map(({ isPending, ...rest }) => rest)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    setMessages(ordered);
+    setHistoryOpen(false);
+    setTimeout(() => scrollToEnd(), 250);
+  }, [historyItems, scrollToEnd]);
+
+  const renderHistoryItem = useCallback(
+    ({ item }: { item: HistoryEntry }) => {
+      const isUser = item.role === "user";
+      return (
+        <Pressable
+          style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
+          onPress={() => handleHistoryItemPress(item)}
+        >
+          <View style={styles.historyItemHeader}>
+            <View style={[styles.historyRolePill, isUser ? styles.historyRoleUser : styles.historyRoleAi]}>
+              <Text style={styles.historyRoleText}>{isUser ? "Bạn" : "AI"}</Text>
+            </View>
+            <View style={styles.historyHeaderRight}>
+              {item.isPending ? (
+                <View style={styles.historyPendingChip}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={styles.historyPendingChipText}>Đang xử lý</Text>
+                </View>
+              ) : null}
+              <Text style={styles.historyTimestamp}>{formatTimestamp(item.createdAt)}</Text>
+            </View>
           </View>
-          <Text style={styles.historyTimestamp}>{formatTimestamp(item.createdAt)}</Text>
-        </View>
-        <Text style={styles.historyContent}>
-          {item.content || "—"}
-        </Text>
-      </View>
-    );
-  }, []);
+
+          {item.isPending ? (
+            <View style={styles.historyPendingRow}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.historyPendingText}>
+                AI đang xử lý ảnh/đoạn chat này. Hãy chờ hoặc bấm Làm mới.
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.historyContent}>{item.content || "—"}</Text>
+          )}
+        </Pressable>
+      );
+    },
+    [handleHistoryItemPress],
+  );
 
   const canSend = useMemo(
     () => input.trim().length > 0 || selectedImages.length > 0,
     [input, selectedImages],
   );
+
+  const handleMarkdownLinkPress = useCallback(async (url: string) => {
+    if (!url) {
+      return false;
+    }
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        return false;
+      }
+    } catch (error) {
+      console.error("Không thể mở liên kết", error);
+    }
+
+    Alert.alert("Không thể mở liên kết", "Liên kết này không hợp lệ hoặc đã bị chặn.");
+    return false;
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
@@ -1069,7 +1352,16 @@ export default function AIChatScreen() {
             <TouchableOpacity onPress={handleStartNewConversation} style={styles.headerButton}>
               <Ionicons name="add-circle-outline" size={22} color={Colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setHistoryModalVisible(true)} style={styles.headerButton}>
+            <TouchableOpacity
+              onPress={() => {
+                const next = !historyOpen;
+                setHistoryOpen(next);
+                if (next) {
+                  fetchHistory();
+                }
+              }}
+              style={styles.headerButton}
+            >
               <Ionicons name="time-outline" size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>
@@ -1111,6 +1403,120 @@ export default function AIChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
       >
+        {historyOpen ? (
+          <View style={styles.historyContainer}>
+            <View style={[styles.modalCard, styles.historyCard]}>
+              <LinearGradient
+                colors={["#eef2ff", "#e0f2fe", "#fef3c7"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.historyHero}
+              >
+                <View style={styles.historyHeroTopRow}>
+                  <View style={styles.historyHeroTitleRow}>
+                    <Ionicons name="time-outline" size={20} color={Colors.primary} />
+                    <View>
+                      <Text style={styles.modalTitle}>Lịch sử trò chuyện</Text>
+                      <Text style={styles.historySubtitle}>Đồng bộ realtime với backend 8081</Text>
+                    </View>
+                  </View>
+                  <View style={styles.historyHeroActions}>
+                    <View
+                      style={[
+                        styles.liveChip,
+                        hasPendingHistory || hasPendingMessages
+                          ? styles.liveChipProcessing
+                          : styles.liveChipReady,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.liveDot,
+                          hasPendingHistory || hasPendingMessages
+                            ? styles.liveDotWarning
+                            : styles.liveDotReady,
+                        ]}
+                      />
+                      <Text style={styles.liveChipText}>
+                        {hasPendingHistory || hasPendingMessages ? "Đang xử lý" : "Đã đồng bộ"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.refreshButton}
+                      activeOpacity={0.9}
+                      onPress={fetchHistory}
+                      disabled={historyLoading}
+                    >
+                      <Ionicons name="refresh-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.refreshButtonText}>Làm mới</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {historyLastSynced ? (
+                  <Text style={styles.historySyncedAt}>
+                    Cập nhật lúc {historyLastSynced.toLocaleTimeString("vi-VN")}
+                  </Text>
+                ) : null}
+              </LinearGradient>
+
+              <View style={styles.historyScrollWrapper}>
+                {historyLoading ? (
+                  <View style={styles.historyLoadingRow}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
+                  </View>
+                ) : historyError ? (
+                  <View style={styles.historyLoadingRow}>
+                    <Ionicons name="warning-outline" size={18} color="#b91c1c" />
+                    <Text style={styles.historyErrorText}>{historyError}</Text>
+                    <TouchableOpacity onPress={fetchHistory}>
+                      <Text style={styles.historyRetry}>Thử lại</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : historyItems.length === 0 ? (
+                  <Text style={styles.historyEmpty}>Chưa có cuộc trò chuyện nào.</Text>
+                ) : (
+                  <FlatList
+                    style={styles.historyFlatList}
+                    data={historyItems}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderHistoryItem}
+                    contentContainerStyle={styles.historyList}
+                    showsVerticalScrollIndicator
+                    scrollEnabled
+                    nestedScrollEnabled
+                    ListFooterComponent={<View style={{ height: 12 }} />}
+                  />
+                )}
+              </View>
+
+              <View style={styles.historyActionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.closeHistoryButton,
+                    styles.loadHistoryButton,
+                    (!historyItems.length || historyLoading) && styles.closeHistoryButtonDisabled,
+                  ]}
+                  activeOpacity= {0.9}
+                  onPress={handleLoadHistoryIntoChat}
+                  disabled={!historyItems.length || historyLoading}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.white} />
+                  <Text style={styles.closeHistoryText}>Đổ vào khung chat</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.closeHistoryButton}
+                  activeOpacity={0.9}
+                  onPress={() => setHistoryOpen(false)}
+                >
+                  <Text style={styles.closeHistoryText}>Thu gọn</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         <FlatList
           ref={listRef}
           data={messages}
@@ -1250,64 +1656,6 @@ export default function AIChatScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      <Modal
-        visible={historyModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setHistoryModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setHistoryModalVisible(false)}>
-          <View style={styles.modalBackdrop}>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[styles.modalCard, styles.historyCard]}>
-                <View style={styles.modalHeader}>
-                  <Ionicons name="time-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.modalTitle}>Lịch sử trò chuyện</Text>
-                </View>
-
-                <View style={styles.historyScrollWrapper}>
-                  {historyLoading ? (
-                    <View style={styles.historyLoadingRow}>
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                      <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
-                    </View>
-                  ) : historyError ? (
-                    <View style={styles.historyLoadingRow}>
-                      <Ionicons name="warning-outline" size={18} color="#b91c1c" />
-                      <Text style={styles.historyErrorText}>{historyError}</Text>
-                      <TouchableOpacity onPress={fetchHistory}>
-                        <Text style={styles.historyRetry}>Thử lại</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : historyItems.length === 0 ? (
-                    <Text style={styles.historyEmpty}>Chưa có cuộc trò chuyện nào.</Text>
-                  ) : (
-                    <FlatList
-                      style={styles.historyFlatList}
-                      data={historyItems}
-                      keyExtractor={(item) => item.id}
-                      renderItem={renderHistoryItem}
-                      contentContainerStyle={styles.historyList}
-                      showsVerticalScrollIndicator
-                      scrollEnabled
-                      nestedScrollEnabled
-                      ListFooterComponent={<View style={{ height: 12 }} />}
-                    />
-                  )}
-                </View>
-
-                <TouchableOpacity
-                  style={styles.closeHistoryButton}
-                  activeOpacity={0.9}
-                  onPress={() => setHistoryModalVisible(false)}
-                >
-                  <Text style={styles.closeHistoryText}>Đóng</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1442,11 +1790,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   messageBubble: {
-    maxWidth: "80%",
+    maxWidth: "88%",
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
+    flexShrink: 1,
   },
   userBubble: {
     backgroundColor: Colors.primary,
@@ -1522,6 +1871,15 @@ const styles = StyleSheet.create({
   },
   referenceChipPressed: {
     opacity: 0.75,
+  },
+  pendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  pendingText: {
+    fontSize: 13,
+    color: Colors.gray,
   },
   referenceChipText: {
     fontSize: 12,
@@ -1708,10 +2066,15 @@ const styles = StyleSheet.create({
   modalOptionDescriptionActive: {
     color: Colors.primary,
   },
+  historyContainer: {
+    paddingHorizontal: 16,
+  },
   historyCard: {
-    maxHeight: Dimensions.get("window").height * 0.85,
-    width: "92%",
+    maxHeight: Dimensions.get("window").height * 0.75,
+    width: "100%",
     alignSelf: "center",
+    paddingBottom: 6,
+    marginTop: 8,
   },
   historyLoadingRow: {
     flexDirection: "row",
@@ -1727,9 +2090,95 @@ const styles = StyleSheet.create({
   },
   historyScrollWrapper: {
     flex: 1,
-    maxHeight: Dimensions.get("window").height * 0.75,
+    maxHeight: Dimensions.get("window").height * 0.55,
     width: "100%",
-    minHeight: 320,
+    minHeight: 260,
+    paddingHorizontal: 4,
+  },
+  historyHero: {
+    width: "100%",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    gap: 6,
+    overflow: "hidden",
+  },
+  historyHeroTopRow: {
+    width: "100%",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  historyHeroTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  historySubtitle: {
+    fontSize: 12,
+    color: Colors.gray,
+  },
+  historyHeroActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    width: "100%",
+    justifyContent: "flex-start",
+  },
+  liveChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  liveChipProcessing: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#fdba74",
+  },
+  liveChipReady: {
+    backgroundColor: "#ecfeff",
+    borderColor: "#22d3ee",
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  liveDotWarning: {
+    backgroundColor: "#f59e0b",
+  },
+  liveDotReady: {
+    backgroundColor: "#0ea5e9",
+  },
+  liveChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark_gray,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "rgba(37,99,235,0.12)",
+  },
+  refreshButtonText: {
+    color: Colors.primary,
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  historySyncedAt: {
+    fontSize: 12,
+    color: Colors.dark_gray,
+    opacity: 0.7,
   },
   historyFlatList: {
     flex: 1,
@@ -1746,13 +2195,31 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
   },
+  historyActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 8,
+    flexWrap: "wrap",
+  },
   closeHistoryButton: {
     marginTop: 8,
-    alignSelf: "center",
-    paddingHorizontal: 18,
+    alignSelf: "flex-end",
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: Colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  loadHistoryButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#111827",
+  },
+  closeHistoryButtonDisabled: {
+    opacity: 0.6,
   },
   closeHistoryText: {
     color: Colors.white,
@@ -1766,10 +2233,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
     gap: 8,
   },
+  historyItemPressed: {
+    opacity: 0.95,
+    transform: [{ scale: 0.995 }],
+  },
   historyItemHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  historyHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   historyRolePill: {
     paddingHorizontal: 10,
@@ -1797,5 +2273,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark_gray,
     lineHeight: 18,
+  },
+  historyPendingChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#fff7ed",
+  },
+  historyPendingChipText: {
+    fontSize: 11,
+    color: "#b45309",
+    fontWeight: "700",
+  },
+  historyPendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  historyPendingText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark_gray,
   },
 });

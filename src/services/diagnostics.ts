@@ -34,6 +34,9 @@ export const runRealtimeSelfCheck = async () => {
     userId ?? "none",
   );
   console.log("[HealthCheck] Logged-in CometChat user:", cometUserUid ?? "none");
+  if (cometUid && cometUserUid && cometUid !== cometUserUid) {
+    findings.push(`CometChat đang đăng nhập uid ${cometUserUid} khác với stored uid ${cometUid} – cần logout/login lại.`);
+  }
 
   const findings: string[] = [];
   if (!envStatus.ok) {
