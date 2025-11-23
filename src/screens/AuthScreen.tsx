@@ -1,6 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
-import { loginUser, registerUser } from "@/src/services/api";
+import { getProfile, loginUser, registerUser } from "@/src/services/api";
 import { loginCometChatUser } from "@/src/services/cometchat";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -142,6 +142,17 @@ export default function AuthScreen() {
                     setEmail(savedEmail);
                     setPassword(savedPassword);
                     setRememberMe(true);
+                    return;
+                }
+
+                const presetEmail = process.env.EXPO_PUBLIC_DEMO_EMAIL;
+                const presetPassword = process.env.EXPO_PUBLIC_DEMO_PASSWORD;
+
+                if (presetEmail) {
+                    setEmail(presetEmail);
+                }
+                if (presetPassword) {
+                    setPassword(presetPassword);
                 }
             } catch (e) {
                 console.warn("Failed to load saved credentials", e);
@@ -190,7 +201,7 @@ export default function AuthScreen() {
                 payload?.cometchatUid ||
                 payload?.comet_chat_uid ||
                 payload?.comet_uid ||
-                null;
+                (payload?.userId ? String(payload.userId) : null);
 
             if (cometChatUid) {
                 await SecureStore.setItemAsync("cometChatUid", cometChatUid);
@@ -199,7 +210,7 @@ export default function AuthScreen() {
                 });
             } else {
                 await SecureStore.deleteItemAsync("cometChatUid");
-                console.warn("Login payload missing CometChat UID");
+                console.warn("Login payload thiếu CometChat UID và userId");
             }
 
             try {
@@ -230,6 +241,11 @@ export default function AuthScreen() {
                     pathname: "/otp-verification",
                     params: { email: email }
                 });
+                return;
+            }
+
+            if (err?.response?.status === 401) {
+                setError("Sai tài khoản/mật khẩu hoặc tài khoản chưa được cấp. Vui lòng kiểm tra lại.");
                 return;
             }
 

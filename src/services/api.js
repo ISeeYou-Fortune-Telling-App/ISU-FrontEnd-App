@@ -215,6 +215,24 @@ export const getChatConversations = (params) =>
 export const getChatConversation = (conversationId) =>
   ChatAPI.get(`/chat/conversations/${conversationId}`);
 
+export const getChatConversationByBookingId = (bookingId) =>
+  ChatAPI.get(`/chat/conversations/booking/${bookingId}`);
+
+export const endChatSession = (conversationId) =>
+  ChatAPI.post(`/chat/conversations/${conversationId}/end`);
+
+export const extendChatSession = (conversationId, additionalMinutes) =>
+  ChatAPI.post(`/chat/conversations/${conversationId}/extend`, null, {
+    params: { additionalMinutes },
+  });
+
+// Admin conversations (ADMIN_CHAT)
+export const getAdminConversations = (params) =>
+  ChatAPI.get("/admin/conversations", { params });
+
+export const getAdminConversation = (conversationId) =>
+  ChatAPI.get(`/admin/conversations/${conversationId}`);
+
 export const getCustomerPayments = (params) =>
   API.get("/core/bookings/my-payments", { params });
 
