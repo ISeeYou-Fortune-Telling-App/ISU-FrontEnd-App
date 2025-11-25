@@ -262,6 +262,7 @@ export default function RootLayout() {
             <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
             <Stack.Screen name="manage-certificate" options={{ headerShown: false }} />
             <Stack.Screen name="seer-profile" options={{ headerShown: false }} />
+            <Stack.Screen name="ai-chat-history" options={{ headerShown: false }} />
           </Stack>
         </CallProvider>
       </SafeAreaProvider>

@@ -33,12 +33,14 @@ export default function BookPackageScreen() {
   const [success, setSuccess] = useState(false);
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<timeSlot[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const res = await getServicePackageDetail(id);
       setPkg(res.data?.data);
+      setAvailableTimeSlots(res.data?.data.availableTimeSlots);
     }
     catch (err) {
       setError(true);
@@ -50,7 +52,7 @@ export default function BookPackageScreen() {
   };
 
   useEffect(() => {
-    if(id) fetchData();
+    if (id) fetchData();
   }, []);
 
   // Handle navigation when user returns from PayPal without completing payment
@@ -313,6 +315,27 @@ export default function BookPackageScreen() {
                 </View>
               </View>
 
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Thời gian rảnh</Text>
+                {availableTimeSlots.length > 0 && (
+                  <View style={{ marginTop: 14 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {availableTimeSlots
+                        .slice()
+                        .sort((a, b) => a.weekDate - b.weekDate)
+                        .map((s) => (
+                          <View key={s.weekDate} style={styles.selectedSummary}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ fontWeight: '700', marginRight: 8 }}>{s.weekDate == 8 ? "Chủ Nhật" : "Thứ " + s.weekDate}</Text>
+                            </View>
+                            <Text>{displayTime(s.availableFrom)} - {displayTime(s.availableTo)}</Text>
+                          </View>
+                        ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+
               {/* Booking inputs */}
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Ngày hẹn</Text>
@@ -421,6 +444,14 @@ export default function BookPackageScreen() {
     </PaperProvider>
   );
 }
+
+type timeSlot = {
+  weekDate: number,
+  availableFrom: string,
+  availableTo: string
+}
+
+const displayTime = (t: string) => (t ? t.slice(0, 5) : '');
 
 const getCategoryKeyFromName = (name: string) => {
   if (!name) return "other";
@@ -604,5 +635,14 @@ const styles = StyleSheet.create({
   retryButton: {
     borderRadius: 10,
     backgroundColor: Colors.primary,
+  },
+  selectedSummary: {
+    backgroundColor: Colors.likeChipBg,
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    minWidth: 120,
+    alignItems: 'flex-start',
   },
 })

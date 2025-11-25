@@ -613,7 +613,7 @@ export default function HomeScreen() {
             }
 
             {role === "CUSTOMER" &&
-              <View style={[styles.servicesContainer, { flexDirection: "row", justifyContent: "space-between" }, styles.cardShadow]}>
+              <View style={[styles.servicesContainer, { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap" }, styles.cardShadow]}>
                 <Text style={styles.text}>Chỉ show các gói có thể đặt ngay lúc này: </Text>
                 <Switch
                   value={onlyShowAvailable}
@@ -1239,6 +1239,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontFamily: "inter",
+    flexWrap: "wrap"
   },
   btn: {
     marginTop: 10,

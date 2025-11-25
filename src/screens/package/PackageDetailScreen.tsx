@@ -322,9 +322,6 @@ export default function PackageDetailScreen() {
             })}>
               <Text style={styles.editText}>Chỉnh sửa</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.scheduleButton}>
-              <Text style={styles.scheduleText}>Xem lịch hẹn</Text>
-            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
             <Text style={styles.scheduleText}>Xoá gói</Text>

@@ -1,20 +1,21 @@
 import Colors from "@/src/constants/colors";
 import { useCall } from "@/src/contexts/CallContext";
 import {
-  getAdminConversation,
   deleteChatMessage,
+  getAdminConversation,
   getChatConversation,
   getChatMessages,
   markConversationMessagesRead,
   sendChatMessage,
   uploadChatFile,
 } from "@/src/services/api";
+import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
+import { resolveSocketUrl } from "@/src/utils/network";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { Ionicons } from "@expo/vector-icons";
-import io, { Socket } from "socket.io-client";
 import * as DocumentPicker from "expo-document-picker";
-import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -25,9 +26,9 @@ import {
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   RefreshControl,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -35,9 +36,9 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
-import { resolveSocketUrl } from "@/src/utils/network";
+import io, { Socket } from "socket.io-client";
 const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
@@ -315,11 +316,10 @@ export default function ChatDetailScreen() {
     }
   }, [normalizedConversationStatus]);
 
-  // Cho phép gọi nếu có đối tượng đích: ưu tiên UID, fallback sang conversationId (group call)
-  const callTargetId = partnerCometChatUid ?? conversationId ?? null;
-  const callReceiverType = partnerCometChatUid
-    ? CometChat.RECEIVER_TYPE.USER
-    : CometChat.RECEIVER_TYPE.GROUP;
+  // Chỉ cho phép gọi video 1-1 khi có UID của đối tác
+  // Không dùng conversationId làm group GUID vì group không tồn tại trong CometChat
+  const callTargetId = partnerCometChatUid;
+  const callReceiverType = CometChat.RECEIVER_TYPE.USER;
   const isCallDisabled = isInteractionLocked || !callTargetId;
 
   useEffect(() => {
@@ -1047,7 +1047,10 @@ export default function ChatDetailScreen() {
       return;
     }
     if (!callTargetId) {
-      Alert.alert("Cuộc gọi video", "Không tìm thấy thông tin cuộc trò chuyện để gọi.");
+      Alert.alert(
+        "Cuộc gọi video",
+        "Không thể thực hiện cuộc gọi. Thông tin đối tác chưa sẵn sàng hoặc phiên chưa được kích hoạt."
+      );
       return;
     }
 
@@ -1303,17 +1306,6 @@ export default function ChatDetailScreen() {
       const isOutgoing = item.role === "outgoing";
       const attachments = !item.isRecalled ? item.attachments ?? [] : [];
 
-      const bubble =
-        item.isRecalled ? (
-          <View style={[styles.bubble, styles.recalledBubble]}>
-            <Text style={styles.recalledText}>Tin nhắn đã được thu hồi</Text>
-          </View>
-        ) : item.content ? (
-          <View style={[styles.bubble, isOutgoing ? styles.bubbleOutgoing : styles.bubbleIncoming]}>
-            <Text style={[styles.messageText, isOutgoing && styles.messageTextOutgoing]}>
-              {item.content}
-            </Text>
-          </View>
       const bubble =
         item.isRecalled ? (
           <View style={[styles.bubble, styles.recalledBubble]}>
@@ -2517,4 +2509,4 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 15,
   },
-
+})

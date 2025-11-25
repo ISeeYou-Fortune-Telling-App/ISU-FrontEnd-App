@@ -100,6 +100,7 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
   const relativeTime = formatRelativeTime(item.createdAt);
   const viewCount = formatViewCount(item.viewCount ?? 0);
   const readingTime = calculateReadingTime(item.content ?? "");
+  const [coverError, setCoverError] = useState(false);
 
   return (
     <TouchableOpacity style={styles.cardContainer} activeOpacity={0.8} onPress={onToggle}>
@@ -128,9 +129,17 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
         {item.content?.replace(/\\n/g, "\n")}
       </Text>
 
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.cardImage} resizeMode="cover" />
-      ) : null}
+      <Image
+        source={
+          coverError || !item.imageUrl
+            ? require("@/assets/images/placeholder.png")
+            : { uri: item.imageUrl }
+        }
+        style={styles.cardImage}
+        onError={(e) => {
+          setCoverError(true);
+        }}
+      />
 
       <View style={styles.cardFooter}>
         <View style={styles.viewCounter}>
@@ -221,29 +230,29 @@ export default function KnowledgeScreen() {
           }}
         />
       </>
-      {error && <View style={[styles.centerContent, {flex: 1}]}>
+      {error && <View style={[styles.centerContent, { flex: 1 }]}>
         <Text style={styles.errorText}>{error}</Text>
         <Button mode="contained" style={styles.retryButton} onPress={fetchKnowledge}>
           Thử lại
         </Button>
       </View>}
-      {loading ? <ActivityIndicator size="large" color={Colors.primary} style={{flex: 1, alignContent: "center"}} /> : 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <KnowledgeCard
-            item={item}
-            expanded={Boolean(expandedIds[item.id])}
-            onToggle={() =>
-              setExpandedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
-            }
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
-        ListHeaderComponent={
-          <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
+      {loading ? <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, alignContent: "center" }} /> :
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <KnowledgeCard
+              item={item}
+              expanded={Boolean(expandedIds[item.id])}
+              onToggle={() =>
+                setExpandedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+              }
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
+          ListHeaderComponent={
+            <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
               style={{ flex: 1, width: '100%', height: 180, marginBottom: 8 }}
               resizeMode="cover">
 
@@ -259,9 +268,9 @@ export default function KnowledgeScreen() {
                 </Text>
               </View>
             </ImageBackground>
-        }
-        ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
-      />}
+          }
+          ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
+        />}
     </SafeAreaView>
   );
 }
