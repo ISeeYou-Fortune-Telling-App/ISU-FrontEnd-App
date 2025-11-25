@@ -13,6 +13,7 @@
   "dependencies": {
     "@cometchat/calls-sdk-react-native": "^4.4.0",
     "@cometchat/chat-sdk-react-native": "^4.0.16",
+    "@cometchat/chat-uikit-react-native": "^5.2.3",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^1.24.0",

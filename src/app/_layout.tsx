@@ -101,6 +101,16 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       try {
+        // Wait a bit to avoid racing with AuthScreen's login
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Check if already logged in (from AuthScreen)
+        const existingUser = await CometChat.getLoggedinUser().catch(() => null);
+        if (existingUser) {
+          console.log("[Layout] Already logged in to CometChat:", existingUser.getUid());
+          return;
+        }
+
         // Chỉ bootstrap khi đã có UID (giống web – không phụ thuộc JWT backend)
         const uid =
           (await SecureStore.getItemAsync("cometChatUid")) ||
@@ -111,11 +121,12 @@ export default function RootLayout() {
           return;
         }
 
+        console.log("[Layout] Auto-login starting with uid:", uid);
         await bootstrapCometChatUser();
         const user = await CometChat.getLoggedinUser();
         console.log("[CometChat] Auto-login success:", user?.getUid?.());
       } catch (error) {
-        console.warn("Unable to login to CometChat", error);
+        console.warn("[Layout] Unable to login to CometChat", error);
       }
     })();
   }, []);
@@ -251,7 +262,7 @@ export default function RootLayout() {
             <Stack.Screen name="seer-performance" options={{ headerShown: false }} />
             <Stack.Screen name="manage-certificate" options={{ headerShown: false }} />
             <Stack.Screen name="seer-profile" options={{ headerShown: false }} />
-        </Stack>
+          </Stack>
         </CallProvider>
       </SafeAreaProvider>
     </PaperProvider>

@@ -1,7 +1,9 @@
 import Colors from "@/src/constants/colors";
 import { theme } from "@/src/constants/theme";
 import { loginUser, registerUser } from "@/src/services/api";
-import { loginCometChatUser } from "@/src/services/cometchat";
+import { bootstrapCometChatUser } from "@/src/services/cometchatBootstrap";
+import { runRealtimeSelfCheck } from "@/src/services/diagnostics";
+import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Eye } from "lucide-react-native";
@@ -195,18 +197,46 @@ export default function AuthScreen() {
             if (payload.userId) {
                 await SecureStore.setItemAsync("userId", payload.userId);
             }
-            const cometChatUid =
-                payload?.cometChatUid ||
-                payload?.cometchatUid ||
-                payload?.comet_chat_uid ||
-                payload?.comet_uid ||
-                (payload?.userId ? String(payload.userId) : null);
 
-            if (cometChatUid) {
-                await SecureStore.setItemAsync("cometChatUid", cometChatUid);
-                loginCometChatUser(cometChatUid).catch((error) => {
-                    console.warn("Không thể đăng nhập CometChat", error);
-                });
+            // Optional: CometChat auth token from backend (preferred over Auth Key).
+            const { token, refreshToken, userId, role, cometChatUid, cometChatAuthToken } =
+                response.data.data; // Assuming payload is response.data.data
+
+            // Use userId as cometChatUid if not provided by backend
+            const effectiveCometChatUid = cometChatUid || userId;
+
+            console.log("[Auth] Login successful", { userId, role, effectiveCometChatUid });
+
+            await SecureStore.setItemAsync("authToken", token); // Changed from userToken to authToken
+            await SecureStore.setItemAsync("refreshToken", refreshToken);
+            await SecureStore.setItemAsync("userId", userId);
+            await SecureStore.setItemAsync("userRole", role);
+
+            // Xử lý CometChat login
+            if (effectiveCometChatUid) {
+                await SecureStore.setItemAsync("cometChatUid", effectiveCometChatUid);
+                if (cometChatAuthToken) {
+                    await SecureStore.setItemAsync("cometAuthToken", cometChatAuthToken); // Changed from cometChatAuthToken to cometAuthToken
+                }
+
+                console.log("[Auth] Logging into CometChat with uid", effectiveCometChatUid);
+                // Don't force relogin - let SDK reuse existing session if possible
+                bootstrapCometChatUser({ forceRelogin: false })
+                    .then(async () => {
+                        const loggedUser = await CometChat.getLoggedinUser().catch(() => null);
+                        console.log("[Auth] CometChat login result:", loggedUser?.getUid?.() ?? "none");
+                        return runRealtimeSelfCheck({ waitForLogin: true, label: "HealthCheck:Auth" });
+                    })
+                    .catch((error) => {
+                        console.warn("Không thể đăng nhập CometChat", {
+                            code: (error as any)?.code,
+                            name: (error as any)?.name,
+                            message: (error as any)?.message,
+                        });
+                    })
+                    .catch((error) => {
+                        console.warn("HealthCheck after login failed", error);
+                    });
             } else {
                 await SecureStore.deleteItemAsync("cometChatUid");
                 console.warn("Login payload thiếu CometChat UID và userId");
