@@ -407,8 +407,8 @@ export default function ChatDetailScreen() {
       const payload = response?.data?.data;
       const normalized = Array.isArray(payload)
         ? payload
-            .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
-            .sort((a, b) => a.createdAt - b.createdAt)
+          .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
+          .sort((a, b) => a.createdAt - b.createdAt)
         : [];
 
       if (!normalized.length) {
@@ -819,7 +819,7 @@ export default function ChatDetailScreen() {
 
     return () => {
       cancelled = true;
-      socket.emit("leave_conversation", conversationId, () => {});
+      socket.emit("leave_conversation", conversationId, () => { });
     };
   }, [conversationId, socketConnected, socketReadyVersion]);
 
@@ -867,36 +867,36 @@ export default function ChatDetailScreen() {
                 normalizeConversationStatus(conversation.status ?? conversation.conversationStatus),
               );
             }
-          const viewerIsSeer =
-            currentUserId &&
-            conversation.seerId &&
-            String(conversation.seerId) === String(currentUserId);
-          const viewerIsCustomer =
-            currentUserId &&
-            conversation.customerId &&
-            String(conversation.customerId) === String(currentUserId);
+            const viewerIsSeer =
+              currentUserId &&
+              conversation.seerId &&
+              String(conversation.seerId) === String(currentUserId);
+            const viewerIsCustomer =
+              currentUserId &&
+              conversation.customerId &&
+              String(conversation.customerId) === String(currentUserId);
 
-          if (viewerIsSeer) {
-            setConversationTitle(conversation.customerName ?? "Khách hàng");
-            setPartnerAvatar(conversation.customerAvatarUrl ?? null);
-          } else if (viewerIsCustomer) {
-            setConversationTitle(conversation.seerName ?? "Nhà tiên tri");
-            setPartnerAvatar(conversation.seerAvatarUrl ?? null);
-          } else {
-            setConversationTitle(
-              conversation.seerName ?? conversation.customerName ?? "Cuộc trò chuyện",
+            if (viewerIsSeer) {
+              setConversationTitle(conversation.customerName ?? "Khách hàng");
+              setPartnerAvatar(conversation.customerAvatarUrl ?? null);
+            } else if (viewerIsCustomer) {
+              setConversationTitle(conversation.seerName ?? "Nhà tiên tri");
+              setPartnerAvatar(conversation.seerAvatarUrl ?? null);
+            } else {
+              setConversationTitle(
+                conversation.seerName ?? conversation.customerName ?? "Cuộc trò chuyện",
+              );
+              setPartnerAvatar(
+                conversation.seerAvatarUrl ?? conversation.customerAvatarUrl ?? null,
+              );
+            }
+
+            const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
+            setPartnerCometChatUid(remoteUid);
+
+            setIsPartnerOnline(
+              (conversation.status ?? "").toString().toUpperCase() === "ACTIVE",
             );
-            setPartnerAvatar(
-              conversation.seerAvatarUrl ?? conversation.customerAvatarUrl ?? null,
-            );
-          }
-
-          const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
-          setPartnerCometChatUid(remoteUid);
-
-          setIsPartnerOnline(
-            (conversation.status ?? "").toString().toUpperCase() === "ACTIVE",
-          );
           } else {
             setPartnerCometChatUid(null);
           }
@@ -920,7 +920,7 @@ export default function ChatDetailScreen() {
 
         if (!legacyError) {
           const normalized = rawMessages
-          .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
+            .map((item: any) => mapApiMessage(item, currentUserId, conversationId))
             .sort((a, b) => a.createdAt - b.createdAt);
           setMessages(normalized);
 
@@ -1313,6 +1313,42 @@ export default function ChatDetailScreen() {
             <Text style={[styles.messageText, isOutgoing && styles.messageTextOutgoing]}>
               {item.content}
             </Text>
+          </View>
+      const bubble =
+        item.isRecalled ? (
+          <View style={[styles.bubble, styles.recalledBubble]}>
+            <Text style={styles.recalledText}>Tin nhắn đã được thu hồi</Text>
+          </View>
+        ) : item.content ? (
+          <View style={[styles.bubble, isOutgoing ? styles.bubbleOutgoing : styles.bubbleIncoming]}>
+            <Markdown
+              style={{
+                body: {
+                  color: isOutgoing ? "#ffffff" : "#0f172a",
+                  fontSize: 15,
+                  lineHeight: 22,
+                },
+                link: {
+                  color: isOutgoing ? "#bfdbfe" : "#3b82f6",
+                },
+                code_inline: {
+                  backgroundColor: isOutgoing ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.05)",
+                  color: isOutgoing ? "#ffffff" : "#0f172a",
+                  paddingHorizontal: 4,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  fontSize: 14,
+                },
+                fence: {
+                  backgroundColor: isOutgoing ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)",
+                  color: isOutgoing ? "#ffffff" : "#0f172a",
+                  padding: 8,
+                  borderRadius: 6,
+                },
+              }}
+            >
+              {item.content}
+            </Markdown>
           </View>
         ) : null;
 
@@ -2481,4 +2517,4 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 15,
   },
-});
+

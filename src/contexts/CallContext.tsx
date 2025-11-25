@@ -1,3 +1,6 @@
+// CallContext.tsx – Quản lý trạng thái và hành vi gọi video bằng CometChat UI Kit & SDK
+// Tạo Context để các component trong app có thể truy cập và điều khiển cuộc gọi
+
 import Colors from "@/src/constants/colors";
 import InCallScreen from "@/src/screens/InCallScreen";
 import {
@@ -16,11 +19,10 @@ import {
   startVideoCall,
 } from "@/src/services/cometchat";
 import { bootstrapCometChatUser } from "@/src/services/cometchatBootstrap";
-import { CometChat } from "@cometchat/chat-sdk-react-native";
-import type { CallSettings } from "@cometchat/calls-sdk-react-native";
+import { CometChat } from "@cometchat/chat-sdk-react-native"; // raw SDK cho các API core
+import { CometChatCalls } from "@cometchat/calls-sdk-react-native"; // SDK cho tính năng gọi
 import { Ionicons } from "@expo/vector-icons";
-import * as SecureStore from "expo-secure-store";
-import {
+import React, {
   ReactNode,
   createContext,
   useCallback,
@@ -39,15 +41,24 @@ import {
   View,
 } from "react-native";
 
-type CallStatus = "idle" | "connecting" | "ringingOut" | "ringingIn" | "inCall" | "ending";
+// ---------------------------------------------------------------------------
+// Kiểu dữ liệu trạng thái cuộc gọi
+// ---------------------------------------------------------------------------
+type CallStatus =
+  | "idle"
+  | "connecting"
+  | "ringingOut"
+  | "ringingIn"
+  | "inCall"
+  | "ending";
 
-type CallContextValue = {
+export type CallContextValue = {
   status: CallStatus;
   incomingCall: CometChat.Call | null;
   hasActiveCall: boolean;
   startVideoCall: (
     receiverId: string,
-    receiverType?: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE],
+    receiverType?: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE]
   ) => Promise<void>;
   acceptIncomingCall: () => Promise<void>;
   rejectIncomingCall: () => Promise<void>;
@@ -60,57 +71,46 @@ type CallContextValue = {
 
 const CallContext = createContext<CallContextValue | undefined>(undefined);
 
-const getCallParticipantInfo = (
-  call: CometChat.Call | null,
-  type: "initiator" | "receiver",
-) => {
-  if (!call) {
-    return { name: undefined, avatar: undefined };
-  }
-
-  const entity =
-    type === "initiator"
-      ? (call as any)?.getCallInitiator?.() ??
-        (call as any)?.callInitiator ??
-        (call as any)?.sender
-      : (call as any)?.getCallReceiver?.() ??
-        (call as any)?.callReceiver ??
-        (call as any)?.receiver;
-
-  const name =
-    entity?.getName?.() ??
-    entity?.name ??
-    entity?.fullName ??
-    entity?.uid ??
-    entity?.getUid?.() ??
-    undefined;
-
-  const avatar = entity?.getAvatar?.() ?? entity?.avatar ?? undefined;
-  return { name, avatar };
+export const useCallContext = () => {
+  const ctx = useContext(CallContext);
+  if (!ctx) throw new Error("useCallContext must be used within CallProvider");
+  return ctx;
 };
 
-const useEnsureCometChatUser = () => {
-  return useCallback(
-    async (options?: { forceRelogin?: boolean }) => {
-      return bootstrapCometChatUser({ forceRelogin: options?.forceRelogin });
-    },
-    [],
-  );
-};
+// Alias for backward compatibility
+export const useCall = useCallContext;
 
+// ---------------------------------------------------------------------------
+// Provider – chứa toàn bộ logic
+// ---------------------------------------------------------------------------
 export const CallProvider = ({ children }: { children: ReactNode }) => {
+  // -----------------------------------------------------------------------
+  // State
+  // -----------------------------------------------------------------------
   const [status, setStatus] = useState<CallStatus>("idle");
   const [incomingCall, setIncomingCall] = useState<CometChat.Call | null>(null);
   const [outgoingCall, setOutgoingCall] = useState<CometChat.Call | null>(null);
   const [activeCall, setActiveCall] = useState<CometChat.Call | null>(null);
-  const [callSettings, setCallSettings] = useState<CallSettings>(() => getDefaultCallSettings());
+  const [callSettings, setCallSettings] = useState<any>(null);
   const [callToken, setCallToken] = useState<string | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingBusy, setIsRecordingBusy] = useState(false);
-  const ensureCometChatUser = useEnsureCometChatUser();
 
+  // -----------------------------------------------------------------------
+  // Helper: đảm bảo người dùng đã login CometChat
+  // -----------------------------------------------------------------------
+  const ensureCometChatUser = useCallback(
+    async (options?: { forceRelogin?: boolean }) => {
+      await bootstrapCometChatUser({ forceRelogin: options?.forceRelogin });
+    },
+    []
+  );
+
+  // -----------------------------------------------------------------------
+  // Reset toàn bộ state khi cuộc gọi kết thúc hoặc có lỗi
+  // -----------------------------------------------------------------------
   const resetState = useCallback(() => {
     setStatus("idle");
     setIncomingCall(null);
@@ -122,93 +122,83 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setCallSettings(getDefaultCallSettings());
   }, []);
 
-  const prepareInCallView = useCallback(
-    async (call: CometChat.Call | null) => {
-      if (!call) {
-        resetState();
-        return;
-      }
-
-      setActiveCall(call);
-      const sessionId = extractSessionIdFromCall(call);
-
-      if (!sessionId) {
-        setCallError("Không thể xác định cuộc gọi hiện tại.");
-        resetState();
-        return;
-      }
-
-      try {
-        const callEventListener = createOngoingCallListener({
-          onRecordingStarted: () => setIsRecording(true),
-          onRecordingStopped: () => setIsRecording(false),
-          onCallEnded: () => {
-            // Mirror web flow: end session UI + reset state.
-            setIsRecording(false);
+  // -----------------------------------------------------------------------
+  // Chuẩn bị UI In‑Call khi đã có một cuộc gọi hợp lệ
+  // -----------------------------------------------------------------------
+  const prepareInCallView = useCallback(async (call: CometChat.Call) => {
+    setActiveCall(call);
+    const sessionId = extractSessionIdFromCall(call);
+    if (!sessionId) {
+      setCallError("Không thể xác định session ID của cuộc gọi.");
+      resetState();
+      return;
+    }
+    try {
+      const callEventListener = createOngoingCallListener({
+        onRecordingStarted: () => setIsRecording(true),
+        onRecordingStopped: () => setIsRecording(false),
+        onCallEnded: () => {
+          // Kết thúc UI và reset
+          CometChatCalls.endSession();
+          CometChat.clearActiveCall();
+          setIsRecording(false);
+          resetState();
+        },
+        onSessionTimeout: () => {
+          setIsRecording(false);
+          setCallError("Phiên gọi đã hết thời gian. Vui lòng gọi lại.");
+          resetState();
+        },
+        onCallEndButtonPressed: async () => {
+          try {
+            await endCurrentCall(sessionId);
+          } catch (e) {
+            console.warn("endCurrentCall failed", e);
+          } finally {
+            CometChatCalls.endSession();
+            CometChat.clearActiveCall();
             resetState();
-          },
-          onSessionTimeout: () => {
-            setIsRecording(false);
-            setCallError("Phiên gọi đã hết thời gian. Vui lòng gọi lại nếu cần.");
-            resetState();
-          },
-          onCallEndButtonPressed: async () => {
-            try {
-              await endCurrentCall(sessionId);
-            } catch (err) {
-              console.warn("endCurrentCall from call listener failed", err);
-            } finally {
-              resetState();
-            }
-          },
-          onError: (error) => {
-            console.warn("CometChat ongoing call error", error);
-            setCallError("Có lỗi xảy ra khi hiển thị cuộc gọi. Vui lòng thử lại.");
-            resetState();
-          },
-        });
+          }
+        },
+        onError: (err) => {
+          console.warn("Call listener error", err);
+          setCallError("Có lỗi xảy ra trong quá trình gọi. Vui lòng thử lại.");
+          resetState();
+        },
+      });
 
-        const isAudioOnly = (call as any)?.getType?.() === "audio";
+      const isAudioOnly = (call as any).getType?.() === "audio";
+      setCallSettings(
+        getDefaultCallSettings({
+          callEventListener,
+          showRecordingButton: true,
+          startRecordingOnCallStart: false,
+          isAudioOnly,
+        })
+      );
 
-        setCallSettings(
-          getDefaultCallSettings({
-            callEventListener,
-            showRecordingButton: true,
-            startRecordingOnCallStart: false,
-            isAudioOnly,
-          }),
-        );
+      const { token } = await getCallTokenForSession(sessionId);
+      setCallToken(token);
+      setStatus("inCall");
+    } catch (e) {
+      console.warn("prepareInCallView error", e);
+      setCallError("Không thể khởi tạo giao diện cuộc gọi.");
+      resetState();
+    }
+  }, []);
 
-        const { token } = await getCallTokenForSession(sessionId);
-        setCallToken(token);
-        setStatus("inCall");
-      } catch (error) {
-        console.warn("Unable to fetch CometChat call token", error);
-        setCallError("Không thể mở giao diện cuộc gọi. Vui lòng thử lại.");
-        resetState();
-      }
-    },
-    [resetState],
-  );
-
+  // -----------------------------------------------------------------------
+  // Effect: khởi tạo SDK khi app khởi chạy
+  // -----------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         await initCometChat();
-        const [uid, authToken] = await Promise.all([
-          SecureStore.getItemAsync("cometChatUid"),
-          SecureStore.getItemAsync("authToken"),
-        ]);
-        if (uid && authToken) {
-          await loginCometChatUser(uid);
-        }
-      } catch (error) {
-        console.warn("CometChat bootstrap failed", error);
+      } catch (e) {
+        console.warn("initCometChat failed", e);
       } finally {
-        if (!cancelled) {
-          setIsReady(true);
-        }
+        if (!cancelled) setIsReady(true);
       }
     })();
     return () => {
@@ -216,9 +206,24 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // -----------------------------------------------------------------------
+  // Effect: lắng nghe các sự kiện gọi
+  // -----------------------------------------------------------------------
   useEffect(() => {
     const remove = addCometChatCallListeners({
       onIncomingCallReceived: (call) => {
+        // Nếu đang có cuộc gọi khác, từ chối tự động
+        if (status !== "idle" || activeCall || outgoingCall) {
+          const sid = extractSessionIdFromCall(call);
+          if (sid) {
+            try {
+              CometChat.rejectCall(sid, CometChat.CALL_STATUS.BUSY);
+            } catch (e) {
+              console.warn("reject busy failed", e);
+            }
+          }
+          return;
+        }
         setIncomingCall(call);
         setStatus("ringingIn");
       },
@@ -237,39 +242,42 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         resetState();
       },
       onCallEnded: () => {
+        CometChatCalls.endSession();
+        CometChat.clearActiveCall();
         resetState();
       },
     });
     return remove;
-  }, [prepareInCallView, resetState]);
+  }, [status, activeCall, outgoingCall, prepareInCallView]);
 
+  // -----------------------------------------------------------------------
+  // Hiển thị lỗi dưới dạng Alert
+  // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!callError) {
-      return;
+    if (callError) {
+      Alert.alert("Cuộc gọi video", callError);
+      setCallError(null);
     }
-
-    const message = callError;
-    setCallError(null);
-    Alert.alert("Cuộc gọi video", message);
   }, [callError]);
 
+  // -----------------------------------------------------------------------
+  // Các hàm thao tác gọi
+  // -----------------------------------------------------------------------
   const handleStartVideoCall = useCallback(
     async (
       receiverId: string,
-      receiverType: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE] = CometChat.RECEIVER_TYPE.USER,
+      receiverType: typeof CometChat.RECEIVER_TYPE[keyof typeof CometChat.RECEIVER_TYPE] =
+        CometChat.RECEIVER_TYPE.USER
     ) => {
       if (!receiverId) {
         setCallError("Không tìm thấy tài khoản CometChat của người nhận.");
         return;
       }
-
       if (status !== "idle") {
         setCallError("Bạn đang có cuộc gọi khác.");
         return;
       }
-
       setStatus("connecting");
-
       try {
         await ensureCometChatUser();
         const attempt = async () => {
@@ -277,152 +285,106 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
           setOutgoingCall(call);
           setStatus("ringingOut");
         };
-
         try {
           await attempt();
-        } catch (err: any) {
+        } catch (e: any) {
           const needRelogin =
-            err?.code === "USER_NOT_LOGED_IN" ||
-            err?.code === "AUTH_ERR" ||
-            err?.message?.toLowerCase()?.includes("login");
-
+            e?.code === "USER_NOT_LOGED_IN" ||
+            e?.code === "AUTH_ERR" ||
+            e?.message?.toLowerCase()?.includes("login");
           if (needRelogin) {
             await ensureCometChatUser({ forceRelogin: true });
             await attempt();
             return;
           }
-          throw err;
+          throw e;
         }
-      } catch (error: any) {
-        console.error("startVideoCall", error);
-        setCallError(
-          error?.message?.includes("login") || error?.message?.includes("login necessary")
-            ? "Vui lòng đăng nhập lại trước khi gọi."
-            : "Không thể bắt đầu cuộc gọi. Vui lòng thử lại.",
-        );
+      } catch (e: any) {
+        console.error("startVideoCall", e);
+        setCallError(e?.message ?? "Lỗi khi bắt đầu cuộc gọi.");
         resetState();
-        throw error;
       }
     },
-    [ensureCometChatUser, resetState, status],
+    [status, ensureCometChatUser]
   );
 
   const handleAcceptIncoming = useCallback(async () => {
-    if (!incomingCall) {
-      return;
-    }
-
+    if (!incomingCall) return;
     const sessionId = extractSessionIdFromCall(incomingCall);
     if (!sessionId) {
-      setCallError("Cuộc gọi không hợp lệ.");
-      resetState();
+      setCallError("Không xác định được session ID.");
       return;
     }
-
-    setStatus("connecting");
-
     try {
-      await ensureCometChatUser();
-      const call = await acceptIncomingCall(sessionId);
-      setIncomingCall(null);
-      await prepareInCallView(call);
-    } catch (error) {
-      console.error("acceptIncomingCall", error);
-      setCallError("Không thể kết nối cuộc gọi.");
-      resetState();
+      await acceptIncomingCall(sessionId);
+    } catch (e) {
+      console.warn("acceptIncomingCall error", e);
+      setCallError("Không thể chấp nhận cuộc gọi.");
     }
-  }, [ensureCometChatUser, incomingCall, prepareInCallView, resetState]);
+  }, [incomingCall]);
 
   const handleRejectIncoming = useCallback(async () => {
-    if (!incomingCall) {
+    if (!incomingCall) return;
+    const sessionId = extractSessionIdFromCall(incomingCall);
+    if (!sessionId) {
+      setCallError("Không xác định được session ID.");
+      resetState();
       return;
     }
-
-    const sessionId = extractSessionIdFromCall(incomingCall);
-    setStatus("ending");
-
     try {
-      if (sessionId) {
-        await rejectIncomingCall(sessionId);
-      }
-    } catch (error) {
-      console.warn("rejectIncomingCall", error);
+      await rejectIncomingCall(sessionId);
+    } catch (e) {
+      console.warn("rejectIncomingCall error", e);
     } finally {
       setIncomingCall(null);
       resetState();
     }
-  }, [incomingCall, resetState]);
+  }, [incomingCall]);
 
   const handleEndCall = useCallback(async () => {
-    const sessionId =
-      extractSessionIdFromCall(activeCall) ??
-      extractSessionIdFromCall(outgoingCall) ??
-      extractSessionIdFromCall(incomingCall);
-
+    if (!activeCall) return;
+    const sessionId = extractSessionIdFromCall(activeCall);
     if (!sessionId) {
+      setCallError("Không xác định được session ID.");
       resetState();
       return;
     }
-
-    setStatus("ending");
-
     try {
-      if (status === "ringingOut" || status === "connecting") {
-        await cancelOutgoingCall(sessionId);
-      } else if (status === "ringingIn") {
-        await rejectIncomingCall(sessionId);
-      } else {
-        await endCurrentCall(sessionId);
-      }
-    } catch (error) {
-      console.warn("Unable to end call", error);
+      await endCurrentCall(sessionId);
+    } catch (e) {
+      console.warn("endCurrentCall error", e);
     } finally {
+      // SDK sẽ phát onCallEnded, nhưng để chắc chắn reset lại
       resetState();
     }
-  }, [activeCall, incomingCall, outgoingCall, resetState, status]);
-
-  const handleStartRecording = useCallback(async () => {
-    if (!callToken || status !== "inCall") {
-      setCallError("Chỉ có thể ghi hình khi đang trong cuộc gọi.");
-      return;
-    }
-
-    setIsRecordingBusy(true);
-    try {
-      await startCallRecording();
-    } catch (error) {
-      console.error("startCallRecording", error);
-      setCallError("Không thể bắt đầu ghi hình. Vui lòng thử lại.");
-    } finally {
-      setIsRecordingBusy(false);
-    }
-  }, [callToken, status]);
-
-  const handleStopRecording = useCallback(async () => {
-    setIsRecordingBusy(true);
-    try {
-      await stopCallRecording();
-    } catch (error) {
-      console.error("stopCallRecording", error);
-      setCallError("Không thể dừng ghi hình. Vui lòng thử lại.");
-    } finally {
-      setIsRecordingBusy(false);
-    }
-  }, []);
+  }, [activeCall]);
 
   const handleToggleRecording = useCallback(async () => {
-    if (isRecording) {
-      await handleStopRecording();
-    } else {
-      await handleStartRecording();
+    if (isRecordingBusy) return; // tránh gọi đồng thời
+    setIsRecordingBusy(true);
+    try {
+      if (isRecording) {
+        await stopCallRecording();
+        setIsRecording(false);
+      } else {
+        await startCallRecording();
+        setIsRecording(true);
+      }
+    } catch (e) {
+      console.warn("recording toggle error", e);
+    } finally {
+      setIsRecordingBusy(false);
     }
-  }, [handleStartRecording, handleStopRecording, isRecording]);
+  }, [isRecording, isRecordingBusy]);
 
-  const contextValue = useMemo<CallContextValue>(
+  // -----------------------------------------------------------------------
+  // Context value
+  // -----------------------------------------------------------------------
+  const contextValue = useMemo(
     () => ({
       status,
       incomingCall,
-      hasActiveCall: Boolean(activeCall || outgoingCall),
+      hasActiveCall: !!activeCall,
       startVideoCall: handleStartVideoCall,
       acceptIncomingCall: handleAcceptIncoming,
       rejectIncomingCall: handleRejectIncoming,
@@ -433,208 +395,41 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       isReady,
     }),
     [
+      status,
+      incomingCall,
       activeCall,
+      handleStartVideoCall,
       handleAcceptIncoming,
+      handleRejectIncoming,
       handleEndCall,
       handleToggleRecording,
-      handleRejectIncoming,
-      handleStartVideoCall,
-      incomingCall,
       isRecording,
       isRecordingBusy,
       isReady,
-      outgoingCall,
-      status,
-    ],
+    ]
   );
-
-  const incomingInfo = getCallParticipantInfo(incomingCall, "initiator");
-  const outgoingInfo = getCallParticipantInfo(outgoingCall, "receiver");
-  const activeInfo = getCallParticipantInfo(activeCall, "receiver");
 
   return (
     <CallContext.Provider value={contextValue}>
       {children}
-
-      <IncomingCallModal
-        visible={status === "ringingIn" && Boolean(incomingCall)}
-        name={incomingInfo.name}
-        avatar={incomingInfo.avatar}
-        onAccept={handleAcceptIncoming}
-        onReject={handleRejectIncoming}
-      />
-
-      <OutgoingCallModal
-        visible={status === "connecting" || status === "ringingOut"}
-        name={outgoingInfo.name}
-        avatar={outgoingInfo.avatar}
-        onCancel={handleEndCall}
-      />
-
-      <InCallScreen
-        visible={status === "inCall" || status === "ending"}
-        callToken={callToken}
-        callSettings={callSettings}
-        onEndCall={handleEndCall}
-        isEnding={status === "ending"}
-        title={activeInfo.name}
-        onToggleRecording={handleToggleRecording}
-        isRecording={isRecording}
-        isRecordingBusy={isRecordingBusy}
-      />
+      {/* Render InCallScreen khi có cuộc gọi đang diễn ra */}
+      {activeCall && (
+        <InCallScreen
+          visible={status === "inCall"}
+          callSettings={callSettings}
+          callToken={callToken}
+          onEndCall={handleEndCall}
+          onToggleRecording={handleToggleRecording}
+          isRecording={isRecording}
+          isRecordingBusy={isRecordingBusy}
+          title={`Cuộc gọi với ${activeCall.getReceiver?.()?.getName?.() ?? 'người dùng'}`}
+        />
+      )}
     </CallContext.Provider>
   );
 };
 
-export const useCall = () => {
-  const ctx = useContext(CallContext);
-  if (!ctx) {
-    throw new Error("useCall must be used inside CallProvider");
-  }
-  return ctx;
-};
-
-type ModalProps = {
-  visible: boolean;
-  name?: string;
-  avatar?: string;
-  onAccept?: () => void;
-  onReject?: () => void;
-  onCancel?: () => void;
-};
-
-const IncomingCallModal = ({ visible, name, avatar, onAccept, onReject }: ModalProps) => {
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
-          <AvatarBlock name={name} avatar={avatar} />
-          <Text style={styles.modalTitle}>Cuộc gọi đến</Text>
-          <Text style={styles.modalSubtitle}>{name ?? "Người gọi"}</Text>
-          <View style={styles.modalActions}>
-            <TouchableOpacity style={[styles.modalButton, styles.rejectButton]} onPress={onReject}>
-              <Ionicons name="close" size={24} color="#fff" />
-              <Text style={styles.modalButtonText}>Từ chối</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, styles.acceptButton]} onPress={onAccept}>
-              <Ionicons name="videocam" size={24} color="#fff" />
-              <Text style={styles.modalButtonText}>Trả lời</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-const OutgoingCallModal = ({ visible, name, avatar, onCancel }: ModalProps) => {
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
-          <AvatarBlock name={name} avatar={avatar} />
-          <Text style={styles.modalTitle}>Đang gọi...</Text>
-          <Text style={styles.modalSubtitle}>{name ?? "Liên hệ"}</Text>
-          <TouchableOpacity style={[styles.modalButton, styles.rejectButton]} onPress={onCancel}>
-            <Ionicons name="close" size={24} color="#fff" />
-            <Text style={styles.modalButtonText}>Huỷ cuộc gọi</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-const AvatarBlock = ({ name, avatar }: { name?: string; avatar?: string }) => {
-  if (avatar) {
-    return <Image source={{ uri: avatar }} style={styles.avatar} />;
-  }
-
-  const initials = name?.trim()?.charAt(0)?.toUpperCase() ?? "?";
-  return (
-    <View style={[styles.avatar, styles.avatarFallback]}>
-      <Text style={styles.avatarFallbackText}>{initials}</Text>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    width: "100%",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.dark_gray,
-    marginTop: 12,
-  },
-  modalSubtitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.black,
-    marginTop: 4,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 16,
-    marginTop: 24,
-  },
-  modalButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 999,
-    gap: 8,
-    minWidth: 140,
-  },
-  modalButtonText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  acceptButton: {
-    backgroundColor: Colors.green,
-  },
-  rejectButton: {
-    backgroundColor: "#ef4444",
-  },
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-  },
-  avatarFallback: {
-    backgroundColor: Colors.lightBlue,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarFallbackText: {
-    fontSize: 40,
-    fontWeight: "700",
-    color: Colors.primary,
-  },
-});
-
-export type { CallStatus };
+// ---------------------------------------------------------------------------
+// Style (nếu cần) – hiện tại không dùng, nhưng để tránh lỗi eslint
+// ---------------------------------------------------------------------------
+const styles = StyleSheet.create({});

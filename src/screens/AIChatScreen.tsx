@@ -8,7 +8,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -631,14 +631,7 @@ export default function AIChatScreen() {
   const [countdownDeadline, setCountdownDeadline] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number>(0);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
-  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
-  const [historyItems, setHistoryItems] = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
-  const [historyLoaded, setHistoryLoaded] = useState<boolean>(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyLastSynced, setHistoryLastSynced] = useState<Date | null>(null);
-  const appState = useRef(AppState.currentState);
-  const historyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [hasLoadedSession, setHasLoadedSession] = useState<boolean>(false);
 
   const currentOption = useMemo(() => CHAT_OPTION_MAP[selectedOption], [selectedOption]);
@@ -725,98 +718,25 @@ export default function AIChatScreen() {
     );
   }, [messages, hasLoadedSession]);
 
-  const fetchHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    try {
-      const response = await getAiChatHistory(1, 100);
-      const payload = response?.data?.data ?? response?.data ?? {};
-
-      const items = Array.isArray(payload?.content)
-        ? payload.content
-        : Array.isArray(payload?.records)
-          ? payload.records
-          : Array.isArray(payload)
-            ? payload
-            : [];
-
-      const normalized: HistoryEntry[] = items
-        .map((item: any, index: number): HistoryEntry | null => {
-          if (!item) return null;
-          const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
-          const content = item.textContent ?? item.content ?? "";
-          const isPending = !item.sentByUser && (!content || String(content).trim().length === 0);
-          return {
-            id: String(item.id ?? item.messageId ?? `history-${index}-${createdAt}`),
-            role: item.sentByUser ? "user" : "assistant",
-            content,
-            createdAt,
-            processingTime:
-              typeof item.processingTime === "number" && !Number.isNaN(item.processingTime)
-                ? item.processingTime
-                : undefined,
-            isPending,
-            status: isPending ? "pending" : "done",
-          };
-        })
-        .filter((item): item is HistoryEntry => Boolean(item));
-
-      setHistoryItems(normalized);
-      setHistoryLoaded(true);
-      setHistoryLastSynced(new Date());
-      mergeHistoryIntoChat(normalized);
-    } catch (error) {
-      console.error("Không thể tải lịch sử AI chat", error);
-      setHistoryError(
-        error?.message ?? "Không thể tải lịch sử trò chuyện. Vui lòng thử lại.",
-      );
-    } finally {
-      setHistoryLoading(false);
+  const handleMarkdownLinkPress = useCallback((url: string) => {
+    if (!url) {
+      return false;
     }
-  }, [mergeHistoryIntoChat]);
 
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (appState.current.match(/inactive|background/) && nextState === "active") {
-        if (shouldPollHistory || isHistoryStale) {
-          fetchHistory();
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Alert.alert("Không thể mở liên kết", "Liên kết này không hợp lệ hoặc đã bị chặn.");
         }
-      }
-      appState.current = nextState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [fetchHistory, isHistoryStale, shouldPollHistory]);
-
-  useEffect(() => {
-    if (historyOpen && !historyLoaded && !historyLoading) {
-      fetchHistory();
-    }
-  }, [historyOpen, historyLoaded, historyLoading, fetchHistory]);
-
-  useEffect(() => {
-    if (shouldPollHistory) {
-      // Poll mỗi 5s khi còn item đang xử lý hoặc khi panel mở
-      historyPollRef.current = setInterval(() => fetchHistory(), 5000);
-    } else if (historyPollRef.current) {
-      clearInterval(historyPollRef.current);
-      historyPollRef.current = null;
-    }
-
-    return () => {
-      if (historyPollRef.current) {
-        clearInterval(historyPollRef.current);
-        historyPollRef.current = null;
-      }
-    };
-  }, [shouldPollHistory, fetchHistory]);
+      })
+      .catch((error) => {
+        console.error("Không thể mở liên kết", error);
+        Alert.alert("Không thể mở liên kết", "Liên kết này không hợp lệ hoặc đã bị chặn.");
+      });
+    return false;
+  }, []);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -828,7 +748,7 @@ export default function AIChatScreen() {
     setSelectedImages([]);
     clearCountdown();
     setIsSending(false);
-    await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => {});
+    await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => { });
   }, [clearCountdown]);
 
   const handleReferencePress = useCallback(
@@ -909,40 +829,7 @@ export default function AIChatScreen() {
     setSelectedImages((prev) => prev.filter((item) => item.id !== attachmentId));
   }, []);
 
-  const mergeHistoryIntoChat = useCallback((history: HistoryEntry[]) => {
-    if (!Array.isArray(history)) {
-      return;
-    }
 
-    if (history.length === 0) {
-      if (messages.length === 0) {
-        setMessages(createInitialMessages());
-      }
-      return;
-    }
-
-      const mappedHistory: AIMessage[] = history
-        .map((item) => ({
-          id: item.id,
-          role: item.role,
-          content: item.isPending ? undefined : item.content,
-          createdAt: item.createdAt,
-          processingTime: item.processingTime,
-          status: item.status ?? (item.isPending ? "pending" : "done"),
-        }))
-        .sort((a, b) => a.createdAt - b.createdAt);
-
-    setMessages((prev) => {
-      if (!prev || prev.length === 0) {
-        return mappedHistory;
-      }
-
-      const historyIds = new Set(mappedHistory.map((m) => m.id));
-      const localOnly = prev.filter((m) => !historyIds.has(m.id));
-      const combined = [...mappedHistory, ...localOnly].sort((a, b) => a.createdAt - b.createdAt);
-      return combined;
-    });
-  }, [messages.length]);
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
@@ -987,17 +874,17 @@ export default function AIChatScreen() {
         const response =
           attachment.analysisType === "palm"
             ? await analyzePalmImage(
-                attachment.uri,
-                attachment.name,
-                attachment.mimeType,
-                selectedOption,
-              )
+              attachment.uri,
+              attachment.name,
+              attachment.mimeType,
+              selectedOption,
+            )
             : await analyzeFaceImage(
-                attachment.uri,
-                attachment.name,
-                attachment.mimeType,
-                selectedOption,
-              );
+              attachment.uri,
+              attachment.name,
+              attachment.mimeType,
+              selectedOption,
+            );
 
         const payload = response?.data?.data ?? response?.data;
         const analysisResult =
@@ -1075,14 +962,14 @@ export default function AIChatScreen() {
       const parsedFromAnswer = extractKnowledgeReferencesFromAnswer(rawAnswer);
       const normalizedReferences = normalizeReferences(
         payloadRoot?.references ??
-          payloadRoot?.knowledgeBaseReferences ??
-          payloadRoot?.sources ??
-          payloadRoot?.documents ??
-          payloadRoot?.matches ??
-          payloadRoot?.results ??
-          payloadRoot?.citations ??
-          payloadRoot?.contexts ??
-          payloadRoot,
+        payloadRoot?.knowledgeBaseReferences ??
+        payloadRoot?.sources ??
+        payloadRoot?.documents ??
+        payloadRoot?.matches ??
+        payloadRoot?.results ??
+        payloadRoot?.citations ??
+        payloadRoot?.contexts ??
+        payloadRoot,
       );
 
       const combinedReferences = mergeKnowledgeReferences(
@@ -1121,11 +1008,11 @@ export default function AIChatScreen() {
         prev.map((item) =>
           item.id === assistantId
             ? {
-                ...item,
-                role: "system",
-                content: fallback,
-                status: "done",
-              }
+              ...item,
+              role: "system",
+              content: fallback,
+              status: "done",
+            }
             : item,
         ),
       );
@@ -1190,9 +1077,8 @@ export default function AIChatScreen() {
                       return (
                         <Pressable
                           key={`${reference.id}-${index}`}
-                          style={({ hovered, focused, pressed }) => [
+                          style={({ pressed }) => [
                             styles.referenceChip,
-                            (hovered || focused) && styles.referenceChipFocused,
                             pressed && styles.referenceChipPressed,
                           ]}
                           onPress={() => handleReferencePress(reference)}
@@ -1217,123 +1103,11 @@ export default function AIChatScreen() {
     },
     [handleMarkdownLinkPress, handleReferencePress],
   );
-
-  const hasPendingHistory = useMemo(
-    () => historyItems.some((item) => item.isPending),
-    [historyItems],
-  );
-
-  const hasPendingMessages = useMemo(
-    () => messages.some((message) => message.status === "pending"),
-    [messages],
-  );
-
-  const shouldPollHistory = historyOpen || hasPendingHistory || hasPendingMessages;
-
-  const isHistoryStale = useMemo(() => {
-    if (!historyLastSynced) return true;
-    return Date.now() - historyLastSynced.getTime() > HISTORY_STALE_MS;
-  }, [historyLastSynced]);
-
-  const handleHistoryItemPress = useCallback(
-    (item: HistoryEntry) => {
-      if (item.isPending) {
-        Alert.alert(
-          "Đang xử lý",
-          "AI vẫn đang phân tích nội dung bạn đã gửi. Lịch sử sẽ tự cập nhật, bạn có thể đợi thêm hoặc bấm Làm mới.",
-          [
-            { text: "Đóng", style: "cancel" },
-            { text: "Làm mới", onPress: fetchHistory },
-          ],
-        );
-        return;
-      }
-
-      const { isPending, ...rest } = item;
-      setMessages((prev) => {
-        const next = [...prev.filter((msg) => msg.id !== rest.id), rest].sort(
-          (a, b) => a.createdAt - b.createdAt,
-        );
-        return next;
-      });
-      setHistoryOpen(false);
-      setTimeout(() => scrollToEnd(), 250);
-    },
-    [fetchHistory, scrollToEnd],
-  );
-
-  const handleLoadHistoryIntoChat = useCallback(() => {
-    if (!historyItems.length) return;
-    const ordered = [...historyItems]
-      .map(({ isPending, ...rest }) => rest)
-      .sort((a, b) => a.createdAt - b.createdAt);
-    setMessages(ordered);
-    setHistoryOpen(false);
-    setTimeout(() => scrollToEnd(), 250);
-  }, [historyItems, scrollToEnd]);
-
-  const renderHistoryItem = useCallback(
-    ({ item }: { item: HistoryEntry }) => {
-      const isUser = item.role === "user";
-      return (
-        <Pressable
-          style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
-          onPress={() => handleHistoryItemPress(item)}
-        >
-          <View style={styles.historyItemHeader}>
-            <View style={[styles.historyRolePill, isUser ? styles.historyRoleUser : styles.historyRoleAi]}>
-              <Text style={styles.historyRoleText}>{isUser ? "Bạn" : "AI"}</Text>
-            </View>
-            <View style={styles.historyHeaderRight}>
-              {item.isPending ? (
-                <View style={styles.historyPendingChip}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={styles.historyPendingChipText}>Đang xử lý</Text>
-                </View>
-              ) : null}
-              <Text style={styles.historyTimestamp}>{formatTimestamp(item.createdAt)}</Text>
-            </View>
-          </View>
-
-          {item.isPending ? (
-            <View style={styles.historyPendingRow}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.historyPendingText}>
-                AI đang xử lý ảnh/đoạn chat này. Hãy chờ hoặc bấm Làm mới.
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.historyContent}>{item.content || "—"}</Text>
-          )}
-        </Pressable>
-      );
-    },
-    [handleHistoryItemPress],
-  );
-
   const canSend = useMemo(
     () => input.trim().length > 0 || selectedImages.length > 0,
     [input, selectedImages],
   );
 
-  const handleMarkdownLinkPress = useCallback(async (url: string) => {
-    if (!url) {
-      return false;
-    }
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-        return false;
-      }
-    } catch (error) {
-      console.error("Không thể mở liên kết", error);
-    }
-
-    Alert.alert("Không thể mở liên kết", "Liên kết này không hợp lệ hoặc đã bị chặn.");
-    return false;
-  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
@@ -1353,13 +1127,7 @@ export default function AIChatScreen() {
               <Ionicons name="add-circle-outline" size={22} color={Colors.white} />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => {
-                const next = !historyOpen;
-                setHistoryOpen(next);
-                if (next) {
-                  fetchHistory();
-                }
-              }}
+              onPress={() => router.push('/ai-chat-history' as never)}
               style={styles.headerButton}
             >
               <Ionicons name="time-outline" size={20} color={Colors.white} />
@@ -1403,119 +1171,6 @@ export default function AIChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
       >
-        {historyOpen ? (
-          <View style={styles.historyContainer}>
-            <View style={[styles.modalCard, styles.historyCard]}>
-              <LinearGradient
-                colors={["#eef2ff", "#e0f2fe", "#fef3c7"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.historyHero}
-              >
-                <View style={styles.historyHeroTopRow}>
-                  <View style={styles.historyHeroTitleRow}>
-                    <Ionicons name="time-outline" size={20} color={Colors.primary} />
-                    <View>
-                      <Text style={styles.modalTitle}>Lịch sử trò chuyện</Text>
-                      <Text style={styles.historySubtitle}>Đồng bộ realtime với backend 8081</Text>
-                    </View>
-                  </View>
-                  <View style={styles.historyHeroActions}>
-                    <View
-                      style={[
-                        styles.liveChip,
-                        hasPendingHistory || hasPendingMessages
-                          ? styles.liveChipProcessing
-                          : styles.liveChipReady,
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.liveDot,
-                          hasPendingHistory || hasPendingMessages
-                            ? styles.liveDotWarning
-                            : styles.liveDotReady,
-                        ]}
-                      />
-                      <Text style={styles.liveChipText}>
-                        {hasPendingHistory || hasPendingMessages ? "Đang xử lý" : "Đã đồng bộ"}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.refreshButton}
-                      activeOpacity={0.9}
-                      onPress={fetchHistory}
-                      disabled={historyLoading}
-                    >
-                      <Ionicons name="refresh-outline" size={16} color={Colors.primary} />
-                      <Text style={styles.refreshButtonText}>Làm mới</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                {historyLastSynced ? (
-                  <Text style={styles.historySyncedAt}>
-                    Cập nhật lúc {historyLastSynced.toLocaleTimeString("vi-VN")}
-                  </Text>
-                ) : null}
-              </LinearGradient>
-
-              <View style={styles.historyScrollWrapper}>
-                {historyLoading ? (
-                  <View style={styles.historyLoadingRow}>
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                    <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
-                  </View>
-                ) : historyError ? (
-                  <View style={styles.historyLoadingRow}>
-                    <Ionicons name="warning-outline" size={18} color="#b91c1c" />
-                    <Text style={styles.historyErrorText}>{historyError}</Text>
-                    <TouchableOpacity onPress={fetchHistory}>
-                      <Text style={styles.historyRetry}>Thử lại</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : historyItems.length === 0 ? (
-                  <Text style={styles.historyEmpty}>Chưa có cuộc trò chuyện nào.</Text>
-                ) : (
-                  <FlatList
-                    style={styles.historyFlatList}
-                    data={historyItems}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderHistoryItem}
-                    contentContainerStyle={styles.historyList}
-                    showsVerticalScrollIndicator
-                    scrollEnabled
-                    nestedScrollEnabled
-                    ListFooterComponent={<View style={{ height: 12 }} />}
-                  />
-                )}
-              </View>
-
-              <View style={styles.historyActionsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.closeHistoryButton,
-                    styles.loadHistoryButton,
-                    (!historyItems.length || historyLoading) && styles.closeHistoryButtonDisabled,
-                  ]}
-                  activeOpacity= {0.9}
-                  onPress={handleLoadHistoryIntoChat}
-                  disabled={!historyItems.length || historyLoading}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.white} />
-                  <Text style={styles.closeHistoryText}>Đổ vào khung chat</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.closeHistoryButton}
-                  activeOpacity={0.9}
-                  onPress={() => setHistoryOpen(false)}
-                >
-                  <Text style={styles.closeHistoryText}>Thu gọn</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        ) : null}
 
         <FlatList
           ref={listRef}
@@ -1535,9 +1190,8 @@ export default function AIChatScreen() {
                   </Text>
                   <Text style={styles.loadingSubtext}>
                     {remainingMs > 0
-                      ? `Còn ${formatCountdown(remainingMs)} · Chế độ ${
-                          currentOption?.label ?? selectedOption
-                        }`
+                      ? `Còn ${formatCountdown(remainingMs)} · Chế độ ${currentOption?.label ?? selectedOption
+                      }`
                       : "Đang nhận phản hồi..."}
                   </Text>
                   {isAnalysisPending ? (
@@ -1611,7 +1265,7 @@ export default function AIChatScreen() {
       >
         <TouchableWithoutFeedback onPress={() => setOptionPickerVisible(false)}>
           <View style={styles.modalBackdrop}>
-            <TouchableWithoutFeedback onPress={() => {}}>
+            <TouchableWithoutFeedback onPress={() => { }}>
               <View style={styles.modalCard}>
                 <View style={styles.modalHeader}>
                   <Ionicons name="speedometer-outline" size={20} color={Colors.primary} />
