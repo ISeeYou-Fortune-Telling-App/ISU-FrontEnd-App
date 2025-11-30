@@ -14,7 +14,7 @@ const inferAiBaseFromApiBase = () => {
   try {
     const url = new URL(apiBase);
     // Force AI calls to hit core backend port 8081 even if API base is gateway 8080
-    url.port = "8081";
+    url.port = "8080";
     return stripTrailingSlash(url.toString());
   } catch {
     return stripTrailingSlash(apiBase);
@@ -74,7 +74,7 @@ export const analyzePalmImage = (
   const data = createFormData(uri, name, mimeType);
   data.append("selected_option", String(selectedOption));
 
-  return API.post(buildAiChatUrl("/ai-chat/analyze-palm"), data, {
+  return API.post(buildAiChatUrl("/ai-support/analyze-palm"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
@@ -88,14 +88,14 @@ export const analyzeFaceImage = (
   const data = createFormData(uri, name, mimeType);
   data.append("selected_option", String(selectedOption));
 
-  return API.post(buildAiChatUrl("/ai-chat/analyze-face"), data, {
+  return API.post(buildAiChatUrl("/ai-support/analyze-face"), data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
 
 export const chatWithAI = async (payload: Record<string, unknown>) => {
   const token = await SecureStore.getItemAsync("authToken");
-  const response = await fetch(buildAiChatUrl("/ai-chat/query"), {
+  const response = await fetch(buildAiChatUrl("/ai-support/query"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export const chatWithAI = async (payload: Record<string, unknown>) => {
 export const getAiChatHistory = async (page = 1, limit = 20) => {
   const token = await SecureStore.getItemAsync("authToken");
   const response = await fetch(
-    buildAiChatUrl(`/ai-chat/my-chat-history?page=${page}&limit=${limit}`),
+    buildAiChatUrl(`/ai-support/my-chat-history?page=${page}&limit=${limit}`),
     {
       method: "GET",
       headers: {

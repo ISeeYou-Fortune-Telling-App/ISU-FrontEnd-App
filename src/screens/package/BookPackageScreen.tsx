@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import Markdown from "react-native-markdown-display";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -289,7 +290,14 @@ export default function BookPackageScreen() {
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Chi tiết gói</Text>
                 <Text style={styles.packageTitleCard}>{pkg.packageTitle}</Text>
-                <Text style={styles.packageContentCard}>{content?.replace(/\\n/g, "\n")}</Text>
+                <View style={{ marginTop: 8 }}>
+                  <Markdown style={{
+                    body: { ...styles.packageContentCard, margin: 0 },
+                    paragraph: { marginBottom: 4 },
+                  }}>
+                    {(content || '').replace(/\\n/g, '\n')}
+                  </Markdown>
+                </View>
 
                 {pkg.categories && <View style={styles.categoryChipsRow}>
                   {pkg.categories.map((c: any) => {

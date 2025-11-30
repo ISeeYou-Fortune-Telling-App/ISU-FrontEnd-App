@@ -1,9 +1,9 @@
+import MarkdownEditor from "@/src/components/MarkdownEditor";
 import Colors from "@/src/constants/colors";
 import { getKnowledgeCategories, getServicePackageDetail, updateServicePackage } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { decode } from "html-entities";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,7 +20,6 @@ import {
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Text, TextInput } from "react-native-paper";
-import { RichEditor, RichToolbar, actions } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type timeSlot = {
@@ -88,9 +87,9 @@ export default function UpdatePackageScreen() {
         setSelectedCategoryIds(pkgCatIds);
 
         const rawContent: string = data?.packageContent ?? "";
-        const htmlForEditor = rawContent.replace(/\n/g, "<br/>").replace(/\\n/g, "<br/>");
-        setContent(htmlForEditor);
-        contentRef.current?.setContentHTML(htmlForEditor);
+        // Convert any HTML breaks back to newlines for plain text editing
+        const plainContent = rawContent.replace(/<br\s*\/?>/g, "\n").replace(/<[^>]+>/g, "");
+        setContent(plainContent);
 
         const allCatsResp = await getKnowledgeCategories({ page: 1, limit: 50, sortType: "desc", sortBy: "createdAt" });
         const fetchedCategories = allCatsResp.data?.data ?? [];
@@ -105,7 +104,6 @@ export default function UpdatePackageScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
-  const contentRef = useRef<RichEditor>(null);
 
   const [isPickerVisible, setPickerVisible] = useState(false);
   const [pickerField, setPickerField] = useState<'from' | 'to'>('from');
@@ -198,6 +196,14 @@ export default function UpdatePackageScreen() {
       Alert.alert('Thiếu giờ', 'Vui lòng chọn giờ bắt đầu và kết thúc.');
       return;
     }
+        
+    const from = parseInt(tempFrom.replace(/\:/g, ""));
+    const to = parseInt(tempTo.replace(/\:/g, ""));
+
+    if (from >= to) {
+      Alert.alert("Giờ không hợp lệ", "Giờ khởi đầu không thể bằng hoặc hơn giờ kết thúc. Vui lòng chọn lại.");
+      return;
+    }
 
     // Safety check format
     const safeFrom = normalizeTime(tempFrom);
@@ -232,14 +238,7 @@ export default function UpdatePackageScreen() {
     try {
       setSubmitting(true);
 
-      const cleanDescription = decode(
-        content
-          .replace(/<div>/g, '')
-          .replace(/<\/div>/g, '\n')
-          .replace(/<br\s*\/?>(?:\n)?/g, '\n')
-          .replace(/<[^>]+>/g, '')
-          .trim()
-      );
+      const cleanDescription = content.trim();
 
       const formData = new FormData();
       formData.append('packageTitle', title);
@@ -353,16 +352,12 @@ export default function UpdatePackageScreen() {
             />
 
             <Text style={{ fontSize: 14, marginBottom: 8 }}>Mô tả ngắn</Text>
-            <View style={styles.richEditorContainer}>
-              <RichToolbar
-                editor={contentRef}
-                actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList, actions.insertLink]}
-                iconTint="#000"
-                selectedIconTint="#2095F4"
-                style={{ backgroundColor: '#f0f0f0' }}
-              />
-              <RichEditor ref={contentRef} onChange={setContent} placeholder="Mô tả ngắn" initialHeight={150} style={{ flex: 1 }} initialContentHTML={content} />
-            </View>
+            <MarkdownEditor
+              value={content}
+              onChangeText={setContent}
+              placeholder="Nhập mô tả (hỗ trợ markdown)..."
+              minHeight={180}
+            />
 
             <TouchableOpacity style={styles.imageUpload} onPress={pickImage}>
               {image || imagePreview ? (
@@ -376,6 +371,7 @@ export default function UpdatePackageScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Thời gian rảnh</Text>
             <Text style={{ marginBottom: 8 }}>Chọn ngày để chỉnh giờ. Chỉ khi nhấn "Áp dụng giờ cho ngày này" sẽ lưu ngày vào slots.</Text>
+            <Text style={{ marginBottom: 8 }}>Lưu ý: Khung giờ chỉ ở trong ngày được chọn (VD: T2 21h30 - T3 2h là cấm).</Text>
 
             <View style={styles.durationContainer}>
               {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => {
@@ -522,13 +518,21 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: { borderRadius: 12, marginBottom: 12, fontSize: 14 },
-  richEditorContainer: {
+  markdownEditorContainer: {
     minHeight: 200,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 6,
     marginBottom: 12,
     overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
+  markdownInput: {
+    flex: 1,
+    minHeight: 180,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: 'inter',
   },
   imageUpload: {
     height: 150,

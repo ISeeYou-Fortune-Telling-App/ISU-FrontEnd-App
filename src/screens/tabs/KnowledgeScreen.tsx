@@ -8,6 +8,7 @@ import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -125,9 +126,11 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
       </View>
 
       <Text style={styles.cardTitle}>{item.title}</Text>
-      <Text style={styles.cardExcerpt} numberOfLines={expanded ? undefined : 3}>
-        {item.content?.replace(/\\n/g, "\n")}
-      </Text>
+      <View style={{ maxHeight: expanded ? undefined : 80, overflow: 'hidden' }}>
+        <Markdown style={markdownStyles}>
+          {(item.content || '').replace(/\\n/g, '\n')}
+        </Markdown>
+      </View>
 
       <Image
         source={
@@ -275,6 +278,60 @@ export default function KnowledgeScreen() {
   );
 }
 
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.dark_gray,
+    marginBottom: 10, 
+  },
+  heading1: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: Colors.black,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  heading2: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.black,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  heading3: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.black,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  bullet_list: {
+    marginBottom: 8,
+  },
+  ordered_list: {
+    marginBottom: 8,
+  },
+  list_item: {
+    fontSize: 14,
+    lineHeight: 24,
+    color: Colors.dark_gray,
+    marginVertical: 2,
+  },
+  blockquote: {
+    backgroundColor: Colors.grayBackground || "#f5f5f5",
+    padding: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    marginVertical: 8,
+  },
+  code_inline: {
+    backgroundColor: "#eee",
+    fontFamily: "Courier",
+    fontSize: 14,
+  },
+});
+
 const styles = StyleSheet.create({
   safeAreaView: {
     flex: 1,
@@ -290,7 +347,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 24,
     marginBottom: 16,
-    fontFamily: "Inter",
+    fontFamily: "inter",
   },
   retryButton: {
     borderRadius: 10,
@@ -367,7 +424,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 12,
-    fontFamily: "Inter",
+    fontFamily: "inter",
   },
   timeBadge: {
     flexDirection: "row",
@@ -376,21 +433,21 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 12,
     color: "#6B7280",
-    fontFamily: "Inter",
+    fontFamily: "inter",
     marginLeft: 4,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: Colors.black,
-    fontFamily: "Inter",
+    fontFamily: "inter",
     marginBottom: 8,
   },
   cardExcerpt: {
     fontSize: 16,
     lineHeight: 20,
     color: "#374151",
-    fontFamily: "Inter",
+    fontFamily: "inter",
     marginBottom: 12,
   },
   cardImage: {
@@ -411,13 +468,13 @@ const styles = StyleSheet.create({
   viewText: {
     fontSize: 12,
     color: "#6B7280",
-    fontFamily: "Inter",
+    fontFamily: "inter",
     marginLeft: 6,
   },
   emptyText: {
     textAlign: "center",
     marginTop: 24,
     color: "#6B7280",
-    fontFamily: "Inter",
+    fontFamily: "inter",
   },
 });

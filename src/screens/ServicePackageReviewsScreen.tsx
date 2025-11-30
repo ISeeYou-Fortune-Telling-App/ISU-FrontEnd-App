@@ -2,8 +2,8 @@ import Colors from "@/src/constants/colors";
 import { getReviewReplies, getServicePackageInteractions, getServicePackageReviews, postServicePackageReview, updateServicePackageReview } from "@/src/services/api";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { ArrowLeft, Calendar, Send, ThumbsDown, ThumbsUp } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import { ArrowLeft, Calendar, MessageCircle, Send, ThumbsDown, ThumbsUp } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -33,6 +33,7 @@ const ServicePackageReviewsScreen = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editingReview, setEditingReview] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -273,7 +274,12 @@ const ServicePackageReviewsScreen = () => {
   };
 
   const handleReplyPress = (reviewId: string) => {
-    setReplyingTo(reviewId);
+    if(!replyingTo) {
+      setReplyingTo(reviewId);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } else {
+      setReplyingTo(null);
+    }
   };
 
   const handleSendPress = () => {
@@ -391,13 +397,13 @@ const ServicePackageReviewsScreen = () => {
             <View style={styles.commentFooter}>
               <Calendar size={14} color="gray" />
               <Text style={styles.commentDate}>{new Date(item.reviewedAt).toLocaleDateString('vi-VN')}</Text>
-              <TouchableOpacity onPress={() => handleReplyPress(item.review_id)}>
-                <Text style={styles.replyButton}>Trả lời</Text>
+              <TouchableOpacity style={styles.replyButton} onPress={() => handleReplyPress(item.review_id)}>
+                <MessageCircle size={20} color="gray" />
+                <Text style={styles.commentDate}>Trả lời</Text>
               </TouchableOpacity>
               {depth < MAX_DEPTH && !rootReviewId && (!hasRepliesLoaded || replies.length > 0 || isLoadingReplies) && (
                 <TouchableOpacity 
                   onPress={() => toggleReplies(item.review_id)} 
-                  style={styles.viewRepliesButton}
                   disabled={hasRepliesLoaded && replies.length === 0}
                 >
                   <Text style={styles.viewRepliesText}>
@@ -517,6 +523,7 @@ const ServicePackageReviewsScreen = () => {
           )}
           <View style={styles.inputContainer}>
             <TextInput
+              ref={inputRef}
               style={styles.textInput}
               placeholder="Nhập bình luận của bạn..."
               placeholderTextColor="gray"
@@ -692,10 +699,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   replyButton: {
-    color: 'gray',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 16,
+    flexDirection: "row",
+    paddingHorizontal: 10,
+    alignItems: "center"
   },
   inputContainer: {
     flexDirection: 'row',
@@ -749,9 +755,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     color: 'gray',
-  },
-  viewRepliesButton: {
-    marginLeft: 8,
   },
   viewRepliesText: {
     color: Colors.primary,

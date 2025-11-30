@@ -901,6 +901,8 @@ export default function ChatDetailScreen() {
             setPartnerCometChatUid(null);
           }
 
+          console.log("partnerCometUid:", partnerCometChatUid);
+
           markConversationMessagesRead(conversationId).catch((err) => {
             console.warn("Không thể đánh dấu đã đọc:", err);
           });
@@ -1042,6 +1044,14 @@ export default function ChatDetailScreen() {
   }, [isInteractionLocked, statusMeta.description]);
 
   const handleVideoCallPress = useCallback(async () => {
+    console.log('[VideoCall] Attempting call with:', {
+      callTargetId,
+      callReceiverType,
+      isInteractionLocked,
+      partnerCometChatUid,
+      conversationStatus: normalizedConversationStatus,
+      callStatus,
+    });
     if (isInteractionLocked) {
       Alert.alert("Phiên đã kết thúc", statusMeta.description);
       return;
@@ -1055,6 +1065,7 @@ export default function ChatDetailScreen() {
     }
 
     try {
+      console.log('[VideoCall] Starting call to:', callTargetId);
       await startVideoCall(callTargetId, callReceiverType);
     } catch (err) {
       console.error("Không thể bắt đầu cuộc gọi video", err);

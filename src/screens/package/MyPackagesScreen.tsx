@@ -5,6 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Clock } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MyPackagesScreen() {
@@ -193,7 +194,14 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
             </View>
             <View style={styles.cardContent}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{pkg.packageTitle}</Text>
-                <Text style={styles.cardDesc} numberOfLines={2}>{pkg.packageContent?.replace(/\\n/g, "\n")}</Text>
+                <View style={{ maxHeight: 44, overflow: 'hidden' }}>
+                    <Markdown style={{
+                        body: { ...styles.cardDesc, margin: 0 },
+                        paragraph: { marginBottom: 0 },
+                    }}>
+                        {((pkg.packageContent || '').replace(/\\n/g, '\n').slice(0, 80) + ((pkg.packageContent || '').length > 80 ? '...' : ''))}
+                    </Markdown>
+                </View>
                 {pkg.status === "REJECTED" && pkg.rejectionReason && (
                     <View style={styles.rejectReasonBox}>
                         <Text style={styles.rejectReasonTitle}>Lý do từ chối: <Text style={styles.rejectReasonText}>{pkg.rejectionReason}</Text></Text>

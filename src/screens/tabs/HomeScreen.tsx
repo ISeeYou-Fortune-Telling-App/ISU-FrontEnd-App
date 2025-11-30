@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { Button, SegmentedButtons, Switch } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -760,7 +761,6 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
           >
             <Flag size={20} color="gray" style={{ marginRight: 12 }} />
           </TouchableOpacity>
-          <X size={24} color="gray" />
         </View>
       </View>
 
@@ -783,9 +783,16 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
 
       {/* --- CONTENT --- */}
       <Text style={styles.packageTitle}>{servicePackage.title}</Text>
-      <Text style={styles.packageContent} numberOfLines={expanded ? undefined : 3} onPress={() => setExpanded(!expanded)}>
-        {servicePackage.content?.replace(/\\n/g, "\n")}
-      </Text>
+      <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+        <Markdown style={{
+          body: { ...styles.packageContent },
+          paragraph: { marginBottom: 0 },
+        }}>
+          {expanded 
+            ? (servicePackage.content || '').replace(/\\n/g, '\n')
+            : ((servicePackage.content || '').replace(/\\n/g, '\n').slice(0, 150) + ((servicePackage.content || '').length > 150 ? '...' : ''))}
+        </Markdown>
+      </TouchableOpacity>
 
       <Image
         source={

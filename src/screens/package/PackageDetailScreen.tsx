@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { Card, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -188,12 +189,14 @@ export default function PackageDetailScreen() {
           <Card style={styles.descCard}>
             <Text style={styles.infoTitle}>Mô tả</Text>
 
-            <Text
-              style={styles.descText}
-              numberOfLines={showFullDesc ? undefined : 6} // Show only 6 lines initially
-            >
-              {pkg.packageContent?.replace(/\\n/g, "\n")}
-            </Text>
+            <View style={{ maxHeight: showFullDesc ? undefined : 160, overflow: 'hidden' }}>
+              <Markdown style={{
+                body: { ...styles.descText },
+                paragraph: { marginBottom: 4 },
+              }}>
+                {(pkg.packageContent || '').replace(/\\n/g, '\n')}
+              </Markdown>
+            </View>
 
             {pkg.packageContent && pkg.packageContent.length > 250 && (
               <TouchableOpacity

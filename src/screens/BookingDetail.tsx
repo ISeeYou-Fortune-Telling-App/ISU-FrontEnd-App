@@ -6,6 +6,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, AppState, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -354,7 +355,14 @@ export default function BookingDetailScreen() {
                             <View style={styles.card}>
                                 <Text style={styles.cardTitle}>Chi tiết lịch hẹn</Text>
                                 <Text style={{ fontWeight: '700', fontSize: 15, marginTop: 8 }}>{booking.servicePackage?.packageTitle}</Text>
-                                <Text style={{ marginTop: 8, color: '#374151', fontFamily: "inter" }}>{booking.servicePackage?.packageContent?.replace(/\\n/g, "\n")}</Text>
+                                <View style={{ marginTop: 8 }}>
+                                    <Markdown style={{
+                                        body: { color: '#374151', fontFamily: "inter", margin: 0 },
+                                        paragraph: { marginBottom: 4 },
+                                    }}>
+                                        {(booking.servicePackage?.packageContent || '').replace(/\\n/g, '\n')}
+                                    </Markdown>
+                                </View>
 
                                 <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
                                     {(booking.servicePackage?.categories || []).map((c: string, idx: number) => (

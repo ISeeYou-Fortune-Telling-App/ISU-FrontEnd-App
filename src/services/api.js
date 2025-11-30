@@ -472,3 +472,4 @@ export const getSeerSalaryHistory = (params) => API.get("/core/bookings/payment/
 export default API;
 // /notification
 // /report
+// /ai-support
