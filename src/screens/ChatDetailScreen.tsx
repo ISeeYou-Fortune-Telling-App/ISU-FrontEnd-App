@@ -911,12 +911,24 @@ export default function ChatDetailScreen() {
             console.log("[DEBUG] Direct seerCometChatUid:", conversation?.seerCometChatUid);
             console.log("[DEBUG] Direct customerCometChatUid:", conversation?.customerCometChatUid);
 
+            // Resolve CometChat UID của đối tác để thực hiện video call
+            // Ưu tiên sử dụng CometChat UID nếu có, fallback về userId
             const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
             console.log("[DEBUG] Resolved partner CometChat UID:", remoteUid);
+            
+            // Fallback logic: nếu không có CometChat UID riêng, dùng userId (thường trùng với cometChatUid)
+            let finalPartnerUid = remoteUid;
+            if (!finalPartnerUid) {
+              const viewerIsSeer = currentUserId && conversation?.seerId && String(conversation.seerId) === String(currentUserId);
+              finalPartnerUid = viewerIsSeer 
+                ? (conversation?.customerId ? String(conversation.customerId) : null)
+                : (conversation?.seerId ? String(conversation.seerId) : null);
+              console.log("[DEBUG] Fallback to userId as CometChat UID:", finalPartnerUid);
+            }
+            console.log("[DEBUG] Final partner CometChat UID for call:", finalPartnerUid);
             console.log("[DEBUG] ===== CONVERSATION DEBUG END =====");
 
-            if(currentUserId === conversation?.seerId) setPartnerCometChatUid(conversation?.customerId);
-            else setPartnerCometChatUid(conversation?.seerId);
+            setPartnerCometChatUid(finalPartnerUid);
 
             // setPartnerCometChatUid(remoteUid);
 
@@ -1068,6 +1080,13 @@ export default function ChatDetailScreen() {
   }, [isInteractionLocked, statusMeta.description]);
 
   const handleVideoCallPress = useCallback(async () => {
+    console.log("[ChatDetailScreen] handleVideoCallPress called");
+    console.log("[ChatDetailScreen] isInteractionLocked:", isInteractionLocked);
+    console.log("[ChatDetailScreen] callTargetId:", callTargetId);
+    console.log("[ChatDetailScreen] callReceiverType:", callReceiverType);
+    console.log("[ChatDetailScreen] partnerCometChatUid:", partnerCometChatUid);
+    console.log("[ChatDetailScreen] callStatus:", callStatus);
+    
     if (isInteractionLocked) {
       Alert.alert("Phiên đã kết thúc", statusMeta.description);
       return;
@@ -1081,12 +1100,14 @@ export default function ChatDetailScreen() {
     }
 
     try {
+      console.log("[ChatDetailScreen] Calling startVideoCall with:", callTargetId);
       await startVideoCall(callTargetId, callReceiverType);
+      console.log("[ChatDetailScreen] startVideoCall completed");
     } catch (err) {
-      console.error("Không thể bắt đầu cuộc gọi video", err);
+      console.error("[ChatDetailScreen] Không thể bắt đầu cuộc gọi video", err);
       Alert.alert("Cuộc gọi video", "Không thể bắt đầu cuộc gọi. Vui lòng thử lại.");
     }
-  }, [callReceiverType, callTargetId, isInteractionLocked, startVideoCall, statusMeta.description]);
+  }, [callReceiverType, callTargetId, isInteractionLocked, startVideoCall, statusMeta.description, partnerCometChatUid, callStatus]);
 
   const [isAttachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [messageMenuState, setMessageMenuState] = useState<{
