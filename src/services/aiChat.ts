@@ -5,6 +5,12 @@ import * as SecureStore from "expo-secure-store";
 const stripTrailingSlash = (value?: string | null) =>
   typeof value === "string" ? value.replace(/\/+$/, "") : value ?? "";
 
+const isRemoteUrl = (url: string) => {
+  // Check if this is a remote/production URL (ngrok, .dev, .com, etc.)
+  const trimmed = url.trim();
+  return trimmed.includes("ngrok") || trimmed.includes(".dev") || trimmed.includes(".com") || trimmed.includes(".io");
+};
+
 const inferAiBaseFromApiBase = () => {
   const apiBase = ensureHttpProtocol(process.env.EXPO_PUBLIC_API_BASE_URL);
   if (!apiBase) {
@@ -13,7 +19,11 @@ const inferAiBaseFromApiBase = () => {
 
   try {
     const url = new URL(apiBase);
-    // Force AI calls to hit core backend port 8081 even if API base is gateway 8080
+    // For remote URLs (like ngrok), keep the URL as-is without changing port
+    if (isRemoteUrl(apiBase)) {
+      return stripTrailingSlash(apiBase);
+    }
+    // For local development, force AI calls to hit core backend port 8080
     url.port = "8080";
     return stripTrailingSlash(url.toString());
   } catch {
@@ -94,14 +104,21 @@ export const analyzeFaceImage = (
 };
 
 export const chatWithAI = async (payload: Record<string, unknown>) => {
-  const token = await SecureStore.getItemAsync("authToken");
+  const [token, userId] = await Promise.all([
+    SecureStore.getItemAsync("authToken"),
+    SecureStore.getItemAsync("userId"),
+  ]);
+  
   const response = await fetch(buildAiChatUrl("/ai-support/query"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      user_id: userId,
+    }),
   });
 
   if (!response.ok) {

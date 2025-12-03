@@ -1,5 +1,5 @@
 import { getCometChatEnvStatus, waitForOngoingLogin } from "@/src/services/cometchat";
-import { resolveSocketUrl } from "@/src/utils/network";
+import { resolveSocketConfig } from "@/src/utils/network";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import * as SecureStore from "expo-secure-store";
 
@@ -15,7 +15,7 @@ export const runRealtimeSelfCheck = async (options: HealthCheckOptions = {}) => 
   const label = options.label ?? "HealthCheck";
   const envStatus = getCometChatEnvStatus();
   const socketVersion = require("socket.io-client/package.json").version;
-  const socketBaseUrl = resolveSocketUrl();
+  const socketConfig = resolveSocketConfig();
   const findings: string[] = [];
 
   const [authToken, cometUid, userId] = await Promise.all([
@@ -39,7 +39,7 @@ export const runRealtimeSelfCheck = async (options: HealthCheckOptions = {}) => 
   }
 
   console.log(`[${label}] CometChat env OK:`, envStatus.ok, "missing:", envStatus.missing);
-  console.log(`[${label}] Socket.io client version:`, socketVersion, "base:", socketBaseUrl);
+  console.log(`[${label}] Socket.io client version:`, socketVersion, "url:", socketConfig.url, "path:", socketConfig.path);
   console.log(
     `[${label}] Tokens -> auth:`,
     Boolean(authToken),
@@ -62,9 +62,9 @@ export const runRealtimeSelfCheck = async (options: HealthCheckOptions = {}) => 
   if (!cometUid) {
     findings.push("Chưa lưu cometChatUid – sẽ không gọi/nhắn được.");
   }
-  if (!socketBaseUrl) {
+  if (!socketConfig.url) {
     findings.push("Không xác định được socketBaseUrl – kiểm tra EXPO_PUBLIC_SOCKET_URL/PORT.");
   }
 
-  return { envStatus, socketVersion, socketBaseUrl, authToken: Boolean(authToken), cometUid, cometUserUid, findings };
+  return { envStatus, socketVersion, socketConfig, authToken: Boolean(authToken), cometUid, cometUserUid, findings };
 };

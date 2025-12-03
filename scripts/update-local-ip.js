@@ -14,6 +14,19 @@ const ensureEnvExists = () => {
   return true;
 };
 
+const isRemoteUrl = (url) => {
+  // Skip updating if the URL is a remote/production URL (not local IP or localhost)
+  if (!url) return false;
+  const trimmed = url.trim();
+  // Check for ngrok, production domains, or any non-local URL
+  if (trimmed.includes("ngrok") || trimmed.includes(".dev") || trimmed.includes(".com") || trimmed.includes(".io")) {
+    return true;
+  }
+  // Check if it's NOT a local address pattern
+  const localPatterns = [/localhost/i, /127\.0\.0\.\d+/, /10\.0\.2\.2/, /192\.168\.\d+\.\d+/, /10\.\d+\.\d+\.\d+/];
+  return !localPatterns.some((pattern) => pattern.test(trimmed));
+};
+
 const getLocalIPv4 = () => {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
@@ -33,6 +46,17 @@ const updateEnvFile = () => {
 
   const current = fs.readFileSync(envPath, "utf8");
   const lines = current.split(/\r?\n/);
+
+  // Check if any existing URL is a remote/production URL - if so, skip auto-update
+  const existingApiUrl = lines.find((line) => line.startsWith("EXPO_PUBLIC_API_BASE_URL="));
+  if (existingApiUrl) {
+    const value = existingApiUrl.split("=")[1];
+    if (isRemoteUrl(value)) {
+      console.log("[update-local-ip] Remote URL detected, skipping local IP update.");
+      return;
+    }
+  }
+
   const ip = getLocalIPv4();
 
   const url = (port) => `http://${ip}:${port}`;

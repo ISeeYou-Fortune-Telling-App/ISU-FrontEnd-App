@@ -91,7 +91,7 @@ export default function ProfileScreen() {
       } else if (roleToFetch === "SEER") {
         try {
           const res = await getMySeerPerformance(params);
-          const payload = res?.data?.data ?? res?.data ?? res ?? null;
+          const payload = res?.data?.data ?? null;
           setSeerPerf(payload);
         } catch (err) {
           console.warn("Failed to fetch seer performance:", err);

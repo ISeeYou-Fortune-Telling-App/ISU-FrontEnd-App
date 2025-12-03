@@ -1,31 +1,31 @@
 import TopBarNoSearch from "@/src/components/TopBarNoSearch";
 import Colors from "@/src/constants/colors";
-import { resolveSocketUrl } from "@/src/utils/network";
-import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
 import { getAdminConversations, getChatConversations } from "@/src/services/api";
+import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
+import { resolveSocketConfig } from "@/src/utils/network";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import io, { Socket } from "socket.io-client";
 import * as SecureStore from "expo-secure-store";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  ImageBackground,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Modal,
-  TouchableWithoutFeedback,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    ImageBackground,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import io, { Socket } from "socket.io-client";
 const SOCKET_IO_CLIENT_VERSION = require("socket.io-client/package.json").version;
 
 type Conversation = {
@@ -191,7 +191,7 @@ export default function MessageScreen() {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const [socketConnected, setSocketConnected] = useState(false);
-  const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
+  const socketConfig = useMemo(() => resolveSocketConfig(), []);
   const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState(false);
   const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
   const [incomingCancelConversationId, setIncomingCancelConversationId] = useState<string | null>(null);
@@ -352,14 +352,15 @@ export default function MessageScreen() {
   }, []);
 
   useEffect(() => {
-    if (!currentUserId || !socketBaseUrl) {
+    if (!currentUserId || !socketConfig.url) {
       return;
     }
     console.log(
-      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketBaseUrl}/chat (user ${currentUserId})`,
+      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketConfig.url}/chat (path: ${socketConfig.path}, user ${currentUserId})`,
     );
 
-    const socket = io(`${socketBaseUrl}/chat`, {
+    const socket = io(`${socketConfig.url}/chat`, {
+      path: socketConfig.path,
       transports: ["websocket", "polling"],
       query: { userId: currentUserId, EIO: 3 },
       autoConnect: false,
@@ -403,7 +404,7 @@ export default function MessageScreen() {
     };
   }, [
     currentUserId,
-    socketBaseUrl,
+    socketConfig,
     handleReceiveMessage,
     handleSessionActivated,
     handleIncomingCancelRequest,

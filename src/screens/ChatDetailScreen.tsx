@@ -10,7 +10,7 @@ import {
   uploadChatFile,
 } from "@/src/services/api";
 import { shouldShowCancelPrompt } from "@/src/utils/cancelPromptGuard";
-import { resolveSocketUrl } from "@/src/utils/network";
+import { resolveSocketConfig } from "@/src/utils/network";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -275,7 +275,7 @@ export default function ChatDetailScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const socketRef = useRef<Socket | null>(null);
   const readSyncRef = useRef(false);
-  const socketBaseUrl = useMemo(() => resolveSocketUrl(), []);
+  const socketConfig = useMemo(() => resolveSocketConfig(), []);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>("");
@@ -698,15 +698,16 @@ export default function ChatDetailScreen() {
   }, []);
 
   useEffect(() => {
-    if (!currentUserId || !socketBaseUrl) {
+    if (!currentUserId || !socketConfig.url) {
       return;
     }
 
     console.log(
-      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketBaseUrl}/chat (user ${currentUserId})`,
+      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketConfig.url}/chat (path: ${socketConfig.path}, user ${currentUserId})`,
     );
 
-    const socket = io(`${socketBaseUrl}/chat`, {
+    const socket = io(`${socketConfig.url}/chat`, {
+      path: socketConfig.path,
       transports: ["websocket", "polling"],
       autoConnect: false,
       forceNew: true,
@@ -784,7 +785,7 @@ export default function ChatDetailScreen() {
     handleCancelResult,
     handleUserJoined,
     handleUserLeft,
-    socketBaseUrl,
+    socketConfig,
   ]);
 
   const scrollToEnd = useCallback(() => {
