@@ -148,7 +148,7 @@
 
 #### Chạy với Expo Go (Cách Nhanh Nhất)
 
-*Lưu ý: Một số công nghệ được dùng không hỗ trợ Go (vd: Firebase Cloud Messaging) nên cách này chỉ nên dùng khi muốn app được chạy nhanh nhất có thể. 
+>Lưu ý: Một số công nghệ được dùng không hỗ trợ Go (vd: Firebase Cloud Messaging) nên cách này chỉ nên dùng khi muốn app được chạy nhanh nhất có thể. 
 
 **Expo Go** là ứng dụng di động cho phép bạn test ứng dụng Expo mà không cần xây dựng native. Đây là cách nhanh nhất để bắt đầu:
 
