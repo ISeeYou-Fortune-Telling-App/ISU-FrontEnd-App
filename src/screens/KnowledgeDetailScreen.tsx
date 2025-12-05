@@ -309,7 +309,6 @@ const styles = StyleSheet.create({
   articleContainer: {
     gap: 12,
   },
-  // articleParagraph đã được xóa vì không dùng nữa
   emptyContentText: {
     fontSize: 14,
     color: Colors.gray,

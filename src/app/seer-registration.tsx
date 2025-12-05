@@ -1,4 +1,4 @@
-import SeerRegistrationScreen from "../screens/seerRegistration/SeerRegistrationScreen";
+import SeerRegistrationScreen from "@/src/screens/seerRegistration/SeerRegistrationScreen";
 
 export default function SeerRegistration() {
   return <SeerRegistrationScreen/>

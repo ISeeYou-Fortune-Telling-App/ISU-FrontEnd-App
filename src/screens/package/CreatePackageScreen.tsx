@@ -33,7 +33,6 @@ export default function CreatePackageScreen() {
   const [content, setContent] = useState("");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
   const [image, setImage] = useState<any>(null);
-  // updated type: include weekDayName
   const [availableTimeSlots, setAvailableTimeSlots] = useState<
     { weekDate: number; availableFrom: string; availableTo: string }[]
   >([]);
@@ -42,17 +41,13 @@ export default function CreatePackageScreen() {
   const [success, setSuccess] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  // Date/time picker state
   const [isPickerVisible, setPickerVisible] = useState(false);
   const [pickerField, setPickerField] = useState<"from" | "to">("from");
 
-  // Active day editing state (weekDate number). null means no active day.
   const [activeDay, setActiveDay] = useState<number | null>(null);
-  // Temporary editing values for the active day (or used when adding a new day)
   const [tempFrom, setTempFrom] = useState("09:00:00");
   const [tempTo, setTempTo] = useState("18:00:00");
 
-  // map labels -> numbers (T2->2 ... CN->8)
   const dayMap: Record<string, number> = {
     T2: 2,
     T3: 3,
@@ -84,7 +79,6 @@ export default function CreatePackageScreen() {
     if (!result.canceled) setImage(result.assets[0]);
   };
 
-  // Toggle category selection (multiple) - chips UI
   const toggleCategory = (cat: any) => {
     setSelectedCategoryIds((prev) => {
       const exists = prev.includes(cat.id);
@@ -93,7 +87,6 @@ export default function CreatePackageScreen() {
     });
   };
 
-  // Helpers for weekday selection / status
   const isDaySelected = (label: string) => {
     const day = dayMap[label];
     return availableTimeSlots.some((s) => s.weekDate === day);
@@ -104,28 +97,23 @@ export default function CreatePackageScreen() {
     return activeDay === day;
   };
 
-  // When pressing a day: only activate/deactivate it for editing.
-  // Do NOT add to availableTimeSlots yet.
   const onPressDay = (label: string) => {
     const weekDate = dayMap[label];
     if (activeDay === weekDate) {
-      // deactivate
       setActiveDay(null);
     } else {
-      // activate for editing: load temp values from existing slot or defaults
       const existing = availableTimeSlots.find((p) => p.weekDate === weekDate);
       if (existing) {
         setTempFrom(existing.availableFrom);
         setTempTo(existing.availableTo);
       } else {
-        setTempFrom("09:00:00");
+        setTempFrom("08:00:00");
         setTempTo("18:00:00");
       }
       setActiveDay(weekDate);
     }
   };
 
-  // show picker for either from/to (only when editing)
   const showPicker = (field: "from" | "to") => {
     if (activeDay === null) {
       Alert.alert("Chọn ngày", "Vui lòng chọn 1 ngày để chỉnh giờ.");
@@ -153,7 +141,6 @@ export default function CreatePackageScreen() {
     }
   };
 
-  // Apply the tempFrom/tempTo to the activeDay slot (commit)
   const applyTimesToActiveDay = () => {
     if (activeDay === null) {
       Alert.alert("Không có ngày", "Không có ngày đang chỉnh.");
@@ -183,7 +170,6 @@ export default function CreatePackageScreen() {
         return [...prev, { weekDate: activeDay, availableFrom: tempFrom, availableTo: tempTo }];
       }
     });
-    // done editing
     setActiveDay(null);
   };
 
@@ -238,7 +224,6 @@ export default function CreatePackageScreen() {
 
       await createServicePackage(seerIdValue, formData);
 
-      // ✅ Show success animation
       setSuccess(true);
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -246,7 +231,6 @@ export default function CreatePackageScreen() {
         useNativeDriver: true,
       }).start();
 
-      // Wait a bit before redirecting
       setTimeout(() => {
         Animated.timing(scaleAnim, {
           toValue: 0,
@@ -550,7 +534,6 @@ const styles = StyleSheet.create({
   uploadText: { color: "#666" },
   imagePreview: { width: "100%", height: "100%", borderRadius: 6 },
 
-  // category chips
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -645,7 +628,6 @@ const styles = StyleSheet.create({
   },
   submitText: { color: "#fff", fontWeight: "600", fontSize: 16 },
 
-  // ✅ Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

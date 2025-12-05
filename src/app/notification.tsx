@@ -1,4 +1,4 @@
-import NotificationScreen from "../screens/NotificationScreen";
+import NotificationScreen from "@/src/screens/NotificationScreen";
 
 
 export default function Notification() {

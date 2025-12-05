@@ -55,14 +55,14 @@ export default function EditProfileImagesScreen() {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
-                aspect: type === "avatar" ? [1, 1] : [16, 9], // Avatar vuông, Cover chữ nhật
+                aspect: type === "avatar" ? [1, 1] : [16, 9], 
                 quality: 0.8,
             });
 
             if (!result.canceled) {
                 if (type === "avatar") {
                     setNewAvatar(result.assets[0]);
-                    setAvatarError(false); // Reset lỗi khi chọn ảnh mới
+                    setAvatarError(false); 
                 } else {
                     setNewCover(result.assets[0]);
                     setCoverError(false);
@@ -209,7 +209,7 @@ export default function EditProfileImagesScreen() {
                         mode="contained" 
                         style={styles.btnSave} 
                         onPress={handleSave}
-                        disabled={!newAvatar && !newCover} // Disable nếu chưa chọn gì mới
+                        disabled={!newAvatar && !newCover} 
                     >
                         Lưu thay đổi
                     </Button>
@@ -261,7 +261,6 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
         marginBottom: 15,
     },
-    // Styles Avatar
     avatarWrapper: {
         position: 'relative',
         marginBottom: 10,
@@ -284,7 +283,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: Colors.white,
     },
-    // Styles Cover
     coverWrapper: {
         width: '100%',
         height: 180,

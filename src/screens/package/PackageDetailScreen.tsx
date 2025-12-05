@@ -465,11 +465,13 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: "row", alignItems: "center" },
   ratingText: { fontWeight: "bold", marginLeft: 4 },
   reviewCount: { color: "#666", fontSize: 12, fontFamily: "inter", marginLeft: 4 },
+  
   seerCard: { marginBottom: 16, padding: 16 },
   seerRow: { flexDirection: "row", alignItems: "center" },
   seerAvatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12, borderWidth: 1, borderColor: Colors.grayBackground },
   seerName: { fontWeight: "bold", fontSize: 17 },
   seerRating: { color: "#666", fontFamily: "inter", fontSize: 14 },
+
   infoCard: { marginBottom: 16, padding: 16 },
   infoTitle: { fontWeight: "bold", fontSize: 16, marginBottom: 8 },
   infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
@@ -477,8 +479,6 @@ const styles = StyleSheet.create({
   infoValue: { fontWeight: "600", color: "#000", fontFamily: "inter" },
   descCard: { marginBottom: 16, padding: 16 },
   descText: { color: "#333", marginTop: 6, lineHeight: 20, fontFamily: "inter" },
-
-  // ✅ Reviews
   reviewCard: { marginBottom: 16, padding: 16 },
   reviewItem: {
     flexDirection: "row",

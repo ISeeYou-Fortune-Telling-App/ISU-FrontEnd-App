@@ -6,12 +6,12 @@ import * as SecureStore from "expo-secure-store";
 import { LucideFileText, LucideX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -225,7 +225,6 @@ export default function ManageCertificateScreen() {
     }
   }, [userId]);
 
-  // Filter certificates when status changes
   useEffect(() => {
     if (selectedStatus === "ALL") {
       setCertificates(allCertificates);
@@ -238,7 +237,6 @@ export default function ManageCertificateScreen() {
   useEffect(() => {
     if (params.refresh === 'true') {
       loadCertificates(true);
-      // Clear the refresh parameter
       router.setParams({ refresh: undefined });
     }
   }, [params.refresh]);

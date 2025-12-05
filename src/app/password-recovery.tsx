@@ -1,4 +1,4 @@
-import PasswordRecoveryScreen from "../screens/PasswordRecoveryScreen";
+import PasswordRecoveryScreen from "@/src/screens/password/PasswordRecoveryScreen";
 
 
 export default function PasswordRecovery() {

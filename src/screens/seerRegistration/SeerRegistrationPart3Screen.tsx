@@ -37,7 +37,7 @@ interface Certificate {
   issuedBy: string;
   issuedAt: string;
   expirationDate: string;
-  certificateFile?: {uri: string, name: string, type?: string};
+  certificateFile?: { uri: string, name: string, type?: string };
   categoryIds: string[];
 }
 
@@ -166,7 +166,7 @@ const ServicePackageCard = ({
           mode="outlined"
           style={styles.packageSecondaryButton}
           labelStyle={styles.packageSecondaryLabel}
-          onPress={() => {}}
+          onPress={() => { }}
         >
           Tùy chỉnh
         </Button>
@@ -174,7 +174,7 @@ const ServicePackageCard = ({
           mode="contained"
           style={[styles.packagePrimaryButton, { backgroundColor: data.color }]}
           labelStyle={styles.packagePrimaryLabel}
-          onPress={() => {}}
+          onPress={() => { }}
         >
           Xem chi tiết
         </Button>
@@ -246,10 +246,8 @@ export default function SeerRegistrationStep3Screen() {
   };
 
   const handleRemoveCertificate = async (id: string) => {
-    // Remove from local state
     setCertificates((prev) => prev.filter((cert) => cert.id !== id));
 
-    // Also remove from SecureStore
     try {
       const tempCerts = await SecureStore.getItemAsync("tempCertificates");
       if (tempCerts) {
@@ -265,7 +263,6 @@ export default function SeerRegistrationStep3Screen() {
   const handleCompleteRegistration = async () => {
     setSubmitting(true);
     try {
-      // Get data from previous steps
       const step1Data = await SecureStore.getItemAsync("seerRegistrationStep1");
       const step2Data = await SecureStore.getItemAsync("seerRegistrationStep2");
 
@@ -278,7 +275,6 @@ export default function SeerRegistrationStep3Screen() {
       const step1 = JSON.parse(step1Data);
       const step2 = JSON.parse(step2Data);
 
-      // Combine all data
       const registrationData = {
         ...step1,
         ...step2,
@@ -296,15 +292,12 @@ export default function SeerRegistrationStep3Screen() {
 
       console.log("Registration data being sent:", JSON.stringify(registrationData, null, 2));
 
-      // Submit registration
       const response = await registerSeer(registrationData);
 
-      // Clear stored data
       await SecureStore.deleteItemAsync("seerRegistrationStep1");
       await SecureStore.deleteItemAsync("seerRegistrationStep2");
       await SecureStore.deleteItemAsync("tempCertificates");
 
-      // Navigate to OTP verification
       router.replace({
         pathname: "/otp-verification",
         params: { email: step1.email }
@@ -313,7 +306,6 @@ export default function SeerRegistrationStep3Screen() {
     } catch (error: any) {
       console.error("Registration error:", error);
 
-      // Handle specific error codes
       if (error?.response?.status === 422) {
         Alert.alert(
           "Tài khoản đã tồn tại",
@@ -457,7 +449,7 @@ export default function SeerRegistrationStep3Screen() {
           style={styles.completeButton}
           labelStyle={styles.completeButtonLabel}
           onPress={handleCompleteRegistration}
-          loading={submitting} 
+          loading={submitting}
           disabled={submitting}
         >
           Hoàn tất đăng ký

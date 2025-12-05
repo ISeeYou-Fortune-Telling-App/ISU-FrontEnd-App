@@ -9,11 +9,10 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacit
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Helper functions to map category names to icons and colors
 const getIconForCategory = (categoryName: string): string => {
   const iconMap: Record<string, string> = {
     "Cung Hoàng Đạo": "star",
-    "Nhân Tướng Học": "eye", 
+    "Nhân Tướng Học": "eye",
     "Ngũ Hành": "coins",
     "Chỉ Tay": "hand",
     "Tarot": "sparkles",
@@ -34,7 +33,6 @@ const getColorForCategory = (categoryName: string) => {
   return colorMap[categoryName] || Colors.categoryColors.zodiac;
 };
 
-// Specialty Icons component
 const SpecialtyIcon = ({ icon, color, bgColor }: { icon: string; color: string; bgColor: string }) => {
   return (
     <View style={[styles.specialtyIcon, { backgroundColor: bgColor }]}>
@@ -48,17 +46,16 @@ const SpecialtyIcon = ({ icon, color, bgColor }: { icon: string; color: string; 
   );
 };
 
-// Specialty checkbox component
-const SpecialtyCheckbox = ({ 
-  label, 
-  icon, 
-  color, 
+const SpecialtyCheckbox = ({
+  label,
+  icon,
+  color,
   bgColor,
-  selected, 
-  onPress 
-}: { 
-  label: string; 
-  icon: string; 
+  selected,
+  onPress
+}: {
+  label: string;
+  icon: string;
   color: string;
   bgColor: string;
   selected: boolean;
@@ -73,10 +70,10 @@ const SpecialtyCheckbox = ({
           selected ? { backgroundColor: bgColor, borderColor: color } : { backgroundColor: 'white', borderColor: "#eee" }
         ]}
       >
-        <MaterialIcons 
-          name={selected ? "check-box" : "check-box-outline-blank"} 
-          size={22} 
-          color={selected ? Colors.primary : "#777"} 
+        <MaterialIcons
+          name={selected ? "check-box" : "check-box-outline-blank"}
+          size={22}
+          color={selected ? Colors.primary : "#777"}
           style={styles.checkboxIcon}
         />
         <View style={styles.specialtyContent}>
@@ -89,25 +86,19 @@ const SpecialtyCheckbox = ({
 };
 
 export default function SeerRegistrationStep2Screen() {
-  // Selected specialties
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
-  // Knowledge categories from API
   const [knowledgeCategories, setKnowledgeCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  // Biography text
   const [bioText, setBioText] = useState<string>("");
-  // Character counter
   const [charCount, setCharCount] = useState<number>(0);
   const maxChars = 1000;
 
-  // Fetch knowledge categories on mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const response = await getKnowledgeCategories();
         const categoriesData = response?.data?.data || [];
-        
-        // Transform API data to match our UI format
+
         const transformedCategories = categoriesData.map((category: any) => ({
           id: category.id,
           name: category.name,
@@ -115,7 +106,7 @@ export default function SeerRegistrationStep2Screen() {
           color: getColorForCategory(category.name).icon,
           bgColor: getColorForCategory(category.name).chip
         }));
-        
+
         setKnowledgeCategories(transformedCategories);
       } catch (error) {
         console.error('Error fetching knowledge categories:', error);
@@ -136,7 +127,6 @@ export default function SeerRegistrationStep2Screen() {
     fetchCategories();
   }, []);
 
-  // Toggle specialty selection
   const toggleSpecialty = (specialty: string) => {
     if (selectedSpecialties.includes(specialty)) {
       setSelectedSpecialties(selectedSpecialties.filter(item => item !== specialty));
@@ -145,7 +135,6 @@ export default function SeerRegistrationStep2Screen() {
     }
   };
 
-  // Handle bio text change
   const handleBioChange = (text: string) => {
     if (text.length <= maxChars) {
       setBioText(text);
@@ -154,9 +143,8 @@ export default function SeerRegistrationStep2Screen() {
   };
 
   const handleNext = async () => {
-    // Save data to SecureStore
     const step2Data = {
-      specialityIds: selectedSpecialties, // Use selected specialties
+      specialityIds: selectedSpecialties,
       profileDescription: bioText.trim(),
     };
 
@@ -184,57 +172,57 @@ export default function SeerRegistrationStep2Screen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
       >
-        <ScrollView 
+        <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={styles.iconContainer}>
-          <View style={styles.iconCircle}>
-            <MaterialIcons name="star" size={40} color={Colors.primary} />
+          <View style={styles.iconContainer}>
+            <View style={styles.iconCircle}>
+              <MaterialIcons name="star" size={40} color={Colors.primary} />
+            </View>
           </View>
-        </View>
 
-        <Text variant="headlineSmall" style={styles.sectionTitle}>Chuyên môn & Mô tả</Text>
-        <Text variant="bodyMedium" style={styles.sectionSubtitle}>Chia sẻ về kỹ năng và kinh nghiệm của bạn</Text>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>Chuyên môn & Mô tả</Text>
+          <Text variant="bodyMedium" style={styles.sectionSubtitle}>Chia sẻ về kỹ năng và kinh nghiệm của bạn</Text>
 
-        <Text variant="titleMedium" style={styles.specialtyTitle}>Chọn chuyên môn của bạn</Text>
-        
-        <View style={styles.specialtiesContainer}>
-          {loadingCategories ? (
-            <Text style={styles.loadingText}>Đang tải chuyên môn...</Text>
-          ) : (
-            knowledgeCategories.map((category) => (
-              <SpecialtyCheckbox
-                key={category.id}
-                label={category.name}
-                icon={category.icon || "star"}
-                color={category.color || Colors.categoryColors.zodiac.icon}
-                bgColor={category.bgColor || Colors.categoryColors.zodiac.chip}
-                selected={selectedSpecialties.includes(category.id)}
-                onPress={() => toggleSpecialty(category.id)}
-              />
-            ))
-          )}
-        </View>
-        
-        <Text style={styles.selectionCount}>Đã chọn {selectedSpecialties.length}/{knowledgeCategories.length} chuyên môn</Text>
+          <Text variant="titleMedium" style={styles.specialtyTitle}>Chọn chuyên môn của bạn</Text>
 
-        <View style={styles.bioSection}>
-          <Text variant="titleMedium" style={styles.bioTitle}>Mô tả bản thân</Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Hãy chia sẻ những kinh nghiệm, phong cách tư vấn và những điều đặc biệt về bạn..."
-            multiline
-            numberOfLines={6}
-            value={bioText}
-            onChangeText={handleBioChange}
-            style={styles.bioInput}
-          />
-          <Text style={styles.charCounter}>{charCount}/{maxChars} ký tự</Text>
-        </View>
-      </ScrollView>
+          <View style={styles.specialtiesContainer}>
+            {loadingCategories ? (
+              <Text style={styles.loadingText}>Đang tải chuyên môn...</Text>
+            ) : (
+              knowledgeCategories.map((category) => (
+                <SpecialtyCheckbox
+                  key={category.id}
+                  label={category.name}
+                  icon={category.icon || "star"}
+                  color={category.color || Colors.categoryColors.zodiac.icon}
+                  bgColor={category.bgColor || Colors.categoryColors.zodiac.chip}
+                  selected={selectedSpecialties.includes(category.id)}
+                  onPress={() => toggleSpecialty(category.id)}
+                />
+              ))
+            )}
+          </View>
+
+          <Text style={styles.selectionCount}>Đã chọn {selectedSpecialties.length}/{knowledgeCategories.length} chuyên môn</Text>
+
+          <View style={styles.bioSection}>
+            <Text variant="titleMedium" style={styles.bioTitle}>Mô tả bản thân</Text>
+            <TextInput
+              mode="outlined"
+              placeholder="Hãy chia sẻ những kinh nghiệm, phong cách tư vấn và những điều đặc biệt về bạn..."
+              multiline
+              numberOfLines={6}
+              value={bioText}
+              onChangeText={handleBioChange}
+              style={styles.bioInput}
+            />
+            <Text style={styles.charCounter}>{charCount}/{maxChars} ký tự</Text>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>

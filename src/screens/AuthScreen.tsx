@@ -198,29 +198,24 @@ export default function AuthScreen() {
                 await SecureStore.setItemAsync("userId", payload.userId);
             }
 
-            // Optional: CometChat auth token from backend (preferred over Auth Key).
-            const { token, refreshToken, userId, role, cometChatUid, cometChatAuthToken } =
-                response.data.data; // Assuming payload is response.data.data
+            const { token, refreshToken, userId, role, cometChatUid, cometChatAuthToken } = response.data.data;
 
-            // Use userId as cometChatUid if not provided by backend
             const effectiveCometChatUid = cometChatUid || userId;
 
             console.log("[Auth] Login successful", { userId, role, effectiveCometChatUid });
 
-            await SecureStore.setItemAsync("authToken", token); // Changed from userToken to authToken
+            await SecureStore.setItemAsync("authToken", token);
             await SecureStore.setItemAsync("refreshToken", refreshToken);
             await SecureStore.setItemAsync("userId", userId);
             await SecureStore.setItemAsync("userRole", role);
 
-            // Xử lý CometChat login
             if (effectiveCometChatUid) {
                 await SecureStore.setItemAsync("cometChatUid", effectiveCometChatUid);
                 if (cometChatAuthToken) {
-                    await SecureStore.setItemAsync("cometAuthToken", cometChatAuthToken); // Changed from cometChatAuthToken to cometAuthToken
+                    await SecureStore.setItemAsync("cometAuthToken", cometChatAuthToken); 
                 }
 
                 console.log("[Auth] Logging into CometChat with uid", effectiveCometChatUid);
-                // Don't force relogin - let SDK reuse existing session if possible
                 bootstrapCometChatUser({ forceRelogin: false })
                     .then(async () => {
                         const loggedUser = await CometChat.getLoggedinUser().catch(() => null);
@@ -261,11 +256,9 @@ export default function AuthScreen() {
             console.log("Error status:", err?.response?.status);
             console.log("Error data:", err?.response?.data);
 
-            // Check if email needs verification (403 error with specific message)
             if ((err?.response?.status === 403 || err?.response?.data?.statusCode === 403) &&
                 err?.response?.data?.message?.includes("Email chưa được xác thực")) {
                 console.log("Navigating to OTP screen with email:", email);
-                // Navigate to OTP verification screen with the email
                 router.push({
                     pathname: "/otp-verification",
                     params: { email: email }

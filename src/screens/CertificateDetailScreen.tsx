@@ -7,11 +7,11 @@ import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-    Linking,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Linking,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100, // Extra padding at bottom to ensure content isn't hidden behind buttons
+    paddingBottom: 100, 
   },
   pageTitle: {
     fontSize: 22,

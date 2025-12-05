@@ -8,13 +8,13 @@ import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OTPVerificationScreen() {
-  const { email: paramEmail } = useLocalSearchParams(); // get email from params
+  const { email: paramEmail } = useLocalSearchParams(); 
   const [email, setEmail] = useState(typeof paramEmail === 'string' ? paramEmail : "");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
-  const isEmailProvided = typeof paramEmail === 'string' && paramEmail.length > 0; // If email is passed via params, hide email input
+  const isEmailProvided = typeof paramEmail === 'string' && paramEmail.length > 0; 
 
   const handleEmailVerification = async () => {
     if (!email || !otp) {
@@ -117,7 +117,7 @@ export default function OTPVerificationScreen() {
               keyboardType="email-address"
               placeholder="Nhập email của bạn"
               style={styles.textInput}
-              disabled={isEmailProvided || otpSent} // Disable if email provided or OTP already sent
+              disabled={isEmailProvided || otpSent} 
             />
 
             {(isEmailProvided || otpSent) && (

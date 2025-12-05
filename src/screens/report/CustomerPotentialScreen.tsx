@@ -16,7 +16,6 @@ import {
 import { Button, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Month labels
 const MONTHS = [
   "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
   "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
@@ -37,7 +36,6 @@ export default function CustomerPotentialScreen() {
     return list;
   }, []);
 
-  // Helpers to block future months/years
   const isFutureMonth = (m: number, y: number) => {
     if (y > now.getFullYear()) return true;
     if (y === now.getFullYear() && m > now.getMonth() + 1) return true;

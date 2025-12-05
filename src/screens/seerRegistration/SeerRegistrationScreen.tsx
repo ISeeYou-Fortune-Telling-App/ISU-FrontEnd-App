@@ -21,7 +21,6 @@ export default function SeerRegistrationScreen() {
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Clear any previous registration data when starting new registration
   useEffect(() => {
     const clearPreviousData = async () => {
       try {
@@ -52,7 +51,6 @@ export default function SeerRegistrationScreen() {
   };
 
   const handleNext = async () => {
-    // Validation
     if (!fullName.trim()) {
       alert("Vui lòng nhập họ và tên");
       return;
@@ -78,11 +76,9 @@ export default function SeerRegistrationScreen() {
       return;
     }
 
-    // Convert date format to ISO
     const dateParts = dob.split("/");
     const isoDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}T00:00:00`;
 
-    // Save data to SecureStore
     const step1Data = {
       fullName: fullName.trim(),
       email: email.trim(),

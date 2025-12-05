@@ -8,7 +8,7 @@ import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PasswordRecoveryScreen() {
-  const { email } = useLocalSearchParams(); // 👈 get email from params
+  const { email } = useLocalSearchParams(); 
   const [OTP, setOTP] = useState("");
   const [password, setPassword] = useState("");
   const [ConfirmPassword, setConfirmPassword] = useState("");
@@ -98,7 +98,7 @@ export default function PasswordRecoveryScreen() {
               style={styles.btnLogin}
               onPress={handlePasswordReset}
               loading={loading}
-              disabled={loading}
+              disabled={loading || !password || !ConfirmPassword || !OTP}
             >
               Tạo mật khẩu mới
             </Button>

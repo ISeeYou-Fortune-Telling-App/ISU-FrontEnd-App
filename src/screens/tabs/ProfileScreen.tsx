@@ -35,7 +35,6 @@ export default function ProfileScreen() {
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
 
-  // Performance states
   const [customerPerf, setCustomerPerf] = useState<any | null>(null);
   const [seerPerf, setSeerPerf] = useState<any | null>(null);
   const [perfLoading, setPerfLoading] = useState<boolean>(false);
@@ -132,13 +131,12 @@ export default function ProfileScreen() {
           await SecureStore.setItemAsync("userId", payload.id);
         }
         setStatus(payload.status ?? status);
-        // If the API returns counts, set them. Keep defaults otherwise.
         if (typeof payload.cashCount === "number") setCashCount(payload.cashCount);
         if (typeof payload.bookingCount === "number") setBookingCount(payload.bookingCount);
         if (typeof payload.reviewCount === "number") setReviewCount(payload.reviewCount);
-        // service package counts (some API shapes may provide packCount or nested stats)
         if (typeof payload.packCount === "number") setPackCount(payload.packCount);
         if (typeof payload.certCount === "number") setCertCount(payload.certCount);
+
         // optional nested stats object
         const spStats = payload.servicePackageStats ?? payload.packageStats ?? null;
         if (spStats) {
@@ -156,7 +154,6 @@ export default function ProfileScreen() {
         if (storedRole === "SEER") {
           fetchPackageStats();
         }
-        // fetch performance after role resolved
         const effectiveRole = storedRole ?? role;
         await fetchPerformance(effectiveRole);
       }
@@ -218,7 +215,7 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <View style={{ backgroundColor: Colors.white, paddingBottom: 16 }}>
+          <View style={{ backgroundColor: Colors.white, paddingBottom: 16, marginBottom: 10 }}>
             <View style={[styles.container, styles.headerContainer]}>
               <Image
                 source={
@@ -260,9 +257,8 @@ export default function ProfileScreen() {
           </View>
 
           {role === "CUSTOMER" && <ZodiacCard zodiac={zodiac} animal={chineseZodiac} />}
-          {role === "CUSTOMER" && <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={customerPerf?.totalSpending ?? 0} />}
-
-          {role === "SEER" && <SeerStatsRow packCount={packCount} bookingCount={bookingCount} certCount={certCount} />}
+          {/* {role === "CUSTOMER" && <StatsRow bookingCount={bookingCount} reviewCount={reviewCount} cashCount={customerPerf?.totalSpending ?? 0} />}
+          {role === "SEER" && <SeerStatsRow packCount={packCount} bookingCount={bookingCount} certCount={certCount} />} */}
           {role === "SEER" && (
             <MyServicePackagesCard
               approved={packageApprovedCount}
@@ -271,7 +267,6 @@ export default function ProfileScreen() {
             />
           )}
 
-          {/* NEW: Hiệu suất của tôi card (different for customer vs seer) */}
           {role === "CUSTOMER" && (
             <CustomerPerformanceCard data={customerPerf} loading={perfLoading} />
           )}

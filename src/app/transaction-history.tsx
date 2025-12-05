@@ -1,4 +1,4 @@
-import TransactionHistoryScreen from "@/src/screens/TransactionHistoryScreen";
+import TransactionHistoryScreen from "@/src/screens/history/TransactionHistoryScreen";
 
 export default function TransactionHistoryRoute() {
   return <TransactionHistoryScreen />;

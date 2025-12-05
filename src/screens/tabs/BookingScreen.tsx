@@ -84,7 +84,6 @@ export default function BookingScreen() {
         }
       });
 
-      // Sort by scheduledTime descending for better display, even though API sorts by createdAt
       combinedBookings.sort(
         (a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime()
       );
@@ -107,10 +106,10 @@ export default function BookingScreen() {
     });
   }, [allBookings, selectedDate]);
 
-const markedDates = useMemo(() => {
+  const markedDates = useMemo(() => {
     const upcomingStatuses: BookingStatus[] = ["PENDING", "CONFIRMED"];
     const pastStatuses: BookingStatus[] = ["COMPLETED", "CANCELED", "FAILED"];
-    
+
     const datesWithUpcoming = allBookings
       .filter((booking) => upcomingStatuses.includes(booking.status))
       .map((booking) => dayjs(booking.scheduledTime).format("YYYY-MM-DD"))
@@ -123,33 +122,29 @@ const markedDates = useMemo(() => {
 
     const marked: { [key: string]: any } = {};
 
-    // 1. Những ngày SẮP TỚI: Nền màu nhạt (#e0e7ff), chữ màu chính
     datesWithUpcoming.forEach((date) => {
-      marked[date] = { 
-        selected: true, 
-        selectedColor: '#e0e7ff', // Màu nhạt (tương tự badge CONFIRMED)
-        selectedTextColor: Colors.primary 
+      marked[date] = {
+        selected: true,
+        selectedColor: '#e0e7ff',
+        selectedTextColor: Colors.primary
       };
     });
 
-    // 2. Những ngày ĐÃ QUA: Nền màu xám nhạt, chữ xám
     datesWithPast.forEach((date) => {
       if (!marked[date]) {
-        marked[date] = { 
-          selected: true, 
-          selectedColor: '#f3f4f6', // Màu xám nhạt
+        marked[date] = {
+          selected: true,
+          selectedColor: '#f3f4f6',
           selectedTextColor: Colors.gray
         };
       }
     });
 
-    // 3. Ngày ĐANG CHỌN (Click vào): Nền màu đậm (Primary), chữ trắng
-    // Cái này sẽ ghi đè (override) style nếu ngày đó trùng với ngày có lịch
-    marked[selectedDate] = { 
-      ...marked[selectedDate], // Giữ lại các tính chất khác nếu cần
-      selected: true, 
-      selectedColor: Colors.primary, // Màu đậm
-      selectedTextColor: 'white' 
+    marked[selectedDate] = {
+      ...marked[selectedDate],
+      selected: true,
+      selectedColor: Colors.primary,
+      selectedTextColor: 'white'
     };
 
     return marked;

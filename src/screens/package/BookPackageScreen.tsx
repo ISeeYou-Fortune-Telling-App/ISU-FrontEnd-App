@@ -10,7 +10,7 @@ import Markdown from "react-native-markdown-display";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-//title, , price, duration, seer, avatarUrl
+
 export default function BookPackageScreen() {
   const { id, rating } = useLocalSearchParams();
   const [pkg, setPkg] = useState<any>(null);
@@ -56,7 +56,6 @@ export default function BookPackageScreen() {
     if (id) fetchData();
   }, []);
 
-  // Handle navigation when user returns from PayPal without completing payment
   useFocusEffect(
     useCallback(() => {
       // If we just initiated payment and come back to this screen, 
@@ -117,7 +116,6 @@ export default function BookPackageScreen() {
     setSelectedDateObj(date);
     setScheduledDate(`${pad(day)}/${pad(month + 1)}/${year}`);
 
-    // If time is already selected, update the ISO with new date
     if (selectedTimeObj) {
       updateScheduledDateISO(date, selectedTimeObj);
     }
@@ -183,7 +181,6 @@ export default function BookPackageScreen() {
       return;
     }
 
-    // Extra guard: ensure booking datetime is in the future
     const now = new Date();
     const bookingDate = new Date(scheduledDateISO);
     if (bookingDate <= now) {
@@ -224,7 +221,6 @@ export default function BookPackageScreen() {
           setSubmitting(false);
           setSuccess(false);
           //router.replace("/(tabs)/booking");
-          // Remove automatic redirect - let deep link handle navigation
         });
       }, 1500);
 
@@ -594,7 +590,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     margin: 10,
   },
-  // ✅ Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

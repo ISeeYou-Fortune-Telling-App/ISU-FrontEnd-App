@@ -32,7 +32,7 @@ export default function UpdatePackageScreen() {
   const { packageId } = useLocalSearchParams();
   const id = (packageId as string) || "";
   const [title, setTitle] = useState<string>("");
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]); // Lưu ID category
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
 
   const [priceRaw, setPriceRaw] = useState<string>("");
@@ -43,14 +43,13 @@ export default function UpdatePackageScreen() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<timeSlot[]>([]);
 
-  // --- Helper: Chuẩn hóa giờ thành HH:mm:ss ---
+  // --- Chuẩn hóa giờ thành HH:mm:ss ---
   const normalizeTime = (timeStr: string) => {
     if (!timeStr) return "00:00:00";
     const parts = timeStr.split(':');
-    // Nếu có ít nhất giờ và phút
     if (parts.length >= 2) {
-      const h = parts[0].padStart(2, '0'); // 9 -> 09
-      const m = parts[1].padStart(2, '0'); // 5 -> 05
+      const h = parts[0].padStart(2, '0');
+      const m = parts[1].padStart(2, '0');
       const s = parts[2] ? parts[2].padStart(2, '0') : '00';
       return `${h}:${m}:${s}`;
     }
@@ -72,7 +71,6 @@ export default function UpdatePackageScreen() {
         setDurationMinutes(durationtemp.toString());
         setImagePreview(data?.imageUrl ?? "");
 
-        // FIX 1: Chuẩn hóa time slots ngay khi load từ API về
         const rawSlots = data?.availableTimeSlots ?? [];
         const cleanSlots = rawSlots.map((s: any) => ({
           ...s,
@@ -81,13 +79,11 @@ export default function UpdatePackageScreen() {
         }));
         setAvailableTimeSlots(cleanSlots);
 
-        // Lấy ID category
         const pkgCats = Array.isArray(data?.categories) ? data.categories : [];
         const pkgCatIds = pkgCats.map((c: any) => c.id).filter(Boolean);
         setSelectedCategoryIds(pkgCatIds);
 
         const rawContent: string = data?.packageContent ?? "";
-        // Convert any HTML breaks back to newlines for plain text editing
         const plainContent = rawContent.replace(/<br\s*\/?>/g, "\n").replace(/<[^>]+>/g, "");
         setContent(plainContent);
 
@@ -177,12 +173,11 @@ export default function UpdatePackageScreen() {
 
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 
-  // FIX 2: Đảm bảo giờ chọn từ Picker luôn là HH:mm:ss
   const handleConfirm = (date: Date) => {
     hidePicker();
     const hh = pad(date.getHours());
     const mm = pad(date.getMinutes());
-    const val = `${hh}:${mm}:00`; // Đã padding 0
+    const val = `${hh}:${mm}:00`;
     if (pickerField === 'from') setTempFrom(val);
     else setTempTo(val);
   };
@@ -196,7 +191,7 @@ export default function UpdatePackageScreen() {
       Alert.alert('Thiếu giờ', 'Vui lòng chọn giờ bắt đầu và kết thúc.');
       return;
     }
-        
+
     const from = parseInt(tempFrom.replace(/\:/g, ""));
     const to = parseInt(tempTo.replace(/\:/g, ""));
 
@@ -205,7 +200,6 @@ export default function UpdatePackageScreen() {
       return;
     }
 
-    // Safety check format
     const safeFrom = normalizeTime(tempFrom);
     const safeTo = normalizeTime(tempTo);
 
@@ -248,7 +242,6 @@ export default function UpdatePackageScreen() {
 
       selectedCategoryIds.forEach((cid) => formData.append('categoryIds[]', cid));
 
-      // FIX 3: Chuẩn hóa lại toàn bộ slots trước khi gửi để chắc chắn 100%
       const finalSlots = availableTimeSlots.map(s => ({
         ...s,
         availableFrom: normalizeTime(s.availableFrom),

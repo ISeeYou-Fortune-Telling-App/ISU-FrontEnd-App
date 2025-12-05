@@ -1,3 +1,6 @@
+import Colors from "@/src/constants/colors";
+import { deleteAccount } from "@/src/services/api";
+import { logoutCometChatUser } from "@/src/services/cometchat";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -5,9 +8,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Checkbox, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Colors from "../constants/colors";
-import { deleteAccount } from "../services/api";
-import { logoutCometChatUser } from "../services/cometchat";
 
 type RoleKey = "CUSTOMER" | "SEER";
 

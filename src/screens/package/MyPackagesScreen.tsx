@@ -32,7 +32,6 @@ export default function MyPackagesScreen() {
         }
     };
 
-    // Filter packages by tab
     let filteredPackages: ServicePackage[] = [];
     if (tab === "ALL") {
         filteredPackages = packages.filter(pkg => pkg.status !== "HAVE_REPORT");
@@ -40,7 +39,6 @@ export default function MyPackagesScreen() {
         filteredPackages = packages.filter(pkg => pkg.status === tab);
     }
 
-    // Tab counts
     const tabCounts: { [key: string]: number } = {
         ALL: packages.filter(pkg => pkg.status !== "HAVE_REPORT").length,
         AVAILABLE: packages.filter(pkg => pkg.status === "AVAILABLE").length,

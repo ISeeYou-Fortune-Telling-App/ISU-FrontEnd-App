@@ -65,7 +65,7 @@ export default function ForgotPasswordScreen() {
                             style={styles.btnLogin}
                             onPress={GetOTP}
                             loading={loading}
-                            disabled={loading}
+                            disabled={loading || !email}
                         >
                             Lấy OTP
                         </Button>

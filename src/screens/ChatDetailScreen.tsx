@@ -88,7 +88,7 @@ const STATUS_METADATA: Record<
   },
   CANCELLED: {
     label: "Đã hủy",
-    description: "Phiên này đã bị hủy (có thể do vào trễ hoặc người kia không tham gia).",
+    description: "",//Phiên này đã bị hủy (có thể do vào trễ hoặc người kia không tham gia).
   },
   UNKNOWN: {
     label: "Đang cập nhật",
@@ -323,8 +323,6 @@ export default function ChatDetailScreen() {
     }
   }, [normalizedConversationStatus]);
 
-  // Chỉ cho phép gọi video 1-1 khi có UID của đối tác
-  // Không dùng conversationId làm group GUID vì group không tồn tại trong CometChat
   const callTargetId = partnerCometChatUid;
   const callReceiverType = CometChat.RECEIVER_TYPE.USER;
   const isCallDisabled = isInteractionLocked || !callTargetId;
@@ -657,7 +655,7 @@ export default function ChatDetailScreen() {
         return;
       }
       setIsPartnerOnline(true);
-      showSessionNotice("info", `Người dùng ${data.userId} vừa tham gia cuộc trò chuyện.`);
+      //showSessionNotice("info", `Người dùng ${data.userId} vừa tham gia cuộc trò chuyện.`);
       syncReadReceipts();
     },
     [showSessionNotice, syncReadReceipts],
@@ -702,9 +700,9 @@ export default function ChatDetailScreen() {
       return;
     }
 
-    console.log(
-      `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketConfig.url}/chat (path: ${socketConfig.path}, user ${currentUserId})`,
-    );
+    // console.log(
+    //   `[SocketIO] client v${SOCKET_IO_CLIENT_VERSION} connecting to ${socketConfig.url}/chat (path: ${socketConfig.path}, user ${currentUserId})`,
+    // );
 
     const socket = io(`${socketConfig.url}/chat`, {
       path: socketConfig.path,
@@ -899,35 +897,33 @@ export default function ChatDetailScreen() {
               );
             }
 
-            // Debug: Log conversation để kiểm tra cấu trúc data
-            console.log("[DEBUG] ===== CONVERSATION DEBUG START =====");
-            console.log("[DEBUG] Conversation object:", JSON.stringify(conversation, null, 2));
-            console.log("[DEBUG] Current user ID:", currentUserId);
-            console.log("[DEBUG] Seer ID:", conversation?.seerId);
-            console.log("[DEBUG] Customer ID:", conversation?.customerId);
-            console.log("[DEBUG] Seer data:", conversation?.seer);
-            console.log("[DEBUG] Seer CometChat UID:", conversation?.seer?.cometChatUid);
-            console.log("[DEBUG] Customer data:", conversation?.customer);
-            console.log("[DEBUG] Customer CometChat UID:", conversation?.customer?.cometChatUid);
-            console.log("[DEBUG] Direct seerCometChatUid:", conversation?.seerCometChatUid);
-            console.log("[DEBUG] Direct customerCometChatUid:", conversation?.customerCometChatUid);
+            // console.log("[DEBUG] ===== CONVERSATION DEBUG START =====");
+            // console.log("[DEBUG] Conversation object:", JSON.stringify(conversation, null, 2));
+            // console.log("[DEBUG] Current user ID:", currentUserId);
+            // console.log("[DEBUG] Seer ID:", conversation?.seerId);
+            // console.log("[DEBUG] Customer ID:", conversation?.customerId);
+            // console.log("[DEBUG] Seer data:", conversation?.seer);
+            // console.log("[DEBUG] Seer CometChat UID:", conversation?.seer?.cometChatUid);
+            // console.log("[DEBUG] Customer data:", conversation?.customer);
+            // console.log("[DEBUG] Customer CometChat UID:", conversation?.customer?.cometChatUid);
+            // console.log("[DEBUG] Direct seerCometChatUid:", conversation?.seerCometChatUid);
+            // console.log("[DEBUG] Direct customerCometChatUid:", conversation?.customerCometChatUid);
 
             // Resolve CometChat UID của đối tác để thực hiện video call
             // Ưu tiên sử dụng CometChat UID nếu có, fallback về userId
             const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
-            console.log("[DEBUG] Resolved partner CometChat UID:", remoteUid);
+            // console.log("[DEBUG] Resolved partner CometChat UID:", remoteUid);
             
-            // Fallback logic: nếu không có CometChat UID riêng, dùng userId (thường trùng với cometChatUid)
             let finalPartnerUid = remoteUid;
             if (!finalPartnerUid) {
               const viewerIsSeer = currentUserId && conversation?.seerId && String(conversation.seerId) === String(currentUserId);
               finalPartnerUid = viewerIsSeer 
                 ? (conversation?.customerId ? String(conversation.customerId) : null)
                 : (conversation?.seerId ? String(conversation.seerId) : null);
-              console.log("[DEBUG] Fallback to userId as CometChat UID:", finalPartnerUid);
+              // console.log("[DEBUG] Fallback to userId as CometChat UID:", finalPartnerUid);
             }
-            console.log("[DEBUG] Final partner CometChat UID for call:", finalPartnerUid);
-            console.log("[DEBUG] ===== CONVERSATION DEBUG END =====");
+            // console.log("[DEBUG] Final partner CometChat UID for call:", finalPartnerUid);
+            // console.log("[DEBUG] ===== CONVERSATION DEBUG END =====");
 
             setPartnerCometChatUid(finalPartnerUid);
 
@@ -1081,12 +1077,12 @@ export default function ChatDetailScreen() {
   }, [isInteractionLocked, statusMeta.description]);
 
   const handleVideoCallPress = useCallback(async () => {
-    console.log("[ChatDetailScreen] handleVideoCallPress called");
-    console.log("[ChatDetailScreen] isInteractionLocked:", isInteractionLocked);
-    console.log("[ChatDetailScreen] callTargetId:", callTargetId);
-    console.log("[ChatDetailScreen] callReceiverType:", callReceiverType);
-    console.log("[ChatDetailScreen] partnerCometChatUid:", partnerCometChatUid);
-    console.log("[ChatDetailScreen] callStatus:", callStatus);
+    // console.log("[ChatDetailScreen] handleVideoCallPress called");
+    // console.log("[ChatDetailScreen] isInteractionLocked:", isInteractionLocked);
+    // console.log("[ChatDetailScreen] callTargetId:", callTargetId);
+    // console.log("[ChatDetailScreen] callReceiverType:", callReceiverType);
+    // console.log("[ChatDetailScreen] partnerCometChatUid:", partnerCometChatUid);
+    // console.log("[ChatDetailScreen] callStatus:", callStatus);
     
     if (isInteractionLocked) {
       Alert.alert("Phiên đã kết thúc", statusMeta.description);
@@ -1101,9 +1097,9 @@ export default function ChatDetailScreen() {
     }
 
     try {
-      console.log("[ChatDetailScreen] Calling startVideoCall with:", callTargetId);
+      // console.log("[ChatDetailScreen] Calling startVideoCall with:", callTargetId);
       await startVideoCall(callTargetId, callReceiverType);
-      console.log("[ChatDetailScreen] startVideoCall completed");
+      // console.log("[ChatDetailScreen] startVideoCall completed");
     } catch (err) {
       console.error("[ChatDetailScreen] Không thể bắt đầu cuộc gọi video", err);
       Alert.alert("Cuộc gọi video", "Không thể bắt đầu cuộc gọi. Vui lòng thử lại.");
@@ -1183,7 +1179,6 @@ export default function ChatDetailScreen() {
       let mediaPayload: { imagePath?: string; videoPath?: string } = {};
       if (attachment) {
         const uploadForm = new FormData();
-        // Backend requires conversationId when uploading media; add it explicitly
         uploadForm.append("conversationId", conversationId);
         const fieldName = attachment.kind === "video" ? "video" : "image";
         uploadForm.append(
@@ -1328,7 +1323,6 @@ export default function ChatDetailScreen() {
     return (input.trim().length > 0 || Boolean(selectedAttachment)) && !isSending;
   }, [input, isConversationActive, isSending, selectedAttachment]);
 
-  // Khi phiên không còn ACTIVE, đóng menu và bỏ file đính kèm đang chọn
   useEffect(() => {
     if (isInteractionLocked) {
       setAttachmentMenuVisible(false);
@@ -2483,7 +2477,6 @@ const styles = StyleSheet.create({
     top: 24,
   },
 
-  // Cancel modal styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

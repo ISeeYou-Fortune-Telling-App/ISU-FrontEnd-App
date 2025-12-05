@@ -9,20 +9,20 @@ import { useFocusEffect, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    ImageBackground,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  ImageBackground,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import io, { Socket } from "socket.io-client";
@@ -468,7 +468,6 @@ export default function MessageScreen() {
           setLoadError(null);
         }
 
-        // ADMIN: fetch admin conversations instead
         const isAdmin = (userRole ?? "").toUpperCase() === "ADMIN";
         const response = isAdmin
           ? await getAdminConversations({
@@ -1021,7 +1020,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.white,
   },
-  // Modal chung cho yêu cầu hủy phiên
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

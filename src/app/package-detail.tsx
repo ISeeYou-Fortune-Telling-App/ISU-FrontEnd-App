@@ -1,4 +1,4 @@
-import PackageDetailScreen from "../screens/package/PackageDetailScreen";
+import PackageDetailScreen from "@/src/screens/package/PackageDetailScreen";
 
 export default function PackageDetail() {
     return <PackageDetailScreen />;

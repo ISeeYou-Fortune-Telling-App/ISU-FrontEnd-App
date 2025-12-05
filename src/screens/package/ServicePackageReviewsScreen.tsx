@@ -41,7 +41,6 @@ const ServicePackageReviewsScreen = () => {
         setLoading(true);
         setError(null);
         
-        // Get current user ID
         const userId = await SecureStore.getItemAsync("userId");
         setCurrentUserId(userId);
         
@@ -101,7 +100,6 @@ const ServicePackageReviewsScreen = () => {
     const replies = loadedReplies.get(reviewId) || [];
     
     if (!isExpanded && !hasReplies && !loadingReplies.has(reviewId)) {
-      // Fetch replies if not loaded yet
       try {
         setLoadingReplies(prev => new Set(prev).add(reviewId));
         const response = await getReviewReplies(reviewId, { page: 1, limit: 15, sortType: 'asc', sortBy: 'createdAt' });
@@ -119,7 +117,6 @@ const ServicePackageReviewsScreen = () => {
         }));
         setLoadedReplies(prev => new Map(prev).set(reviewId, mappedReplies));
         
-        // Auto-expand if there are replies
         if (mappedReplies.length > 0) {
           setExpandedReviews(prev => new Set(prev).add(reviewId));
         }
@@ -133,7 +130,6 @@ const ServicePackageReviewsScreen = () => {
         });
       }
     } else if (hasReplies && replies.length > 0) {
-      // Toggle expansion only if there are replies
       setExpandedReviews(prev => {
         const newSet = new Set(prev);
         if (newSet.has(reviewId)) {
@@ -254,13 +250,11 @@ const ServicePackageReviewsScreen = () => {
         totalReviews: prev.totalReviews + 1
       }));
 
-      // If it's a reply, add it to the loaded replies
       if (parentReviewId) {
         setLoadedReplies(prev => {
           const currentReplies = prev.get(parentReviewId) || [];
           return new Map(prev).set(parentReviewId, [...currentReplies, newReview]);
         });
-        // Expand the parent review if not already expanded
         setExpandedReviews(prev => new Set(prev).add(parentReviewId));
       }
 
@@ -327,7 +321,6 @@ const ServicePackageReviewsScreen = () => {
         }
       };
 
-      // Update in main reviews list
       setServicePackage((prev: any) => ({
         ...prev,
         reviews: prev.reviews.map((review: any) => 
@@ -335,7 +328,6 @@ const ServicePackageReviewsScreen = () => {
         )
       }));
 
-      // Update in loaded replies if it's a reply
       if (editingReview.ref_review_id) {
         setLoadedReplies(prev => {
           const newMap = new Map(prev);
@@ -366,9 +358,9 @@ const ServicePackageReviewsScreen = () => {
   };
 
   const renderReviewItem = ({ item, depth = 0 }: { item: any; depth?: number }) => {
-    const MAX_DEPTH = 10; // Maximum nesting levels
+    const MAX_DEPTH = 10; 
     const currentColor = categoryColors[depth % categoryColors.length];
-    const marginLeft = depth * 10; // Small margin left for nested comments
+    const marginLeft = depth * 10; 
     const avatarStyle = styles.avatar;
     const commentContainerStyle = (item.ref_review_id && !(rootReviewId && item.review_id === rootReviewId))
       ? [styles.commentContainer, { marginLeft, borderLeftWidth: 3, borderLeftColor: currentColor, paddingLeft: 4 }]

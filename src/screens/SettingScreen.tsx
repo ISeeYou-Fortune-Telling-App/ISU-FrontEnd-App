@@ -1,5 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { logoutUser } from "@/src/services/api";
+import { logoutCometChatUser } from "@/src/services/cometchat";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -7,7 +8,6 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { logoutCometChatUser } from "../services/cometchat";
 
 type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMAGE" | "MANAGE_CERTIFICATE";
 

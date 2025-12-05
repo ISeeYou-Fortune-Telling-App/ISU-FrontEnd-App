@@ -49,7 +49,6 @@ export async function registerForPushNotificationsAsync() {
 
     token = await messaging().getToken();
     await SecureStore.setItemAsync("fcmToken", token);
-    console.log('FCM Token:', token);
   } else {
     alert('Must use physical device for Push Notifications');
   }

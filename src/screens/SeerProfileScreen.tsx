@@ -25,7 +25,6 @@ export default function SeerProfileScreen() {
     const [avatarError, setAvatarError] = useState(false);
     const [coverError, setCoverError] = useState(false);
 
-    // Pagination states
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -43,7 +42,6 @@ export default function SeerProfileScreen() {
         return category ? categoryMapping[category] ?? { display: category, background: "#F2F2F2", text: "#4F4F4F" } : { display: "", background: "#F2F2F2", text: "#4F4F4F" };
     };
 
-    // Fetch seer profile using getUser
     const fetchSeerProfile = useCallback(async (id?: string) => {
         if (!id) return;
         setProfileLoading(true);
@@ -58,11 +56,9 @@ export default function SeerProfileScreen() {
         }
     }, []);
 
-    // Fetch packages for seer (supports pagination page param)
     const fetchPackages = useCallback(async (id?: string, page: number = 1) => {
         if (!id) return;
 
-        // Manage loading states separately for first page vs subsequent pages vs refresh
         if (page === 1 && !refreshing) setLoading(true);
         else if (page === 1 && refreshing) {
             // already setting refreshing true in caller
@@ -83,7 +79,6 @@ export default function SeerProfileScreen() {
 
             if (res.data && res.data.data) {
                 const rawPackages = res.data.data;
-                // Try to read paging info (depends on your API)
                 const paging = res.data.paging;
 
                 const packagesWithDetails = await Promise.all(
@@ -144,15 +139,12 @@ export default function SeerProfileScreen() {
 
                 setCurrentPage(page);
 
-                // Determine if there are more pages:
                 if (paging && typeof paging.totalPages !== "undefined") {
                     setHasMore(page < paging.totalPages);
                 } else {
-                    // fallback: if returned items < pageSize then no more
                     setHasMore(rawPackages.length === pageSize);
                 }
             } else {
-                // no data returned: consider no more
                 if (page === 1) setPackages([]);
                 setHasMore(false);
             }
@@ -168,15 +160,13 @@ export default function SeerProfileScreen() {
     }, [pageSize, refreshing]);
 
     const handleLike = async (packageId: string) => {
-        if (likeInFlight[packageId]) return; // prevent double taps
+        if (likeInFlight[packageId]) return;
         try {
             setLikeInFlight((s) => ({ ...s, [packageId]: true }));
 
-            // find package current userInteraction
             const pkg = packages.find((p) => p.id === packageId);
             const currentlyLiked = pkg?.userInteraction === 'LIKE';
 
-            // decide action: if currentlyLiked then UNLIKE (or REMOVE), else LIKE
             const action = currentlyLiked ? 'LIKE' : 'LIKE';
 
             const res = await interactWithServicePackage(packageId, { interactionType: action });
@@ -198,11 +188,10 @@ export default function SeerProfileScreen() {
     };
 
     const handleDislike = async (packageId: string) => {
-        if (likeInFlight[packageId]) return; // prevent double taps
+        if (likeInFlight[packageId]) return;
         try {
             setLikeInFlight((s) => ({ ...s, [packageId]: true }));
 
-            // find package current userInteraction
             const pkg = packages.find((p) => p.id === packageId);
             const currentlyDisliked = pkg?.userInteraction === 'DISLIKE';
 
@@ -226,16 +215,13 @@ export default function SeerProfileScreen() {
         }
     };
 
-    // load more handler (infinite scroll)
     const loadMore = useCallback(() => {
-        // prevent loading more if already fetching or no more pages
         if (!seerId) return;
         if (loadingMore || loading) return;
         if (!hasMore) return;
         fetchPackages(seerId, currentPage + 1);
     }, [seerId, loadingMore, loading, hasMore, currentPage, fetchPackages]);
 
-    // pull-to-refresh handler
     const refreshPackages = useCallback(async () => {
         if (!seerId) return;
         setRefreshing(true);
@@ -254,10 +240,8 @@ export default function SeerProfileScreen() {
                 console.warn("Unable to read userRole from SecureStore", e);
             }
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [seerId]);
 
-    // Profile header for FlatList
     const renderProfileHeader = () => {
         if (profileLoading) {
             return (
@@ -274,7 +258,6 @@ export default function SeerProfileScreen() {
             );
         }
 
-        // Stats from profile
         const stats = seer.profile ?? {};
         const avgRating = stats.avgRating ?? 0;
         const totalRates = stats.totalRates ?? 0;
@@ -362,7 +345,6 @@ export default function SeerProfileScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={{ paddingBottom: 40 }}
                 ListEmptyComponent={loading ? <ActivityIndicator size="large" color={Colors.primary} /> : <Text style={styles.emptyText}>Không có gói dịch vụ nào.</Text>}
-                // Pagination props
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.3}
                 ListFooterComponent={
@@ -372,7 +354,6 @@ export default function SeerProfileScreen() {
                         <Text style={styles.emptyText}>Không có thêm gói dịch vụ.</Text>
                     ) : null
                 }
-                // Pull-to-refresh
                 refreshing={refreshing}
                 onRefresh={refreshPackages}
             />

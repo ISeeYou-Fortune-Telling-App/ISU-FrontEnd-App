@@ -1,17 +1,17 @@
+import Colors from '@/src/constants/colors';
+import { getKnowledgeCategories } from '@/src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Colors from '../constants/colors';
-import { getKnowledgeCategories } from '../services/api';
 
 const SIZES = {
     medium: 16,
 };
 
 const FONT = {
-    bold: 'inter-bold', // Assuming you have a bold version of inter font
+    bold: 'inter-bold',
     regular: 'inter',
 };
 
@@ -39,7 +39,7 @@ const sortOptions = [
 const ServicePackageAndSeerSearchScreen = () => {
     const router = useRouter();
     const [searchText, setSearchText] = useState('');
-    const [categories, setCategories] = useState<Array<{id: string, name: string}>>([]);
+    const [categories, setCategories] = useState<Array<{ id: string, name: string }>>([]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
     const [minPrice, setMinPrice] = useState('');
@@ -82,7 +82,7 @@ const ServicePackageAndSeerSearchScreen = () => {
             maxTime: maxTime ? parseInt(maxTime) : undefined,
             sortBy: selectedSort.sortBy,
             sortType: selectedSort.sortType,
-            status: 'AVAILABLE', // default to available
+            status: 'AVAILABLE',
         };
         // Remove undefined values
         Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);

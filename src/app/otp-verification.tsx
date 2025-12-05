@@ -1,4 +1,4 @@
-import OTPVerificationScreen from "../screens/OTPVerificationScreen";
+import OTPVerificationScreen from "@/src/screens/OTPVerificationScreen";
 
 
 export default function Notification() {

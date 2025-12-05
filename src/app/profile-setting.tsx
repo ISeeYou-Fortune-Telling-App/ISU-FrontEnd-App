@@ -1,4 +1,4 @@
-import SettingScreen from "../screens/SettingScreen";
+import SettingScreen from "@/src/screens/SettingScreen";
 
 
 export default function ProfileSetting() {

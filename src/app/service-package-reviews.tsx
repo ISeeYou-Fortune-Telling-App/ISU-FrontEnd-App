@@ -1,4 +1,4 @@
-import ServicePackageReviewsScreen from "../screens/ServicePackageReviewsScreen";
+import ServicePackageReviewsScreen from "@/src/screens/package/ServicePackageReviewsScreen";
 
 export default function ServicePackageReviews() {
   return <ServicePackageReviewsScreen />;

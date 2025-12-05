@@ -196,7 +196,7 @@ export default function HomeScreen() {
     } finally {
       if (page === 1) setLoading(false); else setLoadingMore(false);
     }
-  }, [router, onlyShowAvailable]); // <- removed `categories` from dependency list
+  }, [router, onlyShowAvailable]);
 
   const fetchSeers = useCallback(async (page: number = 1) => {
     if (page === 1) {
@@ -207,7 +207,6 @@ export default function HomeScreen() {
     }
     setError(null);
     try {
-      // Check if user is authenticated
       const token = await SecureStore.getItemAsync("authToken");
       const isDemoMode = token === "demo-token";
 
@@ -217,7 +216,6 @@ export default function HomeScreen() {
       }
 
       if (isDemoMode) {
-        // For demo, show empty or dummy seers
         setSeers([]);
         setCurrentPage(page);
         setHasMore(false);
@@ -238,7 +236,6 @@ export default function HomeScreen() {
         seerSpecialityIds: searchParamsRef.current?.seerSpecialityIds ? (Array.isArray(searchParamsRef.current.seerSpecialityIds) ? searchParamsRef.current.seerSpecialityIds : [searchParamsRef.current.seerSpecialityIds]) : undefined,
       };
 
-      // Remove undefined values
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
 
       const response = await getSeers(params);
@@ -321,7 +318,6 @@ export default function HomeScreen() {
         (async () => {
           await fetchCategories();
           if (searchType === "packages") {
-            // if user had selected a category keep it, otherwise normal load
             await fetchServicePackages(1, selectedCategory?.id);
           } else {
             await fetchSeers(1);
@@ -362,15 +358,13 @@ export default function HomeScreen() {
   }, [onlyShowAvailable]);
 
   const handleLike = async (packageId: string) => {
-    if (likeInFlight[packageId]) return; // prevent double taps
+    if (likeInFlight[packageId]) return;
     try {
       setLikeInFlight((s) => ({ ...s, [packageId]: true }));
 
-      // find package current userInteraction
       const pkg = servicePackages.find((p) => p.id === packageId);
       const currentlyLiked = pkg?.userInteraction === 'LIKE';
 
-      // decide action: if currentlyLiked then UNLIKE (or REMOVE), else LIKE
       const action = currentlyLiked ? 'LIKE' : 'LIKE';
 
       const res = await interactWithServicePackage(packageId, { interactionType: action });
@@ -392,11 +386,10 @@ export default function HomeScreen() {
   };
 
   const handleDislike = async (packageId: string) => {
-    if (likeInFlight[packageId]) return; // prevent double taps
+    if (likeInFlight[packageId]) return;
     try {
       setLikeInFlight((s) => ({ ...s, [packageId]: true }));
 
-      // find package current userInteraction
       const pkg = servicePackages.find((p) => p.id === packageId);
       const currentlyDisliked = pkg?.userInteraction === 'DISLIKE';
 
@@ -434,15 +427,12 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // when user taps a category chip
   const handleSelectCategory = async (categoryName: string) => {
     let cat = categories.find(c => c.name === categoryName);
     if (!cat) {
-      // fetch categories and use the freshly returned list
       const fresh = await fetchCategories();
       cat = fresh.find((c: any) => c.name === categoryName);
       if (!cat) {
-        // fail silently if category truly doesn't exist
         return;
       }
     }
@@ -498,7 +488,7 @@ export default function HomeScreen() {
 
               setActivePage("home");
               setSearchType("packages");
-              setOnlyShowAvailable(false); // Reset luôn switch nếu cần
+              setOnlyShowAvailable(false);
 
               router.replace({
                 pathname: '/(tabs)/home', params: {}
@@ -522,7 +512,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* If a category is selected show small card with description and X to clear */}
       {activePage === "home" && selectedCategory && (
         <View style={[styles.servicesContainer, styles.cardShadow, { marginHorizontal: 10, marginTop: 10, paddingVertical: 12 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -659,7 +648,6 @@ const getCategoryIcon = (category: string | null, color?: string) => {
     case 'Khác':
       return <MoreHorizontal size={18} color={iconColor} />;
     default:
-      // fallback: use Star for unknown categories
       return <Star size={18} color={iconColor} />;
   }
 };
@@ -788,7 +776,7 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
           body: { ...styles.packageContent },
           paragraph: { marginBottom: 0 },
         }}>
-          {expanded 
+          {expanded
             ? (servicePackage.content || '').replace(/\\n/g, '\n')
             : ((servicePackage.content || '').replace(/\\n/g, '\n').slice(0, 150) + ((servicePackage.content || '').length > 150 ? '...' : ''))}
         </Markdown>
@@ -828,7 +816,12 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
           </View>
           <Text style={styles.dislikes}>{servicePackage.dislikes}</Text>
         </View>
-        <Text style={styles.comments}>{servicePackage.comments}</Text>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({ pathname: "/service-package-reviews", params: { id: servicePackage.id } })
+          }>
+          <Text style={styles.comments}>{servicePackage.comments}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* --- ACTIONS --- */}
@@ -1048,10 +1041,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     margin: 10
   },
-  // subtle cross-platform card shadow
   cardShadow: {
     shadowColor: '#000',
-    // push the shadow downward
     shadowOffset: { width: 10, height: 6 },
     shadowOpacity: .12,
     shadowRadius: 8,
@@ -1284,7 +1275,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    // a subtle border for contrast on light backgrounds
     borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.06)',
   },
