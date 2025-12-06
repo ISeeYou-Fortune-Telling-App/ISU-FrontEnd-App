@@ -113,7 +113,8 @@ export default function NotificationScreen() {
         <View style={styles.titleContainer}>
           <Text variant="titleLarge" style={styles.title}>Thông báo</Text>
         </View>
-        <EllipsisVertical size={28} color="black" />
+        {/* <EllipsisVertical size={28} color="black" /> */}
+        <View style={{paddingRight: 28}}/>
       </View>
 
       {notifications.length > 0 ? (

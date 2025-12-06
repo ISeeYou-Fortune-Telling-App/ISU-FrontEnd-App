@@ -5,9 +5,9 @@ import { getKnowledgeItems, searchKnowledgeItems } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
-import { BookOpen, Clock, Eye } from "lucide-react-native";
+import { BookOpen, Clock, Eye, X } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, ImageBackground, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -126,13 +126,15 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
       </View>
 
       <Text style={styles.cardTitle}>{item.title}</Text>
-      <View style={{ maxHeight: expanded ? undefined : 80, overflow: 'hidden' }}>
+      <View style={{ maxHeight: expanded ? undefined : 100, overflow: 'hidden' }}>
         <Markdown style={markdownStyles}>
-          {(item.content || '').replace(/\\n/g, '\n')}
+          {expanded
+            ? (item.content || '').replace(/\\n/g, '\n')
+            : ((item.content || '').replace(/\\n/g, '\n').slice(0, 30) + ((item.content || '').length > 30 ? '...' : ''))}
         </Markdown>
       </View>
 
-      <Image
+      {!coverError && <Image
         source={
           coverError || !item.imageUrl
             ? require("@/assets/images/placeholder.png")
@@ -142,7 +144,7 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
         onError={(e) => {
           setCoverError(true);
         }}
-      />
+      />}
 
       <View style={styles.cardFooter}>
         <View style={styles.viewCounter}>
@@ -160,10 +162,16 @@ export default function KnowledgeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [isSearch, setIsSearch] = useState(false);
   const tabBarHeight = useBottomTabBarHeight();
 
-  const fetchKnowledge = useCallback(async () => {
-    setLoading(true);
+  const fetchKnowledge = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
     try {
       const response = await getKnowledgeItems({
@@ -183,13 +191,22 @@ export default function KnowledgeScreen() {
         "Không thể tải danh sách bài viết. Vui lòng thử lại.";
       setError(message);
     } finally {
-      setLoading(false);
+      if (!isRefresh) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   }, []);
 
+  const handleRefresh = useCallback(() => {
+    setIsSearch(false);
+    fetchKnowledge(true);
+  }, [fetchKnowledge]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchKnowledge();
+      fetchKnowledge(false);
     }, [fetchKnowledge])
   );
 
@@ -203,6 +220,7 @@ export default function KnowledgeScreen() {
           onApply={async (params) => {
             try {
               setLoading(true);
+              setIsSearch(true);
               const response = await searchKnowledgeItems({
                 page: 1,
                 limit: 15,
@@ -235,7 +253,7 @@ export default function KnowledgeScreen() {
       </>
       {error && <View style={[styles.centerContent, { flex: 1 }]}>
         <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" style={styles.retryButton} onPress={fetchKnowledge}>
+        <Button mode="contained" style={styles.retryButton} onPress={() => fetchKnowledge(false)}>
           Thử lại
         </Button>
       </View>}
@@ -254,23 +272,37 @@ export default function KnowledgeScreen() {
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[Colors.primary]}
+            />
+          }
           ListHeaderComponent={
-            <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
-              style={{ flex: 1, width: '100%', height: 180, marginBottom: 8 }}
-              resizeMode="cover">
+            <View style={{ flex: 1 }}>
+              <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
+                style={{ width: '100%', height: 180, marginBottom: 8 }}
+                resizeMode="cover">
 
-              <View style={styles.headerOverlay} />
+                <View style={styles.headerOverlay} />
 
-              <View style={styles.headerCard}>
-                <View style={styles.headerIconWrapper}>
-                  <BookOpen size={24} color={Colors.primary} />
+                <View style={styles.headerCard}>
+                  <View style={styles.headerIconWrapper}>
+                    <BookOpen size={24} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.headerTitle}>Kho Tri Thức</Text>
+                  <Text style={styles.headerSubtitle}>
+                    Khám phá kiến thức về sự huyền bí của thế giới
+                  </Text>
                 </View>
-                <Text style={styles.headerTitle}>Kho Tri Thức</Text>
-                <Text style={styles.headerSubtitle}>
-                  Khám phá kiến thức về sự huyền bí của thế giới
-                </Text>
-              </View>
-            </ImageBackground>
+              </ImageBackground>
+              {isSearch && <View style={styles.card}>
+                <View style={{ width: 24 }} />
+                <Text style={[styles.headerTitle, { color: Colors.black }]}>Kết quả tìm kiếm</Text>
+                <X size={22} color={Colors.primary} onPress={() => { setIsSearch(false); fetchKnowledge(); }} />
+              </View>}
+            </View>
           }
           ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
         />}
@@ -283,7 +315,7 @@ const markdownStyles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     color: Colors.dark_gray,
-    marginBottom: 10, 
+    marginBottom: 10,
   },
   heading1: {
     fontSize: 20,
@@ -477,4 +509,5 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontFamily: "inter",
   },
+  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 10, padding: 10, borderRadius: 10, backgroundColor: Colors.white }
 });

@@ -8,7 +8,7 @@ import { router, useFocusEffect } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { ChevronRight } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -210,6 +210,13 @@ export default function BookingScreen() {
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[Colors.primary]}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>

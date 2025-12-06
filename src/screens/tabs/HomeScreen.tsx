@@ -782,7 +782,7 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
         </Markdown>
       </TouchableOpacity>
 
-      <Image
+      {!coverError && <Image
         source={
           coverError || !servicePackage.imageUrl
             ? require("@/assets/images/placeholder.png")
@@ -792,7 +792,7 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
         onError={(e) => {
           setCoverError(true);
         }}
-      />
+      />}
 
       {/* --- PRICE + DURATION --- */}
       <View style={styles.packageFooterInfo}>

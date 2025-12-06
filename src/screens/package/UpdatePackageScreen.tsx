@@ -224,7 +224,7 @@ export default function UpdatePackageScreen() {
   const displayTime = (t: string) => (t ? t.slice(0, 5) : '');
 
   const handleSubmit = async () => {
-    if (!title || !content || !priceRaw || !durationMinutes || !availableTimeSlots || (!image && !imagePreview)) {
+    if (!title || !content || !priceRaw || !durationMinutes || !availableTimeSlots) {
       Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
       return;
     }

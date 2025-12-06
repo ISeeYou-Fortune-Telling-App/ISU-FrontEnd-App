@@ -268,11 +268,11 @@ export default function SeerProfileScreen() {
         }
 
         //const stats = seer.profile ?? {};
-        const avgRating = stats.avgRating ?? 0;
-        const totalRates = stats.totalRates ?? 0;
-        const completedBookings = stats.completedBookings ?? 0;
-        const totalBookings = stats.totalBookings ?? 0;
-        const ranking = stats.ranking ?? 0 ;
+        const avgRating = stats?.avgRating ?? seer.profile?.avgRating ?? 0;
+        const totalRates = stats?.totalRates ?? seer.profile?.totalRates ?? 0;
+        const completedBookings = stats?.completedBookings ?? 0;
+        const totalBookings = stats?.totalBookings ?? 0;
+        const ranking = stats?.ranking ?? 0;
 
         return (
             <View>
@@ -306,6 +306,7 @@ export default function SeerProfileScreen() {
                     <Text style={styles.rating}>{avgRating > 0 ? `⭐ ${avgRating} (${totalRates} đánh giá)` : 'Chưa có đánh giá'}</Text>
                     <Text style={styles.profileDescription}>{seer.profileDescription}</Text>
                     <View style={styles.statsRow}>
+                        <View style={styles.statItem}><Text style={styles.statValue}>{ranking}</Text><Text style={styles.statLabel}>Xếp hạng</Text></View>
                         <View style={styles.statItem}><Text style={styles.statValue}>{totalBookings}</Text><Text style={styles.statLabel}>Tổng số lịch</Text></View>
                         <View style={styles.statItem}><Text style={styles.statValue}>{completedBookings}</Text><Text style={styles.statLabel}>Hoàn thành</Text></View>
                         {/* <View style={styles.statItem}><Text style={styles.statValue}>{totalRevenue.toLocaleString('vi-VN')}</Text><Text style={styles.statLabel}>Doanh thu (VNĐ)</Text></View> */}
@@ -471,7 +472,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
                 {servicePackage.content?.replace(/\\n/g, "\n")}
             </Text>
 
-            <Image
+            {!coverError && <Image
                 source={
                     coverError || !servicePackage.imageUrl
                         ? require("@/assets/images/placeholder.png")
@@ -481,7 +482,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
                 onError={(e) => {
                     setCoverError(true);
                 }}
-            />
+            />}
 
             {/* --- PRICE + DURATION --- */}
             <View style={styles.packageFooterInfo}>
@@ -713,7 +714,7 @@ const styles = StyleSheet.create({
     profileDescription: { color: 'gray', fontFamily: "inter", textAlign: 'center', marginTop: 8 },
     statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16, marginBottom: 8 },
     statItem: { alignItems: 'center', flex: 1 },
-    statValue: { fontWeight: '700', fontSize: 16, color: Colors.primary },
+    statValue: { fontWeight: '700', fontSize: 20, color: Colors.primary },
     statLabel: { color: 'gray', fontSize: 12, marginTop: 2, fontFamily: "inter" },
     emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: 'gray' },
     packageCard: {

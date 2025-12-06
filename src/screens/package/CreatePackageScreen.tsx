@@ -185,7 +185,7 @@ export default function CreatePackageScreen() {
   const displayTime = (t: string) => (t ? t.slice(0, 5) : "");
 
   const handleSubmit = async () => {
-    if (!title || !content || !priceRaw || !durationMinutes || !image || !availableTimeSlots) {
+    if (!title || !content || !priceRaw || !durationMinutes  || !availableTimeSlots) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
       return;
     }
@@ -243,11 +243,11 @@ export default function CreatePackageScreen() {
         });
       }, 1500);
     } catch (err: any) {
-      console.error("createServicePackage error:", err);
-      console.log("ERROR DATA:", err.response?.data);
-      console.log("ERROR STATUS:", err.response?.status);
-      console.log("ERROR HEADERS:", err.response?.headers);
-      Alert.alert("Lỗi", "Không thể tạo gói dịch vụ. Hãy thử lại sau.");
+      // console.error("createServicePackage error:", err);
+      // console.log("ERROR DATA:", err.response?.data);
+      // console.log("ERROR STATUS:", err.response?.status);
+      // console.log("ERROR HEADERS:", err.response?.headers);
+      Alert.alert("Lỗi", err.response?.data?.message);
       setSubmitting(false);
     }
   };
