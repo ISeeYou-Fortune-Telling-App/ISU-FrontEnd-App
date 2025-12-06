@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { getMySeerPerformance, getServicePackageDetail, getServicePackages, getUser, interactWithServicePackage } from "@/src/services/api";
+import { getSeerPerformance, getServicePackageDetail, getServicePackages, getUser, interactWithServicePackage } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -51,10 +51,11 @@ export default function SeerProfileScreen() {
             setSeer(res?.data?.data ?? null);
             const now = new Date();
             const params = {
+                seerId: id,
                 month: now.getMonth() + 1,
                 year: now.getFullYear()
             }
-            const res2 = await getMySeerPerformance(params);
+            const res2 = await getSeerPerformance(params);
             const payload = res2?.data?.data ?? null;
             setStats(payload);
         } catch (err) {

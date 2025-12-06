@@ -335,7 +335,7 @@ export default function AuthScreen() {
             Alert.alert("Thành công", "Xin hãy nhập mã OTP để xác nhận tài khoản.", [
                 {
                     text: "OK",
-                    onPress: () => router.push("/otp-verification")
+                    onPress: () => router.push({pathname: "/otp-verification", params: { email: email } })
                 }
             ]);
         }

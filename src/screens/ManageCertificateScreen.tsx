@@ -1,10 +1,10 @@
 import Colors from "@/src/constants/colors";
 import { deleteCertificate, getCertificates } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { LucideFileText, LucideX } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -237,9 +237,22 @@ export default function ManageCertificateScreen() {
   useEffect(() => {
     if (params.refresh === 'true') {
       loadCertificates(true);
-      router.setParams({ refresh: undefined });
+      // Clear the refresh param after a short delay to prevent re-triggering
+      setTimeout(() => {
+        router.setParams({ refresh: undefined });
+      }, 100);
     }
   }, [params.refresh]);
+
+  // Auto-reload when screen comes into focus (e.g., returning from add/edit screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        // Reload certificates when screen regains focus
+        loadCertificates(true);
+      }
+    }, [userId])
+  );
 
   const loadCertificates = async (reset: boolean = false) => {
     if (loading || (loadingMore && !reset)) return;

@@ -97,8 +97,8 @@ export default function BookingDetailScreen() {
                     onPress: () => router.back(),
                 },
             ]);
-        } catch (err) {
-            Alert.alert("Lỗi", "Không thể huỷ lịch hẹn. Vui lòng thử lại.");
+        } catch (err:any) {
+            Alert.alert("Lỗi", err?.response?.data?.message);
             console.error("Error cancelling booking", err);
         }
         finally {
