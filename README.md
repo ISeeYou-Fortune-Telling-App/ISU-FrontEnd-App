@@ -4,7 +4,7 @@
 
 **Modern application with video calling, real-time chat, and AI features.**
 
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Architecture](#-architecture) • [Development](#-development)
+[Features](#features) • [Tech Stack](#tech-stack) • [Getting Started](#getting-started) • [Architecture](#architecture) • [Development](#development)
 
 </div>
 
