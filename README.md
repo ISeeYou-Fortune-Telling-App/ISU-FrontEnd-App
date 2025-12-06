@@ -94,6 +94,7 @@
 ## Getting Started
 
 ### Prerequisities
+- **ISeeYou Backend** (visit https://github.com/ISeeYou-Fortune-Telling-App/ISU-Backend-Production for installation instructions)
 - **Node.js** 16+ and npm
 - **Git**
 - **Expo CLI** (install via `npm install --global expo-cli` or use npx)
@@ -145,9 +146,13 @@
 ```bash
 npx expo start
 ```
+Your terminal should look something like this:
+![Example Terminal](images/example.png)
+
 Then:
 - open the app on your device
 - click on "Scan QR Code"
+![Example Terminal](images/example_app.jpg)
 - and scan the QR code that appears in your terminal.
 
 #### Android Emulator
