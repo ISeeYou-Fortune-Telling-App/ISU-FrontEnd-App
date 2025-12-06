@@ -115,7 +115,7 @@
 
 3. **Configure environment variables**
    
-   The project includes `.env.example` as a sample file. You can rename it to `.env` and then replace `localhost` with your host's IPv4 address(which you can obtain via running the command `ipconfig`), or create `.env` manually:
+   The project includes `.env.example` as a sample file. You can rename it to `.env` and then replace `localhost` with your host's IPv4 address(which you can obtain via running the command `ipconfig`), or contact us for the `.env`.
 
    ```bash
    # Replace 'localhost' with your host's IPv4 address
@@ -127,10 +127,10 @@
    EXPO_PUBLIC_SOCKET_PORT=8082
    
    # CometChat Configuration
-   EXPO_PUBLIC_COMETCHAT_APP_ID=167166294e6dd0180
+   EXPO_PUBLIC_COMETCHAT_APP_ID=app_id
    EXPO_PUBLIC_COMETCHAT_REGION=us
-   EXPO_PUBLIC_COMETCHAT_AUTH_KEY=69eb85b8b28dbd77670ea910c6f54d4b4faeb92d
-   EXPO_PUBLIC_COMETCHAT_VARIANT_ID=691ad6bc5c867ddb852c140e
+   EXPO_PUBLIC_COMETCHAT_AUTH_KEY=key
+   EXPO_PUBLIC_COMETCHAT_VARIANT_ID=id
    ```
    > **Note:** On Android emulators, `scripts/update-local-ip.js` automatically converts `localhost` → `10.0.2.2` (Android VM gateway)
 
