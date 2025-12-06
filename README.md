@@ -115,15 +115,15 @@
 
 3. **Configure environment variables**
    
-   The project includes `.env.example` as a sample file. You can rename it to `.env` and then replace `localhost` with your host's IPv4 address(which you can obtain via running the command `ipconfig`), or contact us for the `.env`.
-
+   The project includes `.env` as a store of environment variables. You can contact us for the `.env` file, then modify it as follows:
+   
    ```bash
    # Replace 'localhost' with your host's IPv4 address
    EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
-   EXPO_PUBLIC_AI_BASE_URL=http://localhost:8081
-   EXPO_PUBLIC_CHAT_BASE_URL=http://localhost:8081
+   EXPO_PUBLIC_AI_BASE_URL=http://localhost:8080
+   EXPO_PUBLIC_CHAT_BASE_URL=http://localhost:8080/core
    EXPO_PUBLIC_CHAT_PORT=8081
-   EXPO_PUBLIC_SOCKET_URL=http://localhost:8082
+   EXPO_PUBLIC_SOCKET_URL=http://localhost:8080/socket
    EXPO_PUBLIC_SOCKET_PORT=8082
    
    # CometChat Configuration
@@ -134,7 +134,7 @@
    ```
    > **Note:** On Android emulators, `scripts/update-local-ip.js` automatically converts `localhost` → `10.0.2.2` (Android VM gateway)
 
-4. **Download & install the app (Android)**
+5. **Download & install the app (Android)**
    - Go to our Git: https://github.com/ISeeYou-Fortune-Telling-App/ISU-FrontEnd-App
    - Under the "Releases" section, look for "ISeeYou EAS Build"
    - Download the apk file (ISeeYou_v0.1_dev.apk)
@@ -154,6 +154,9 @@ Then:
 - click on "Scan QR Code"
 ![Example Terminal](images/example_app.jpg)
 - and scan the QR code that appears in your terminal.
+- After scanning, the app should navigate to the authentication screen. You can register for a customer account or seer account.
+- Afterwards, use the OTP code that's mailed to you to verify your account. Then, return to the authhentication screen and log in with your new account. You will then see the Home screen.
+- Enjoy!
 
 #### Android Emulator
 ```bash
@@ -170,22 +173,6 @@ Requires macOS. Automatically runs environment setup and opens iOS simulator.
 ---
 
 ## Architecture
-
-### Three-Service Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│ Mobile App (React Native) + Web (Expo Router)       │
-└────────────────────┬────────────────────────────────┘
-                     │
-        ┌────────────┼────────────┐
-        │            │            │
-        ▼            ▼            ▼
-   API Gateway   Chat Service  Socket Service
-   (port 8080)   (port 8081)   (port 8082)
-   /core/**      /chat/**      WebSocket
-                 /admin/**     socket.io
-```
 
 ### Authentication Flow
 ```
