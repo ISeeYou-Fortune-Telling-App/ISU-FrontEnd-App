@@ -2,20 +2,18 @@ import Colors from "@/src/constants/colors";
 import { getAiChatHistory } from "@/src/services/aiChat";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     AppState,
-    Dimensions,
     FlatList,
     Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -60,37 +58,34 @@ export default function AIChatHistoryScreen() {
         setHistoryLoading(true);
         setHistoryError(null);
         try {
-            const response = await getAiChatHistory(1, 100);
-            const payload = response?.data?.data ?? response?.data ?? {};
+            const response = await getAiChatHistory();
+            const payload = response?.data ?? {};
 
-            const items = Array.isArray(payload?.content)
-                ? payload.content
-                : Array.isArray(payload?.records)
-                    ? payload.records
-                    : Array.isArray(payload)
-                        ? payload
-                        : [];
+            const sessions = Array.isArray(payload?.sessions)
+                ? payload.sessions
+                : [];
 
-            const normalized: HistoryEntry[] = items
-                .map((item: any, index: number): HistoryEntry | null => {
-                    if (!item) return null;
-                    const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
-                    const content = item.textContent ?? item.content ?? "";
-                    const isPending = !item.sentByUser && (!content || String(content).trim().length === 0);
+            const normalized: HistoryEntry[] = sessions
+                .map((session: any, index: number): HistoryEntry | null => {
+                    if (!session) return null;
+                    const createdAt = session.created_at 
+                        ? new Date(session.created_at).getTime() 
+                        : session.last_message_at 
+                        ? new Date(session.last_message_at).getTime()
+                        : Date.now();
+                    const content = session.last_message ?? "";
+                    const isPending = !content || String(content).trim().length === 0;
                     return {
-                        id: String(item.id ?? item.messageId ?? `history-${index}-${createdAt}`),
-                        role: item.sentByUser ? "user" : "assistant",
+                        id: String(session.id ?? `session-${index}-${createdAt}`),
+                        role: "assistant",
                         content,
                         createdAt,
-                        processingTime:
-                            typeof item.processingTime === "number" && !Number.isNaN(item.processingTime)
-                                ? item.processingTime
-                                : undefined,
+                        processingTime: undefined,
                         isPending,
                         status: isPending ? "pending" : "done",
                     };
                 })
-                .filter((item): item is HistoryEntry => Boolean(item));
+                .filter((item: HistoryEntry | null): item is HistoryEntry => Boolean(item));
 
             setHistoryItems(normalized);
             setHistoryLoaded(true);

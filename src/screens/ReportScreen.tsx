@@ -119,9 +119,12 @@ export default function ReportScreen() {
       Alert.alert("Báo cáo thành công", "Cảm ơn bạn đã giúp chúng tôi giữ cho cộng đồng an toàn.", [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (error) {
-      console.error("Failed to submit report:", error);
-      Alert.alert("Lỗi", "Không thể gửi báo cáo. Vui lòng thử lại sau.");
+    } catch (error: any) {
+      // console.error("Failed to submit report:", error);
+      // console.log("ERROR DATA:", );
+      // console.log("ERROR STATUS:", error.response?.status);
+      // console.log("ERROR HEADERS:", error.response?.headers);
+      Alert.alert("Lỗi", error.response?.data?.message);
     } finally {
       setLoading(false);
     }

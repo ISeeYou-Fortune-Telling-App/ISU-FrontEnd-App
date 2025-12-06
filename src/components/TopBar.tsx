@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
   appIcon: {
     width: 32,
     height: 32,
+    borderRadius: 50
   },
   textIcon: {
     color: Colors.white,

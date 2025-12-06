@@ -132,10 +132,10 @@ export const chatWithAI = async (payload: Record<string, unknown>) => {
   return { data };
 };
 
-export const getAiChatHistory = async (page = 1, limit = 20) => {
+export const getAiChatHistory = async () => {
   const token = await SecureStore.getItemAsync("authToken");
   const response = await fetch(
-    buildAiChatUrl(`/ai-support/my-chat-history?page=${page}&limit=${limit}`),
+    buildAiChatUrl('/ai-support/sessions?user_id=12323'),
     {
       method: "GET",
       headers: {

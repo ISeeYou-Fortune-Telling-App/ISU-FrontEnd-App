@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     borderWidth: 1,
     borderColor: Colors.primary,
-    marginTop: 10,
+    marginVertical: 10,
   },
   zodiacText: {
     marginLeft: 8,

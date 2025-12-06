@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { getServicePackageDetail, getServicePackages, getUser, interactWithServicePackage } from "@/src/services/api";
+import { getMySeerPerformance, getServicePackageDetail, getServicePackages, getUser, interactWithServicePackage } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -15,6 +15,7 @@ export default function SeerProfileScreen() {
 
     const [role, setRole] = useState<string>("CUSTOMER");
     const [seer, setSeer] = useState<any | null>(null);
+    const [stats, setStats] = useState<any | null>(null);
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [profileLoading, setProfileLoading] = useState<boolean>(false);
@@ -48,6 +49,14 @@ export default function SeerProfileScreen() {
         try {
             const res = await getUser(id);
             setSeer(res?.data?.data ?? null);
+            const now = new Date();
+            const params = {
+                month: now.getMonth() + 1,
+                year: now.getFullYear()
+            }
+            const res2 = await getMySeerPerformance(params);
+            const payload = res2?.data?.data ?? null;
+            setStats(payload);
         } catch (err) {
             setSeer(null);
             console.error('Failed to load seer profile', err);
@@ -258,12 +267,12 @@ export default function SeerProfileScreen() {
             );
         }
 
-        const stats = seer.profile ?? {};
+        //const stats = seer.profile ?? {};
         const avgRating = stats.avgRating ?? 0;
         const totalRates = stats.totalRates ?? 0;
         const completedBookings = stats.completedBookings ?? 0;
         const totalBookings = stats.totalBookings ?? 0;
-        const totalRevenue = stats.totalRevenue ?? 0;
+        const ranking = stats.ranking ?? 0 ;
 
         return (
             <View>
