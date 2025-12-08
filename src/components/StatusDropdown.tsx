@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Menu } from "react-native-paper";
 import Colors from "../constants/colors";
 
 type StatusOption = {
@@ -23,38 +23,70 @@ type Props = {
 
 export default function StatusDropdown({ value, onChange }: Props) {
   const [visible, setVisible] = useState(false);
+  const [selectorLayout, setSelectorLayout] = useState({ y: 0, height: 0 });
+
+  const currentOption = STATUS_OPTIONS.find(s => s.status === value);
 
   return (
     <View collapsable={false}>
-      <Menu
-        visible={visible}
-        onDismiss={() => setVisible(false)}
-        anchor={
-      <TouchableOpacity style={styles.button} onPress={() => setVisible(true)}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => setVisible((v) => !v)}
+        activeOpacity={0.85}
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          setSelectorLayout({ y, height });
+        }}
+      >
         <View
           style={[
             styles.colorDot,
-            { backgroundColor: STATUS_OPTIONS.find(s => s.status === value)?.color || "gray" }
+            { backgroundColor: currentOption?.color || "gray" }
           ]}
         />
         <Text style={styles.text}>{value}</Text>
+        {visible ? (
+          <ChevronUp size={18} color="#6B7280" style={{ marginLeft: 8 }} />
+        ) : (
+          <ChevronDown size={18} color="#6B7280" style={{ marginLeft: 8 }} />
+        )}
       </TouchableOpacity>
-    }
-      >
-        {STATUS_OPTIONS.map(option => (
-          <Menu.Item
-            key={option.status}
-            onPress={() => {
-              onChange(option.status);
-              setVisible(false);
-            }}
-            title={option.label}
-            leadingIcon={() => (
+
+      {visible && (
+        <View style={[
+          styles.listBox,
+          {
+            position: 'absolute',
+            top: selectorLayout.height + 4,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            elevation: 10,
+          }
+        ]}>
+          {STATUS_OPTIONS.map(option => (
+            <TouchableOpacity
+              key={option.status}
+              style={[
+                styles.option,
+                value === option.status && styles.optionActive
+              ]}
+              onPress={() => {
+                onChange(option.status);
+                setVisible(false);
+              }}
+            >
               <View style={[styles.colorDot, { backgroundColor: option.color }]} />
-            )}
-          />
-        ))}
-      </Menu>
+              <Text style={[
+                styles.optionText,
+                value === option.status && styles.optionTextActive
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -79,5 +111,31 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     color: "#000",
+    flex: 1,
+  },
+  listBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: Colors.white,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  optionActive: {
+    backgroundColor: "#EEF2FF",
+  },
+  optionText: {
+    color: "#374151",
+    fontSize: 16,
+  },
+  optionTextActive: {
+    color: Colors.primary,
+    fontWeight: "600",
   },
 });

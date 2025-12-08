@@ -3,10 +3,11 @@ import { getProfile, updateProfile } from "@/src/services/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { ActivityIndicator, Button, Menu, Text, TextInput } from "react-native-paper";
+import { ActivityIndicator, Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function EditProfileScreen() {
@@ -20,10 +21,8 @@ export default function EditProfileScreen() {
     const [dob, setDob] = useState("");
     const [realDob, setRealDob] = useState("");
     const [description, setDescription] = useState("");
-    const [menuVisible, setMenuVisible] = useState<boolean>(false);
-
-    const openMenu = () => setMenuVisible(true);
-    const closeMenu = () => setMenuVisible(false);
+    const [genderDropdownOpen, setGenderDropdownOpen] = useState<boolean>(false);
+    const [genderSelectorLayout, setGenderSelectorLayout] = useState({ y: 0, height: 0 });
 
     useEffect(() => {
         fetchData();
@@ -162,24 +161,65 @@ export default function EditProfileScreen() {
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Giới tính</Text>
-                        <Menu
-                            visible={menuVisible}
-                            onDismiss={closeMenu}
-                            anchor={
-                                <TextInput
-                                    mode="outlined"
-                                    value={gender}
-                                    left={<TextInput.Icon icon="gender-male-female" />}
-                                    right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                                    onTouchStart={openMenu}
-                                    editable={false}
-                                />
-                            }
-                        >
-                            <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
-                            <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
-                            <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
-                        </Menu>
+                        <View style={styles.genderContainer}>
+                            <TouchableOpacity
+                                style={styles.genderSelector}
+                                onPress={() => setGenderDropdownOpen((v) => !v)}
+                                activeOpacity={0.85}
+                                onLayout={(e) => {
+                                    const { y, height } = e.nativeEvent.layout;
+                                    setGenderSelectorLayout({ y, height });
+                                }}
+                            >
+                                <Text style={[styles.genderSelectorText, !gender && styles.genderPlaceholder]}>
+                                    {gender || "Chọn giới tính"}
+                                </Text>
+                                {genderDropdownOpen ? (
+                                    <ChevronUp size={20} color="#6B7280" />
+                                ) : (
+                                    <ChevronDown size={20} color="#6B7280" />
+                                )}
+                            </TouchableOpacity>
+
+                            {genderDropdownOpen && (
+                                <View style={[
+                                    styles.genderListBox,
+                                    {
+                                        position: 'absolute',
+                                        top: genderSelectorLayout.height + 4,
+                                        left: 0,
+                                        right: 0,
+                                        zIndex: 9999,
+                                        elevation: 10,
+                                    }
+                                ]}>
+                                    {[
+                                        { value: "Nam", label: "Nam" },
+                                        { value: "Nữ", label: "Nữ" },
+                                        { value: "Khác", label: "Khác" },
+                                    ].map((option) => (
+                                        <TouchableOpacity
+                                            key={option.value}
+                                            style={[
+                                                styles.genderOption,
+                                                gender === option.value && styles.genderOptionActive
+                                            ]}
+                                            onPress={() => {
+                                                setGender(option.value);
+                                                setGenderDropdownOpen(false);
+                                            }}
+                                        >
+                                            <Text style={[
+                                                styles.genderOptionText,
+                                                gender === option.value && styles.genderOptionTextActive
+                                            ]}>
+                                                {option.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
                     </View>
 
                     <View style={styles.card}>
@@ -271,5 +311,51 @@ const styles = StyleSheet.create({
         margin: 10,
         backgroundColor: Colors.primary,
         borderRadius: 10,
+    },
+    genderContainer: {
+        position: 'relative',
+        width: '100%',
+        zIndex: 1000,
+    },
+    genderSelector: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: "#79747E",
+        borderRadius: 4,
+        backgroundColor: Colors.white,
+    },
+    genderSelectorText: {
+        color: "#374151",
+        fontSize: 16,
+    },
+    genderPlaceholder: {
+        color: "#6B7280",
+    },
+    genderListBox: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        padding: 8,
+        backgroundColor: Colors.white,
+    },
+    genderOption: {
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    },
+    genderOptionActive: {
+        backgroundColor: "#EEF2FF",
+    },
+    genderOptionText: {
+        color: "#374151",
+        fontSize: 16,
+    },
+    genderOptionTextActive: {
+        color: Colors.primary,
+        fontWeight: "600",
     },
 });

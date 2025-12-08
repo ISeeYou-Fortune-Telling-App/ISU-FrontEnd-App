@@ -6,11 +6,11 @@ import { runRealtimeSelfCheck } from "@/src/services/diagnostics";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Eye } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Eye } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Button, Checkbox, Menu, SegmentedButtons, Text, TextInput } from "react-native-paper";
+import { Button, Checkbox, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const isValidMonthDay = (month: number, day: number): boolean => {
@@ -130,10 +130,8 @@ export default function AuthScreen() {
     const [submitting, setSubmitting] = useState<boolean>(false);
     const router = useRouter();
     const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-    const [menuVisible, setMenuVisible] = useState<boolean>(false);
-
-    const openMenu = () => setMenuVisible(true);
-    const closeMenu = () => setMenuVisible(false);
+    const [genderDropdownOpen, setGenderDropdownOpen] = useState<boolean>(false);
+    const [genderSelectorLayout, setGenderSelectorLayout] = useState({ y: 0, height: 0 });
 
     useEffect(() => {
         (async () => {
@@ -528,25 +526,65 @@ export default function AuthScreen() {
                                     editable={false}
                                 />
 
-                                <Menu
-                                    visible={menuVisible}
-                                    onDismiss={closeMenu}
-                                    anchor={
-                                        <TextInput
-                                            label="Giới tính"
-                                            mode="outlined"
-                                            style={styles.textInput}
-                                            value={gender}
-                                            left={<TextInput.Icon icon="gender-male-female" />}
-                                            right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                                            onTouchStart={openMenu}
-                                            editable={false}
-                                        />
-                                    }>
-                                    <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
-                                    <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
-                                    <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
-                                </Menu>
+                                <View>
+                                    <TouchableOpacity
+                                        style={styles.genderSelector}
+                                        onPress={() => setGenderDropdownOpen((v) => !v)}
+                                        activeOpacity={0.85}
+                                        onLayout={(e) => {
+                                            const { y, height } = e.nativeEvent.layout;
+                                            setGenderSelectorLayout({ y, height });
+                                        }}
+                                    >
+                                        <Text style={[styles.genderSelectorText, !gender && styles.genderPlaceholder]}>
+                                            {gender || "Chọn giới tính"}
+                                        </Text>
+                                        {genderDropdownOpen ? (
+                                            <ChevronUp size={20} color="#6B7280" />
+                                        ) : (
+                                            <ChevronDown size={20} color="#6B7280" />
+                                        )}
+                                    </TouchableOpacity>
+
+                                    {genderDropdownOpen && (
+                                        <View style={[
+                                            styles.genderListBox,
+                                            {
+                                                position: 'absolute',
+                                                top: genderSelectorLayout.height + 4,
+                                                left: 0,
+                                                right: 0,
+                                                zIndex: 9999,
+                                                elevation: 10,
+                                            }
+                                        ]}>
+                                            {[
+                                                { value: "Nam", label: "Nam" },
+                                                { value: "Nữ", label: "Nữ" },
+                                                { value: "Khác", label: "Khác" },
+                                            ].map((option) => (
+                                                <TouchableOpacity
+                                                    key={option.value}
+                                                    style={[
+                                                        styles.genderOption,
+                                                        gender === option.value && styles.genderOptionActive
+                                                    ]}
+                                                    onPress={() => {
+                                                        setGender(option.value);
+                                                        setGenderDropdownOpen(false);
+                                                    }}
+                                                >
+                                                    <Text style={[
+                                                        styles.genderOptionText,
+                                                        gender === option.value && styles.genderOptionTextActive
+                                                    ]}>
+                                                        {option.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
 
                                 <TextInput
                                     label="Mật khẩu"
@@ -682,5 +720,55 @@ const styles = StyleSheet.create({
     flexRowItemsCenter: {
         flexDirection: "row",
         alignItems: "center",
+    },
+    label: {
+        fontSize: 13,
+        color: "#374151",
+        marginTop: 8,
+        marginBottom: 4,
+        marginLeft: 5,
+    },
+    genderSelector: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: "#79747E",
+        borderRadius: 4,
+        backgroundColor: Colors.white,
+        margin: 5,
+    },
+    genderSelectorText: {
+        color: "#374151",
+        fontSize: 16,
+    },
+    genderPlaceholder: {
+        color: "#6B7280",
+    },
+    genderListBox: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        padding: 8,
+        backgroundColor: Colors.white,
+        marginHorizontal: 5,
+    },
+    genderOption: {
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    },
+    genderOptionActive: {
+        backgroundColor: "#EEF2FF",
+    },
+    genderOptionText: {
+        color: "#374151",
+        fontSize: 16,
+    },
+    genderOptionTextActive: {
+        color: Colors.primary,
+        fontWeight: "600",
     },
 });

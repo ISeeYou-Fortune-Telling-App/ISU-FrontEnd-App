@@ -2,10 +2,11 @@ import Colors from "@/src/constants/colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Button, Menu, Text, TextInput } from "react-native-paper";
+import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SeerRegistrationScreen() {
@@ -18,7 +19,8 @@ export default function SeerRegistrationScreen() {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [securePassword, setSecurePassword] = useState<boolean>(true);
   const [secureConfirmPassword, setSecureConfirmPassword] = useState<boolean>(true);
-  const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [genderDropdownOpen, setGenderDropdownOpen] = useState<boolean>(false);
+  const [genderSelectorLayout, setGenderSelectorLayout] = useState({ y: 0, height: 0 });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
@@ -34,9 +36,6 @@ export default function SeerRegistrationScreen() {
 
     clearPreviousData();
   }, []);
-
-  const openMenu = () => setMenuVisible(true);
-  const closeMenu = () => setMenuVisible(false);
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
@@ -179,26 +178,67 @@ export default function SeerRegistrationScreen() {
             onConfirm={handleConfirmDate}
             onCancel={() => setShowDatePicker(false)}
           />
-          <Menu
-            visible={menuVisible}
-            onDismiss={closeMenu}
-            anchor={
-              <TextInput
-                label="Giới tính"
-                mode="outlined"
-                style={styles.input}
-                value={gender}
-                left={<TextInput.Icon icon="gender-male-female" />}
-                right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                onTouchStart={openMenu}
-                editable={false}
-              />
-            }
-          >
-            <Menu.Item onPress={() => { setGender("Nam"); closeMenu(); }} title="Nam" />
-            <Menu.Item onPress={() => { setGender("Nữ"); closeMenu(); }} title="Nữ" />
-            <Menu.Item onPress={() => { setGender("Khác"); closeMenu(); }} title="Khác" />
-          </Menu>
+          
+          <Text style={styles.label}>Giới tính</Text>
+          <View style={styles.genderContainer}>
+            <TouchableOpacity
+              style={styles.genderSelector}
+              onPress={() => setGenderDropdownOpen((v) => !v)}
+              activeOpacity={0.85}
+              onLayout={(e) => {
+                const { y, height } = e.nativeEvent.layout;
+                setGenderSelectorLayout({ y, height });
+              }}
+            >
+              <Text style={[styles.genderSelectorText, !gender && styles.genderPlaceholder]}>
+                {gender || "Chọn giới tính"}
+              </Text>
+              {genderDropdownOpen ? (
+                <ChevronUp size={20} color="#6B7280" />
+              ) : (
+                <ChevronDown size={20} color="#6B7280" />
+              )}
+            </TouchableOpacity>
+
+            {genderDropdownOpen && (
+              <View style={[
+                styles.genderListBox,
+                {
+                  position: 'absolute',
+                  top: genderSelectorLayout.height + 4,
+                  left: 0,
+                  right: 0,
+                  zIndex: 9999,
+                  elevation: 10,
+                }
+              ]}>
+                {[
+                  { value: "Nam", label: "Nam" },
+                  { value: "Nữ", label: "Nữ" },
+                  { value: "Khác", label: "Khác" },
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.genderOption,
+                      gender === option.value && styles.genderOptionActive
+                    ]}
+                    onPress={() => {
+                      setGender(option.value);
+                      setGenderDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.genderOptionText,
+                      gender === option.value && styles.genderOptionTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
 
           <TextInput
             label="Mật khẩu"
@@ -331,5 +371,53 @@ const styles = StyleSheet.create({
   genderContainer: {
     position: 'relative',
     width: '100%',
+    marginBottom: 16,
+    zIndex: 1000,
+  },
+  label: {
+    fontSize: 13,
+    color: "#374151",
+    marginBottom: 4,
+  },
+  genderSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#79747E",
+    borderRadius: 4,
+    backgroundColor: "#fff",
+  },
+  genderSelectorText: {
+    color: "#374151",
+    fontSize: 16,
+  },
+  genderPlaceholder: {
+    color: "#6B7280",
+  },
+  genderListBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: "#fff",
+  },
+  genderOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  genderOptionActive: {
+    backgroundColor: "#EEF2FF",
+  },
+  genderOptionText: {
+    color: "#374151",
+    fontSize: 16,
+  },
+  genderOptionTextActive: {
+    color: Colors.primary,
+    fontWeight: "600",
   },
 });

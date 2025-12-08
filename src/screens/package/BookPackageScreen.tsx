@@ -4,11 +4,12 @@ import { createBooking, getServicePackageDetail } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from "expo-router";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Button, Menu, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, PaperProvider, Snackbar, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function BookPackageScreen() {
@@ -25,7 +26,8 @@ export default function BookPackageScreen() {
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
   const [selectedTimeObj, setSelectedTimeObj] = useState<Date | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [paymentDropdownOpen, setPaymentDropdownOpen] = useState<boolean>(false);
+  const [paymentSelectorLayout, setPaymentSelectorLayout] = useState({ y: 0, height: 0 });
   const [note, setNote] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [snackbarVisible, setSnackbarVisible] = useState<boolean>(false);
@@ -67,8 +69,6 @@ export default function BookPackageScreen() {
     }, [paymentInitiated, success])
   );
 
-  const openMenu = () => setMenuVisible(true);
-  const closeMenu = () => setMenuVisible(false);
   const pad = (n: number) => n.toString().padStart(2, "0");
 
   const formatDate = (date: Date) => {
@@ -380,22 +380,64 @@ export default function BookPackageScreen() {
                 />
 
                 <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phương thức trả tiền</Text>
-                <Menu
-                  visible={menuVisible}
-                  onDismiss={closeMenu}
-                  anchor={
-                    <TextInput
-                      label="Chọn phương thức"
-                      mode="outlined"
-                      style={styles.input}
-                      value={paymentMethod}
-                      editable={false}
-                      right={<TextInput.Icon icon="chevron-down" onPress={openMenu} />}
-                    />
-                  }>
-                  <Menu.Item onPress={() => { setPaymentMethod("PayPal"); closeMenu(); }} title="PayPal" />
-                  <Menu.Item onPress={() => { setPaymentMethod("VNPay"); closeMenu(); }} title="VNPay" />
-                </Menu>
+                <View style={styles.paymentContainer}>
+                  <TouchableOpacity
+                    style={styles.paymentSelector}
+                    onPress={() => setPaymentDropdownOpen((v) => !v)}
+                    activeOpacity={0.85}
+                    onLayout={(e) => {
+                      const { y, height } = e.nativeEvent.layout;
+                      setPaymentSelectorLayout({ y, height });
+                    }}
+                  >
+                    <Text style={[styles.paymentSelectorText, !paymentMethod && styles.paymentPlaceholder]}>
+                      {paymentMethod || "Chọn phương thức"}
+                    </Text>
+                    {paymentDropdownOpen ? (
+                      <ChevronUp size={20} color="#6B7280" />
+                    ) : (
+                      <ChevronDown size={20} color="#6B7280" />
+                    )}
+                  </TouchableOpacity>
+
+                  {paymentDropdownOpen && (
+                    <View style={[
+                      styles.paymentListBox,
+                      {
+                        position: 'absolute',
+                        top: paymentSelectorLayout.height + 4,
+                        left: 0,
+                        right: 0,
+                        zIndex: 9999,
+                        elevation: 10,
+                      }
+                    ]}>
+                      {[
+                        { value: "PayPal", label: "PayPal" },
+                        { value: "VNPay", label: "VNPay" },
+                      ].map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.paymentOption,
+                            paymentMethod === option.value && styles.paymentOptionActive
+                          ]}
+                          onPress={() => {
+                            setPaymentMethod(option.value);
+                            setPaymentDropdownOpen(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.paymentOptionText,
+                            paymentMethod === option.value && styles.paymentOptionTextActive
+                          ]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
                 <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ghi chú</Text>
                 <TextInput
@@ -647,5 +689,52 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     minWidth: 120,
     alignItems: 'flex-start',
+  },
+  paymentContainer: {
+    position: 'relative',
+    width: '100%',
+    zIndex: 1000,
+    marginBottom: 8,
+  },
+  paymentSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#79747E",
+    borderRadius: 4,
+    backgroundColor: "#fff",
+  },
+  paymentSelectorText: {
+    color: "#374151",
+    fontSize: 16,
+  },
+  paymentPlaceholder: {
+    color: "#6B7280",
+  },
+  paymentListBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: "#fff",
+  },
+  paymentOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  paymentOptionActive: {
+    backgroundColor: "#EEF2FF",
+  },
+  paymentOptionText: {
+    color: "#374151",
+    fontSize: 16,
+  },
+  paymentOptionTextActive: {
+    color: Colors.primary,
+    fontWeight: "600",
   },
 })
