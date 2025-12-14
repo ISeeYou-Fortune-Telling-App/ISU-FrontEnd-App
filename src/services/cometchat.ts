@@ -2,6 +2,7 @@ import "@/src/polyfills/native-event-emitter";
 import { CometChatCalls } from "@cometchat/calls-sdk-react-native";
 import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { CometChatUIKit, UIKitSettings } from "@cometchat/chat-uikit-react-native";
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
 const CALL_LISTENER_ID = "ISU_CALL_LISTENER";
@@ -37,8 +38,29 @@ const REQUIRED_COMETCHAT_KEYS = [
   "EXPO_PUBLIC_COMETCHAT_AUTH_KEY",
 ] as const;
 
+// Helper to get CometChat config with fallback to Constants.expoConfig.extra (for EAS builds)
+type CometChatExtra = { appId?: string; region?: string; authKey?: string; variantId?: string };
+const getExtraConfig = (): CometChatExtra =>
+  (Constants.expoConfig?.extra?.cometChat as CometChatExtra) ?? {};
+
+const getCometChatConfig = () => {
+  const extra = getExtraConfig();
+  return {
+    appId: process.env.EXPO_PUBLIC_COMETCHAT_APP_ID || extra.appId || "",
+    region: (process.env.EXPO_PUBLIC_COMETCHAT_REGION || extra.region || "us").toLowerCase(),
+    authKey: process.env.EXPO_PUBLIC_COMETCHAT_AUTH_KEY || extra.authKey,
+    variantId: process.env.EXPO_PUBLIC_COMETCHAT_VARIANT_ID || extra.variantId,
+  };
+};
+
 export const getCometChatEnvStatus = () => {
-  const missing = REQUIRED_COMETCHAT_KEYS.filter((key) => !process.env[key]);
+  const config = getCometChatConfig();
+  const missing = REQUIRED_COMETCHAT_KEYS.filter((key) => {
+    if (key === "EXPO_PUBLIC_COMETCHAT_APP_ID") return !config.appId;
+    if (key === "EXPO_PUBLIC_COMETCHAT_REGION") return !config.region;
+    if (key === "EXPO_PUBLIC_COMETCHAT_AUTH_KEY") return !config.authKey;
+    return false;
+  });
   return {
     ok: missing.length === 0,
     missing,
@@ -78,9 +100,7 @@ const initUIKit = async () => {
         throw new Error(`Missing CometChat configuration: ${envStatus.missing.join(", ")}`);
       }
 
-      const appId = process.env.EXPO_PUBLIC_COMETCHAT_APP_ID || "";
-      const region = (process.env.EXPO_PUBLIC_COMETCHAT_REGION || "us").toLowerCase();
-      const authKey = process.env.EXPO_PUBLIC_COMETCHAT_AUTH_KEY;
+      const { appId, region, authKey } = getCometChatConfig();
 
       console.log("[CometChat] Initializing UI Kit...");
       console.log("  APP_ID:", appId);
@@ -419,7 +439,7 @@ export const stopCallRecording = async () => {
   return CometChatCalls.stopRecording();
 };
 
-export const getCometChatVariantId = () => process.env.EXPO_PUBLIC_COMETCHAT_VARIANT_ID ?? null;
+export const getCometChatVariantId = () => getCometChatConfig().variantId ?? null;
 
 export const validateCometChatEnv = () => {
   const status = getCometChatEnvStatus();
