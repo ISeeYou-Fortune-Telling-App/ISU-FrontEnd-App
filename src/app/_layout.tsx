@@ -11,7 +11,7 @@ import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -39,7 +39,7 @@ export async function registerForPushNotificationsAsync() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
+      alert('Nếu bạn muốn nhận thông báo từ ứng dụng, hãy vào phần "Cài Đặt" và cấp quyền thông báo cho ứng dụng.');
       return;
     }
 
@@ -68,6 +68,7 @@ export async function registerForPushNotificationsAsync() {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const [requestedNoti, setRequestedNoti] = useState(false);
   const router = useRouter();
   const [fontsLoaded] = useFonts({
     inter: require("@/assets/fonts/Inter-VariableFont.ttf"),
@@ -183,7 +184,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     //PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-    registerForPushNotificationsAsync();
+    if (!requestedNoti) {
+      registerForPushNotificationsAsync();
+      setRequestedNoti(true);
+    }
+
 
     if (fontsLoaded) {
       SplashScreen.hideAsync();
