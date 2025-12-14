@@ -4,8 +4,8 @@ import { logoutCometChatUser } from "@/src/services/cometchat";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Animated, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +13,9 @@ type SettingAction = "PASSWORD" | "DELETE_ACCOUNT" | "LOGOUT" | "PROFILE" | "IMA
 
 export default function SettingScreen() {
     const [role, setRole] = useState<string | null>(null);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const scaleAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         SecureStore.getItemAsync("userRole").then(setRole);
@@ -45,16 +48,40 @@ export default function SettingScreen() {
                             text: "Đăng xuất",
                             style: "destructive",
                             onPress: async () => {
-                                const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
-                                await logoutUser(fcmToken);
-                                await logoutCometChatUser();
-                                await SecureStore.deleteItemAsync("authToken");
-                                await SecureStore.deleteItemAsync("refreshToken");
-                                await SecureStore.deleteItemAsync("userRole");
-                                await SecureStore.deleteItemAsync("userId");
-                                await SecureStore.deleteItemAsync("cometChatUid");
-                                router.dismissAll();
-                                router.replace("/auth");
+                                setIsLoggingOut(true);
+                                try {
+                                    const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
+                                    await logoutUser(fcmToken);
+                                    logoutCometChatUser();
+                                    await SecureStore.deleteItemAsync("authToken");
+                                    await SecureStore.deleteItemAsync("refreshToken");
+                                    await SecureStore.deleteItemAsync("userRole");
+                                    await SecureStore.deleteItemAsync("userId");
+                                    await SecureStore.deleteItemAsync("cometChatUid");
+
+                                    setShowSuccess(true);
+                                    Animated.spring(scaleAnim, {
+                                        toValue: 1,
+                                        friction: 6,
+                                        useNativeDriver: true,
+                                    }).start();
+
+                                    setTimeout(() => {
+                                        Animated.timing(scaleAnim, {
+                                            toValue: 0,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        }).start(() => {
+                                            setIsLoggingOut(false);
+                                            setShowSuccess(false);
+                                            router.dismissAll();
+                                            router.replace("/auth");
+                                        });
+                                    }, 1500);
+                                } catch (err) {
+                                    setIsLoggingOut(false);
+                                    Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại.");
+                                }
                             },
                         },
                     ],
@@ -116,6 +143,22 @@ export default function SettingScreen() {
                     <Text style={styles.cardSubtitle}>Thoát khỏi ứng dụng và quay lại màn hình đăng nhập.</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <Modal visible={isLoggingOut} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    {!showSuccess ? (
+                        <View style={styles.modalBox}>
+                            <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                            <Text style={styles.modalText}>Đang đăng xuất...</Text>
+                        </View>
+                    ) : (
+                        <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
+                            <MaterialIcons name="check-circle" size={70} color="#16a34a" />
+                            <Text style={styles.successText}>Đăng xuất thành công!</Text>
+                        </Animated.View>
+                    )}
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -172,5 +215,38 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: "segoeui",
         color: Colors.gray,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalBox: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        width: 220,
+    },
+    modalText: {
+        marginTop: 12,
+        color: "#000",
+        fontWeight: "600",
+        textAlign: "center",
+    },
+    successBox: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    successText: {
+        marginTop: 8,
+        color: "#16a34a",
+        fontWeight: "bold",
+        fontSize: 18,
     },
 });

@@ -1,7 +1,7 @@
 import "@/src/polyfills/native-event-emitter";
-import { CometChatUIKit, UIKitSettings } from "@cometchat/chat-uikit-react-native";
-import { CometChat } from "@cometchat/chat-sdk-react-native";
 import { CometChatCalls } from "@cometchat/calls-sdk-react-native";
+import { CometChat } from "@cometchat/chat-sdk-react-native";
+import { CometChatUIKit, UIKitSettings } from "@cometchat/chat-uikit-react-native";
 import * as SecureStore from "expo-secure-store";
 
 const CALL_LISTENER_ID = "ISU_CALL_LISTENER";
@@ -78,9 +78,9 @@ const initUIKit = async () => {
         throw new Error(`Missing CometChat configuration: ${envStatus.missing.join(", ")}`);
       }
 
-      const appId = process.env.EXPO_PUBLIC_COMETCHAT_APP_ID || "167166294e6dd0180";
+      const appId = process.env.EXPO_PUBLIC_COMETCHAT_APP_ID || "";
       const region = (process.env.EXPO_PUBLIC_COMETCHAT_REGION || "us").toLowerCase();
-      const authKey = process.env.EXPO_PUBLIC_COMETCHAT_AUTH_KEY || "69eb85b8b28dbd77670ea910c6f54d4b4faeb92d";
+      const authKey = process.env.EXPO_PUBLIC_COMETCHAT_AUTH_KEY;
 
       console.log("[CometChat] Initializing UI Kit...");
       console.log("  APP_ID:", appId);
