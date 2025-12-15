@@ -210,7 +210,7 @@ export default function AuthScreen() {
             if (effectiveCometChatUid) {
                 await SecureStore.setItemAsync("cometChatUid", effectiveCometChatUid);
                 if (cometChatAuthToken) {
-                    await SecureStore.setItemAsync("cometAuthToken", cometChatAuthToken); 
+                    await SecureStore.setItemAsync("cometAuthToken", cometChatAuthToken);
                 }
 
                 console.log("[Auth] Logging into CometChat with uid", effectiveCometChatUid);
@@ -333,7 +333,7 @@ export default function AuthScreen() {
             Alert.alert("Thành công", "Xin hãy nhập mã OTP để xác nhận tài khoản.", [
                 {
                     text: "OK",
-                    onPress: () => router.push({pathname: "/otp-verification", params: { email: email } })
+                    onPress: () => router.push({ pathname: "/otp-verification", params: { email: email } })
                 }
             ]);
         }
@@ -455,11 +455,11 @@ export default function AuthScreen() {
                                     Đăng nhập
                                 </Button>
 
-                                {/* <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
+                                <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
                                     Xác thực OTP
                                 </Button>
-
-                                <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
+                                
+                                {/*<Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
                                     Bỏ qua (demo)
                                 </Button> */}
 
