@@ -7,6 +7,11 @@ import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-n
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
 export default function OTPVerificationScreen() {
   const { email: paramEmail } = useLocalSearchParams(); 
   const [email, setEmail] = useState(typeof paramEmail === 'string' ? paramEmail : "");
@@ -19,6 +24,11 @@ export default function OTPVerificationScreen() {
   const handleEmailVerification = async () => {
     if (!email || !otp) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập đầy đủ email và mã OTP.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      Alert.alert("Email không hợp lệ", "Vui lòng nhập địa chỉ email hợp lệ (ví dụ: user@example.com).");
       return;
     }
 
@@ -48,6 +58,11 @@ export default function OTPVerificationScreen() {
       return;
     }
 
+    if (!isValidEmail(email)) {
+      Alert.alert("Email không hợp lệ", "Vui lòng nhập địa chỉ email hợp lệ (ví dụ: user@example.com).");
+      return;
+    }
+
     try {
       setLoading(true);
       console.log("Sending OTP to email:", email);
@@ -67,6 +82,11 @@ export default function OTPVerificationScreen() {
   const handleResendOTP = async () => {
     if (!email) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập email.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      Alert.alert("Email không hợp lệ", "Vui lòng nhập địa chỉ email hợp lệ (ví dụ: user@example.com).");
       return;
     }
 
@@ -127,6 +147,7 @@ export default function OTPVerificationScreen() {
                 left={<TextInput.Icon icon="form-textbox-password" />}
                 onChangeText={setOtp}
                 value={otp}
+                maxLength={6}
                 keyboardType="numeric"
                 placeholder="Nhập mã OTP"
                 style={styles.textInput}

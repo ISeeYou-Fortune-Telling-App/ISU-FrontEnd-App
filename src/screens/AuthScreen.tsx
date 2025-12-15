@@ -414,6 +414,7 @@ export default function AuthScreen() {
                                     left={<TextInput.Icon icon="email" />}
                                     onChangeText={setEmail}
                                     value={email}
+                                    maxLength={100}
                                 />
 
                                 <TextInput
@@ -454,13 +455,13 @@ export default function AuthScreen() {
                                     Đăng nhập
                                 </Button>
 
-                                <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
+                                {/* <Button mode="contained" style={styles.btnOTP} onPress={() => router.push("/otp-verification")}>
                                     Xác thực OTP
                                 </Button>
 
                                 <Button mode="text" style={styles.skipButton} onPress={handleSkipLogin} disabled={submitting}>
                                     Bỏ qua (demo)
-                                </Button>
+                                </Button> */}
 
                             </View>
                         ) : (
@@ -473,6 +474,7 @@ export default function AuthScreen() {
                                     left={<TextInput.Icon icon="account" />}
                                     onChangeText={setFullName}
                                     value={fullName}
+                                    maxLength={100}
                                 />
 
                                 <TextInput
@@ -485,6 +487,7 @@ export default function AuthScreen() {
                                     left={<TextInput.Icon icon="email" />}
                                     onChangeText={setEmail}
                                     value={email}
+                                    maxLength={100}
                                 />
 
                                 <TextInput
@@ -496,6 +499,7 @@ export default function AuthScreen() {
                                     left={<TextInput.Icon icon="phone" />}
                                     onChangeText={setPhone}
                                     value={phone}
+                                    maxLength={11}
                                 />
 
                                 <TouchableOpacity onPress={() => setShowDatePicker(true)}>

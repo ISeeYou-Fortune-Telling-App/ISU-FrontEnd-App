@@ -37,6 +37,7 @@ export default function BookPackageScreen() {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [availableTimeSlots, setAvailableTimeSlots] = useState<timeSlot[]>([]);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<timeSlot | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -97,6 +98,32 @@ export default function BookPackageScreen() {
     setScheduledDateISO(localIso);
   }, []);
 
+  const getAvailableSlotForDate = (date: Date): timeSlot | null => {
+    const dayOfWeek = date.getDay();
+    // Convert JS day (0=Sun, 1=Mon, ..., 6=Sat) to weekDate (2=Mon, ..., 8=Sun)
+    const mappedDay = dayOfWeek === 0 ? 8 : dayOfWeek + 1;
+    return availableTimeSlots.find(slot => slot.weekDate === mappedDay) || null;
+  };
+
+  const parseTimeString = (timeStr: string): { hours: number; minutes: number } => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return { hours, minutes };
+  };
+
+  const getMinTimeForSlot = (slot: timeSlot): Date => {
+    const { hours, minutes } = parseTimeString(slot.availableFrom);
+    const time = new Date();
+    time.setHours(hours, minutes, 0, 0);
+    return time;
+  };
+
+  const getMaxTimeForSlot = (slot: timeSlot): Date => {
+    const { hours, minutes } = parseTimeString(slot.availableTo);
+    const time = new Date();
+    time.setHours(hours, minutes, 0, 0);
+    return time;
+  };
+
   const handleConfirmDate = (date: Date) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -109,22 +136,31 @@ export default function BookPackageScreen() {
       return;
     }
 
+    const slot = getAvailableSlotForDate(date);
+    if (!slot) {
+      setSnackbarMsg("Ngày này không có lịch rảnh");
+      setSnackbarVisible(true);
+      setShowDatePicker(false);
+      return;
+    }
+
     const year = date.getFullYear();
     const month = date.getMonth();
     const day = date.getDate();
 
     setSelectedDateObj(date);
+    setSelectedSlot(slot);
     setScheduledDate(`${pad(day)}/${pad(month + 1)}/${year}`);
-
-    if (selectedTimeObj) {
-      updateScheduledDateISO(date, selectedTimeObj);
-    }
+    // Reset time selection when date changes
+    setSelectedTimeObj(null);
+    setScheduledTime("");
+    setScheduledDateISO("");
 
     setShowDatePicker(false);
   };
 
   const handleConfirmTime = (time: Date) => {
-    if (!selectedDateObj) {
+    if (!selectedDateObj || !selectedSlot) {
       setSnackbarMsg("Vui lòng chọn ngày trước");
       setSnackbarVisible(true);
       setShowTimePicker(false);
@@ -142,6 +178,23 @@ export default function BookPackageScreen() {
 
     if (bookingDate <= now) {
       setSnackbarMsg("Giờ hẹn phải trong tương lai");
+      setSnackbarVisible(true);
+      setShowTimePicker(false);
+      return;
+    }
+
+    // Check if selected time is within the slot's available hours
+    const minTime = getMinTimeForSlot(selectedSlot);
+    const maxTime = getMaxTimeForSlot(selectedSlot);
+    const selectedHours = time.getHours();
+    const selectedMinutes = time.getMinutes();
+    const selectedTotalMinutes = selectedHours * 60 + selectedMinutes;
+    const minTotalMinutes = minTime.getHours() * 60 + minTime.getMinutes();
+    const maxTotalMinutes = maxTime.getHours() * 60 + maxTime.getMinutes();
+
+    if (selectedTotalMinutes < minTotalMinutes || selectedTotalMinutes >= maxTotalMinutes) {
+      const slotDisplay = `${selectedSlot.availableFrom} - ${selectedSlot.availableTo}`;
+      setSnackbarMsg(`Giờ này nằm ngoài khung giờ rảnh (${slotDisplay})`);
       setSnackbarVisible(true);
       setShowTimePicker(false);
       return;
@@ -374,19 +427,27 @@ export default function BookPackageScreen() {
                   />
 
                   <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Giờ hẹn</Text>
-                  <TouchableOpacity onPress={() => setShowTimePicker(true)}>
+                  <TouchableOpacity onPress={() => selectedDateObj ? setShowTimePicker(true) : setSnackbarMsg("Vui lòng chọn ngày trước")} disabled={!selectedDateObj}>
                     <TextInput
                       label="Nhập giờ cụ thể"
                       mode="outlined"
                       value={scheduledTime}
                       editable={false}
-                      right={<TextInput.Icon icon="clock" onPress={() => setShowTimePicker(true)} />}
+                      right={<TextInput.Icon icon="clock" onPress={() => selectedDateObj ? setShowTimePicker(true) : null} />}
                       style={styles.input}
+                      disabled={!selectedDateObj}
                     />
                   </TouchableOpacity>
+                  {selectedSlot && selectedDateObj && (
+                    <Text style={styles.slotHintText}>
+                      Có thể chọn từ {selectedSlot.availableFrom} đến {selectedSlot.availableTo}
+                    </Text>
+                  )}
                   <DateTimePickerModal
                     isVisible={showTimePicker}
                     mode="time"
+                    minimumDate={selectedSlot ? getMinTimeForSlot(selectedSlot) : new Date()}
+                    maximumDate={selectedSlot ? getMaxTimeForSlot(selectedSlot) : new Date()}
                     onConfirm={handleConfirmTime}
                     onCancel={() => setShowTimePicker(false)}
                   />
@@ -468,7 +529,6 @@ export default function BookPackageScreen() {
                   <Button
                     mode="contained"
                     onPress={handleBook}
-                    loading={submitting}
                     style={styles.bookButton}
                     contentStyle={{ height: 48 }}
                     disabled={loading}
@@ -623,6 +683,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '700',
     color: '#10B981'
+  },
+  slotHintText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    fontFamily: 'inter'
   },
   input: {
 

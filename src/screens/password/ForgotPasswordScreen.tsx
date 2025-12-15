@@ -7,6 +7,11 @@ import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-n
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
 export default function ForgotPasswordScreen() {
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
@@ -14,6 +19,11 @@ export default function ForgotPasswordScreen() {
     const GetOTP = async () => {
         if (!email) {
             Alert.alert("Email", "Hãy nhập địa chỉ Email của bạn.");
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            Alert.alert("Email không hợp lệ", "Vui lòng nhập địa chỉ email hợp lệ (ví dụ: user@example.com).");
             return;
         }
 

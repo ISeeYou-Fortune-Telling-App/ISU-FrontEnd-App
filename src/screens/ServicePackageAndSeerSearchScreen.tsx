@@ -96,10 +96,11 @@ const ServicePackageAndSeerSearchScreen = () => {
                     <Ionicons name="arrow-back" size={24} color="black" />
                 </TouchableOpacity>
                 <View style={styles.searchContainer}>
-                    <Ionicons name="search" size={20} color="gray" style={styles.searchIcon} />
+                    <Ionicons name="search" size={20} color={Colors.primary} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Tìm tên dịch vụ, tên nhà tiên tri..."
+                        placeholderTextColor={Colors.gray}
                         value={searchText}
                         onChangeText={setSearchText}
                     />
