@@ -1,13 +1,31 @@
-## Prerequisities
-- **ISeeYou Backend** (visit https://github.com/ISeeYou-Fortune-Telling-App/ISU-Backend-Production for installation instructions)
-- **Node.js** 16+ and npm
-- **Git**
-- **Expo CLI** (install via `npm install --global expo-cli` or use npx)
-- Optional: **Android Studio** (for Android emulator) or **Xcode** (for iOS simulator)
+## Running the App
+There are **two** ways to run this app:
 
-## Installation
+### **Preview Build** (Plug & Play - no code required)
+   #### *Instructions*:
+   - Download the APK file (visit https://drive.google.com/drive/folders/1UWySi4O1KFTQQqKX2bHfB_zalJ1tsDjg)
+   - Install on your device
+   - Open the app
+   - Enjoy!
+   
+   A few example accounts you can use to login right away:
+   - Seer: 
+      - email: thayboivananh@gmail.com
+      - password: P@sswd123.
+   - Customer: 
+      - email: phandinhminh@gmail.com
+      - password: P@sswd123.
 
-1. **Clone the repository**
+### **Development Build** (uses Terminal)
+   #### *Prerequisities*
+   - **ISeeYou Backend** (visit https://github.com/ISeeYou-Fortune-Telling-App/ISU-Backend-Production for installation instructions)
+   - **Node.js** 16+ and npm
+   - **Git**
+   - **Expo CLI** (install via `npm install --global expo-cli` or use npx)
+   - Optional: **Android Studio** (for Android emulator) or **Xcode** (for iOS simulator)
+
+   #### *Installation*
+   1. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd ISeeYou
@@ -40,51 +58,38 @@
    > **Note:** On Android emulators, `scripts/update-local-ip.js` automatically converts `localhost` → `10.0.2.2` (Android VM gateway)
 
 4. **Download & install the app (Android)**
-   #### Preview Build
-      - Download the APK file from this link: https://drive.google.com/drive/folders/1UWySi4O1KFTQQqKX2bHfB_zalJ1tsDjg
-      - Install on your device
-
-   #### Development Build
       - Go to our Git: https://github.com/ISeeYou-Fortune-Telling-App/ISU-FrontEnd-App
       - Under the "Releases" section, look for "ISeeYou EAS Build"
       - Download the APK file (ISeeYou_v0.1_dev.apk)
       - Install on your device
 
-## Running the App
+   #### *Start the app*
 
-#### Preview Build
-- Open the app
-- Allow it to send notifications
-- It should navigate to the authentication screen. You can register for a customer account or seer account.
-- Afterwards, use the OTP code that's mailed to you to verify your account. Then, return to the authentication screen and log in with your new account. You will then see the Home screen.
-- Enjoy!
+   ```bash
+   npx expo start
+   ```
+   Your terminal should look something like this:
+   ![Example Terminal](images/example.png)
 
-#### Development Build (Terminal)
-```bash
-npx expo start
-```
-Your terminal should look something like this:
-![Example Terminal](images/example.png)
+   Then:
+   - open the Development Build app on your device
+   - click on "Scan QR Code"
+   ![Example Terminal](images/example_app.jpg)
+   - and scan the QR code that appears in your terminal.
+   - After scanning, the app should navigate to the authentication screen. You can register for a customer account or seer account.
+   - Afterwards, use the OTP code that's mailed to you to verify your account. Then, return to the authentication screen and log in with your new account. You will then see the Home screen.
+   - Enjoy!
 
-Then:
-- open the Development Build app on your device
-- click on "Scan QR Code"
-![Example Terminal](images/example_app.jpg)
-- and scan the QR code that appears in your terminal.
-- After scanning, the app should navigate to the authentication screen. You can register for a customer account or seer account.
-- Afterwards, use the OTP code that's mailed to you to verify your account. Then, return to the authentication screen and log in with your new account. You will then see the Home screen.
-- Enjoy!
+   #### *Android Emulator*
+   ```bash
+   npm run android
+   ```
+   Automatically runs environment setup and opens Android emulator.
 
-#### Android Emulator
-```bash
-npm run android
-```
-Automatically runs environment setup and opens Android emulator.
+   #### *iOS Simulator*
+   ```bash
+   npm run ios
+   ```
+   Requires macOS. Automatically runs environment setup and opens iOS simulator.
 
-#### iOS Simulator
-```bash
-npm run ios
-```
-Requires macOS. Automatically runs environment setup and opens iOS simulator.
-
----
+   ---

@@ -217,7 +217,7 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
                     <View style={styles.cardRatingRow}>
                         <MaterialIcons name="star" size={18} color={Colors.yellow} />
                         <Text style={styles.cardRating}>{pkg.avgRating ? pkg.avgRating.toFixed(1) : "-"}</Text>
-                        <Text style={styles.cardReviewCount}>({pkg.totalReviews ?? 0} đánh giá)</Text>
+                        <Text style={styles.cardReviewCount}>({pkg.totalReviews ?? 0} bình luận)</Text>
                     </View>
                 )}
             </View>
