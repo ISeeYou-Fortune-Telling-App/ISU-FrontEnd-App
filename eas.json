@@ -6,7 +6,8 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -20,7 +21,8 @@
         "EXPO_PUBLIC_COMETCHAT_REGION": "us",
         "EXPO_PUBLIC_COMETCHAT_AUTH_KEY": "69eb85b8b28dbd77670ea910c6f54d4b4faeb92d",
         "EXPO_PUBLIC_COMETCHAT_VARIANT_ID": "691ad6bc5c867ddb852c140e"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
@@ -34,7 +36,8 @@
         "EXPO_PUBLIC_COMETCHAT_REGION": "us",
         "EXPO_PUBLIC_COMETCHAT_AUTH_KEY": "69eb85b8b28dbd77670ea910c6f54d4b4faeb92d",
         "EXPO_PUBLIC_COMETCHAT_VARIANT_ID": "691ad6bc5c867ddb852c140e"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {
