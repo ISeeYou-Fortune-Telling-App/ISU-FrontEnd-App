@@ -103,6 +103,8 @@ export default function ProfileScreen() {
   };
 
   const fetchData = async () => {
+    const demo = await SecureStore.getItemAsync("userId");
+    if (!demo || demo == "demo-user") return;
     setLoading(true);
     try {
       const res = await getProfile();

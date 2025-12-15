@@ -1,5 +1,5 @@
 import Colors from "@/src/constants/colors";
-import { getReviewReplies, getServicePackageInteractions, getServicePackageReviews, postServicePackageReview, updateServicePackageReview } from "@/src/services/api";
+import { getReviewReplies, getServicePackageDetail, getServicePackageInteractions, getServicePackageReviews, postServicePackageReview, updateServicePackageReview } from "@/src/services/api";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { ArrowLeft, Calendar, MessageCircle, Send, ThumbsDown, ThumbsUp } from "lucide-react-native";
@@ -49,6 +49,7 @@ const ServicePackageReviewsScreen = () => {
           const detailResponse = await getServicePackageInteractions(id);
           packageDetail = detailResponse.data.data;
         }
+        const commentNum = await (await getServicePackageDetail(id)).data?.data.totalReviews || 0;
 
         let response;
         if (rootReviewId) {
@@ -70,7 +71,7 @@ const ServicePackageReviewsScreen = () => {
         }));
         setServicePackage({
           packageId: id,
-          totalReviews: packageDetail?.totalReviews || data.paging.total,
+          totalReviews: commentNum || packageDetail?.totalReviews || data.paging.total,
           reviews: mappedReviews,
           likeCount: packageDetail?.likeCount || 0,
           dislikeCount: packageDetail?.dislikeCount || 0

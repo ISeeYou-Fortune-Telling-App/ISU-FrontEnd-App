@@ -50,9 +50,12 @@ export default function SettingScreen() {
                             onPress: async () => {
                                 setIsLoggingOut(true);
                                 try {
-                                    const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
-                                    await logoutUser(fcmToken);
-                                    logoutCometChatUser();
+                                    const demo = await SecureStore.getItemAsync("userId");
+                                    if (demo && demo != "demo-user") {
+                                        const fcmToken = await SecureStore.getItemAsync("fcmToken") || "";
+                                        await logoutUser(fcmToken);
+                                        logoutCometChatUser();
+                                    }
                                     await SecureStore.deleteItemAsync("authToken");
                                     await SecureStore.deleteItemAsync("refreshToken");
                                     await SecureStore.deleteItemAsync("userRole");

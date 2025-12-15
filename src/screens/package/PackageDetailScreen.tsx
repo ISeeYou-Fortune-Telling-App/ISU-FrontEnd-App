@@ -232,7 +232,7 @@ export default function PackageDetailScreen() {
             )}
           </Card>
 
-          {/* ✅ Reviews */}
+          {/* Reviews */}
           <Card style={styles.reviewCard}>
             <Text style={styles.infoTitle}>Đánh giá ({reviews.length})</Text>
 
@@ -257,6 +257,7 @@ export default function PackageDetailScreen() {
               </View>
             )}
           </Card>
+
           {/* Comments */}
           <Card style={styles.reviewCard}>
             <View
@@ -266,7 +267,7 @@ export default function PackageDetailScreen() {
                 alignItems: "center",
               }}
             >
-              <Text style={styles.infoTitle}>Bình luận ({comments.length})</Text>
+              <Text style={styles.infoTitle}>Bình luận ({pkg.totalReviews})</Text>
             </View>
 
             {comments.length === 0 ? (

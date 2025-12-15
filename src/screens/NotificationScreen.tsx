@@ -1,7 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { deleteNotification, getMyNotifications, markNotificationAsRead } from "@/src/services/api";
 import { router } from "expo-router";
-import { ArrowLeft, Calendar, Clock, EllipsisVertical, Trash } from "lucide-react-native";
+import { ArrowLeft, Calendar, Clock, Trash } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
@@ -97,7 +97,7 @@ export default function NotificationScreen() {
           <View style={styles.titleContainer}>
             <Text variant="titleLarge" style={styles.title}>Thông báo</Text>
           </View>
-          <EllipsisVertical size={28} color="black" />
+          <View style={{width: 28}} />
         </View>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={Colors.primary} />

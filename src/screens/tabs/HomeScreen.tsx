@@ -713,18 +713,23 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
     <TouchableOpacity style={styles.packageCard} activeOpacity={0.85}>
       {/* --- HEADER --- */}
       <View style={styles.packageHeader}>
-        <Image
-          source={
-            avatarError || !servicePackage.avatarUrl
-              ? require("@/assets/images/user-placeholder.png")
-              : { uri: servicePackage.avatarUrl }
-          }
-          style={styles.avatar}
-          resizeMode="cover"
-          onError={(e) => {
-            setAvatarError(true);
-          }}
-        />
+        <TouchableOpacity onPress={() => router.push({
+          pathname: "/seer-profile",
+          params: { seerId: servicePackage.seerId }
+        })}>
+          <Image
+            source={
+              avatarError || !servicePackage.avatarUrl
+                ? require("@/assets/images/user-placeholder.png")
+                : { uri: servicePackage.avatarUrl }
+            }
+            style={styles.avatar}
+            resizeMode="cover"
+            onError={(e) => {
+              setAvatarError(true);
+            }}
+          />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.packageHeaderText} onPress={() => router.push({
           pathname: "/seer-profile",
           params: { seerId: servicePackage.seerId }
@@ -972,7 +977,7 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
           })
         }
       >
-        <Text style={styles.bookButton}>Đặt lịch ngay</Text>
+        <Text style={styles.bookButton}>Đặt gói ngay</Text>
       </TouchableOpacity>}
     </TouchableOpacity>
   );

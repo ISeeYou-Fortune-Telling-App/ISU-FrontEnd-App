@@ -302,6 +302,7 @@ export default function ChatDetailScreen() {
   const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
   const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState<boolean>(false);
   const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const normalizedConversationStatus = useMemo(
     () => normalizeConversationStatus(conversationStatus),
@@ -831,7 +832,7 @@ export default function ChatDetailScreen() {
 
   const fetchMessages = useCallback(
     async (options: { silent?: boolean; refreshing?: boolean; skipConversationMeta?: boolean } = {}) => {
-      if (!conversationId) {
+      if (!conversationId || currentUserId === null) {
         return;
       }
 
@@ -845,7 +846,7 @@ export default function ChatDetailScreen() {
 
       try {
         setLoadError(null);
-        const isAdmin = (userRole ?? "").toUpperCase() === "ADMIN";
+        if(userRole && userRole.toUpperCase() === "ADMIN") setIsAdmin(true);
         const [messagesResult, conversationResult] = await Promise.allSettled([
           getChatMessages(conversationId, {
             page: 1,
@@ -1462,12 +1463,12 @@ export default function ChatDetailScreen() {
               {isPartnerOnline ? "Đang hoạt động" : "Ngoại tuyến"}
             </Text>
             <View style={styles.statusRow}>
-              {socketConnected ? (
+              {/* {socketConnected ? (
                 <View style={[styles.connectionBadge, styles.connectionBadgeOnline]}>
                   <View style={[styles.connectionDot, styles.connectionDotOnline]} />
                   <Text style={styles.connectionBadgeText}>Đã kết nối realtime</Text>
                 </View>
-              ) : null}
+              ) : null} */}
               <View
                 style={[
                   styles.conversationStatusBadge,
@@ -1635,7 +1636,7 @@ export default function ChatDetailScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trò chuyện</Text>
           <View style={styles.headerActions}>
-            {canCancelSession ? (
+            {canCancelSession && isAdmin ? (
               <TouchableOpacity
                 onPress={handleRequestCancelSession}
                 style={[styles.headerCancelButton, cancelButtonDisabled && styles.headerCancelButtonDisabled]}
@@ -2035,7 +2036,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fee2e2",
   },
   statusPillEnded: {
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#bfc0c1ff",
   },
   statusPillDefault: {
     backgroundColor: "#e2e8f0",

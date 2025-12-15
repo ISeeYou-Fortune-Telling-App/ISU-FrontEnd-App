@@ -4,7 +4,6 @@ import { createBooking, getServicePackageDetail } from "@/src/services/api.js";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
@@ -25,7 +24,7 @@ export default function BookPackageScreen() {
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
   const [selectedTimeObj, setSelectedTimeObj] = useState<Date | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("PayPal");
   const [paymentDropdownOpen, setPaymentDropdownOpen] = useState<boolean>(false);
   const [paymentSelectorLayout, setPaymentSelectorLayout] = useState({ y: 0, height: 0 });
   const [note, setNote] = useState<string>("");
@@ -37,6 +36,7 @@ export default function BookPackageScreen() {
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [availableTimeSlots, setAvailableTimeSlots] = useState<timeSlot[]>([]);
+  const [showBookingForm, setShowBookingForm] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -258,7 +258,7 @@ export default function BookPackageScreen() {
           {loading ? <View style={{ flex: 1, justifyContent: "center" }}>
             <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, alignContent: "center" }} />
           </View> :
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 10 }}>
               {/* Package summary card */}
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Thông tin thầy bói</Text>
@@ -340,46 +340,58 @@ export default function BookPackageScreen() {
                 )}
               </View>
 
+              {!showBookingForm &&
+                <Button
+                  mode="contained"
+                  onPress={() => setShowBookingForm(true)}
+                  style={styles.bookButton}
+                  contentStyle={{ height: 48 }}
+                >
+                  Đặt lịch
+                </Button>
+              }
+
               {/* Booking inputs */}
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Ngày hẹn</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                  <TextInput
-                    label="Nhập ngày hẹn gặp"
-                    mode="outlined"
-                    value={scheduledDate}
-                    editable={false}
-                    right={<TextInput.Icon icon="calendar" />}
-                    style={styles.input}
+              {showBookingForm &&
+                <View style={styles.card}>
+                  <Text style={styles.sectionTitle}>Ngày hẹn</Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                    <TextInput
+                      label="Nhập ngày hẹn gặp"
+                      mode="outlined"
+                      value={scheduledDate}
+                      editable={false}
+                      right={<TextInput.Icon icon="calendar" />}
+                      style={styles.input}
+                    />
+                  </TouchableOpacity>
+                  <DateTimePickerModal
+                    isVisible={showDatePicker}
+                    mode="date"
+                    minimumDate={new Date()}
+                    onConfirm={handleConfirmDate}
+                    onCancel={() => setShowDatePicker(false)}
                   />
-                </TouchableOpacity>
-                <DateTimePickerModal
-                  isVisible={showDatePicker}
-                  mode="date"
-                  minimumDate={new Date()}
-                  onConfirm={handleConfirmDate}
-                  onCancel={() => setShowDatePicker(false)}
-                />
 
-                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Giờ hẹn</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-                  <TextInput
-                    label="Nhập giờ cụ thể"
-                    mode="outlined"
-                    value={scheduledTime}
-                    editable={false}
-                    right={<TextInput.Icon icon="clock" onPress={() => setShowTimePicker(true)} />}
-                    style={styles.input}
+                  <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Giờ hẹn</Text>
+                  <TouchableOpacity onPress={() => setShowTimePicker(true)}>
+                    <TextInput
+                      label="Nhập giờ cụ thể"
+                      mode="outlined"
+                      value={scheduledTime}
+                      editable={false}
+                      right={<TextInput.Icon icon="clock" onPress={() => setShowTimePicker(true)} />}
+                      style={styles.input}
+                    />
+                  </TouchableOpacity>
+                  <DateTimePickerModal
+                    isVisible={showTimePicker}
+                    mode="time"
+                    onConfirm={handleConfirmTime}
+                    onCancel={() => setShowTimePicker(false)}
                   />
-                </TouchableOpacity>
-                <DateTimePickerModal
-                  isVisible={showTimePicker}
-                  mode="time"
-                  onConfirm={handleConfirmTime}
-                  onCancel={() => setShowTimePicker(false)}
-                />
 
-                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phương thức trả tiền</Text>
+                  {/* 
                 <View style={styles.paymentContainer}>
                   <TouchableOpacity
                     style={styles.paymentSelector}
@@ -438,33 +450,40 @@ export default function BookPackageScreen() {
                     </View>
                   )}
                 </View>
+                */}
 
-                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ghi chú</Text>
-                <TextInput
-                  label="Ghi chú (tuỳ chọn)"
-                  mode="outlined"
-                  value={note}
-                  onChangeText={setNote}
-                  style={styles.input}
-                  multiline
-                />
-              </View>
+                  <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ghi chú</Text>
+                  <TextInput
+                    label="Ghi chú (tuỳ chọn)"
+                    mode="outlined"
+                    value={note}
+                    onChangeText={setNote}
+                    style={styles.input}
+                    multiline
+                  />
 
-            </ScrollView>}
+                  <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phương thức trả tiền: {paymentMethod}</Text>
+
+                  <View style={{ height: 20 }} />
+                  <Button
+                    mode="contained"
+                    onPress={handleBook}
+                    loading={submitting}
+                    style={styles.bookButton}
+                    contentStyle={{ height: 48 }}
+                    disabled={loading}
+                  >
+                    Đặt
+                  </Button>
+                </View>
+              }
+            </ScrollView>
+          }
 
           {/* Sticky footer booking button */}
-          <View style={styles.footer} pointerEvents="box-none">
-            <Button
-              mode="contained"
-              onPress={handleBook}
-              loading={submitting}
-              style={styles.bookButton}
-              contentStyle={{ height: 48 }}
-              disabled={loading}
-            >
-              Đặt lịch
-            </Button>
-          </View>
+          {/* <View style={styles.footer} pointerEvents="box-none">
+
+          </View> */}
 
           <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)}>{snackbarMsg}</Snackbar>
         </KeyboardAvoidingView>
@@ -630,7 +649,6 @@ const styles = StyleSheet.create({
   bookButton: {
     width: '100%',
     borderRadius: 12,
-    margin: 10,
   },
   modalOverlay: {
     flex: 1,
