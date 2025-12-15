@@ -250,6 +250,7 @@ export default function KnowledgeScreen() {
             }
           }}
         />
+
       </>
       {error && <View style={[styles.centerContent, { flex: 1 }]}>
         <Text style={styles.errorText}>{error}</Text>
@@ -257,55 +258,67 @@ export default function KnowledgeScreen() {
           Thử lại
         </Button>
       </View>}
-      {loading ? <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, alignContent: "center" }} /> :
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <KnowledgeCard
-              item={item}
-              expanded={Boolean(expandedIds[item.id])}
-              onToggle={() =>
-                setExpandedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
-              }
-            />
-          )}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[Colors.primary]}
-            />
-          }
-          ListHeaderComponent={
-            <View style={{ flex: 1 }}>
-              <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
-                style={{ width: '100%', height: 180, marginBottom: 8 }}
-                resizeMode="cover">
 
-                <View style={styles.headerOverlay} />
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <KnowledgeCard
+            item={item}
+            expanded={Boolean(expandedIds[item.id])}
+            onToggle={() =>
+              setExpandedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+            }
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 16 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+          />
+        }
+        ListHeaderComponent={
+          <View style={{ flex: 1 }}>
+            <ImageBackground source={require('@/assets/images/boi-toan.jpg')}
+              style={{ width: '100%', height: 180, marginBottom: 8 }}
+              resizeMode="cover">
 
-                <View style={styles.headerCard}>
-                  <View style={styles.headerIconWrapper}>
-                    <BookOpen size={24} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.headerTitle}>Kho Tri Thức</Text>
-                  <Text style={styles.headerSubtitle}>
-                    Khám phá kiến thức về sự huyền bí của thế giới
-                  </Text>
+              <View style={styles.headerOverlay} />
+
+              <View style={styles.headerCard}>
+                <View style={styles.headerIconWrapper}>
+                  <BookOpen size={24} color={Colors.primary} />
                 </View>
-              </ImageBackground>
-              {isSearch && <View style={styles.card}>
-                <View style={{ width: 24 }} />
-                <Text style={[styles.headerTitle, { color: Colors.black }]}>Kết quả tìm kiếm</Text>
-                <X size={22} color={Colors.primary} onPress={() => { setIsSearch(false); fetchKnowledge(); }} />
-              </View>}
+                <Text style={styles.headerTitle}>Kho Tri Thức</Text>
+                <Text style={styles.headerSubtitle}>
+                  Khám phá kiến thức về sự huyền bí của thế giới
+                </Text>
+              </View>
+            </ImageBackground>
+            {isSearch && <View style={styles.card}>
+              <View style={{ width: 24 }} />
+              <Text style={[styles.headerTitle, { color: Colors.black }]}>Kết quả tìm kiếm</Text>
+              <X size={22} color={Colors.primary} onPress={() => { setIsSearch(false); fetchKnowledge(); }} />
+            </View>}
+          </View>
+        }
+        ListFooterComponent={
+          loading ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
             </View>
-          }
-          ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
-        />}
+          ) : null
+        }
+        ListEmptyComponent={
+          <>
+            {!loading && <Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
+          </>
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -508,6 +521,16 @@ const styles = StyleSheet.create({
     marginTop: 24,
     color: "#6B7280",
     fontFamily: "inter",
+  },
+  loadingMoreContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: 'gray',
+    fontFamily: 'inter',
   },
   card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 10, padding: 10, borderRadius: 10, backgroundColor: Colors.white }
 });

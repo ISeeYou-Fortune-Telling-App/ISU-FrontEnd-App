@@ -53,7 +53,7 @@ export default function HomeScreen() {
   const [searchType, setSearchType] = useState<"packages" | "seers">("packages");
   const [servicePackages, setServicePackages] = useState<any[]>([]);
   const [seers, setSeers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<string>("CUSTOMER");
 
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export default function HomeScreen() {
   const fetchServicePackages = useCallback(async (page: number = 1, filterCategoryId?: string) => {
     if (page === 1) {
       setServicePackages([]);
-      setLoading(true);
+      setLoadingMore(true);
     } else {
       setLoadingMore(true);
     }
@@ -194,7 +194,7 @@ export default function HomeScreen() {
         setError("Không thể tải gói dịch vụ. Vui lòng thử lại sau.");
       }
     } finally {
-      if (page === 1) setLoading(false); else setLoadingMore(false);
+      setLoadingMore(false);
     }
   }, [router, onlyShowAvailable]);
 
@@ -617,7 +617,11 @@ export default function HomeScreen() {
         ) : (
           <View style={{ paddingVertical: 8 }} />
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
+        ListEmptyComponent={
+          <>
+            {!loadingMore && <Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
+          </>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

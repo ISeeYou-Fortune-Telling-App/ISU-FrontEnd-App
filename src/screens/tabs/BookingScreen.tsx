@@ -125,7 +125,7 @@ export default function BookingScreen() {
     datesWithUpcoming.forEach((date) => {
       marked[date] = {
         selected: true,
-        selectedColor: '#e0e7ff',
+        selectedColor: '#c7d4ff',
         selectedTextColor: Colors.primary
       };
     });
@@ -134,7 +134,7 @@ export default function BookingScreen() {
       if (!marked[date]) {
         marked[date] = {
           selected: true,
-          selectedColor: '#f3f4f6',
+          selectedColor: '#e7e7e7',
           selectedTextColor: Colors.gray
         };
       }
