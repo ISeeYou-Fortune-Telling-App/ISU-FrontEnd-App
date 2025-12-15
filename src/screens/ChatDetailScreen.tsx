@@ -303,6 +303,7 @@ export default function ChatDetailScreen() {
   const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState<boolean>(false);
   const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminChat, setIsAdminChat] = useState(false);
 
   const normalizedConversationStatus = useMemo(
     () => normalizeConversationStatus(conversationStatus),
@@ -884,6 +885,7 @@ export default function ChatDetailScreen() {
               String(conversation.customerId) === String(currentUserId);
 
             if (conversation.conversationType == "ADMIN_CHAT") {
+              setIsAdminChat(true);
               setConversationTitle(conversation.customerName ?? "Quản trị viên ISU");
               setPartnerAvatar(conversation.customerAvatarUrl ?? null);
             }
@@ -1638,7 +1640,7 @@ export default function ChatDetailScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trò chuyện</Text>
           <View style={styles.headerActions}>
-            {canCancelSession ? (
+            {canCancelSession && !isAdminChat ? (
               <TouchableOpacity
                 onPress={handleRequestCancelSession}
                 style={[styles.headerCancelButton, cancelButtonDisabled && styles.headerCancelButtonDisabled]}
