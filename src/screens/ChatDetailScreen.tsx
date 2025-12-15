@@ -80,7 +80,7 @@ const STATUS_METADATA: Record<
   },
   ACTIVE: {
     label: "Đang diễn ra",
-    description: "Phiên đã mở. Bạn có thể chat realtime.",
+    description: "Phiên đã mở. Bạn có thể chat thời gian thực.",
   },
   ENDED: {
     label: "Đã kết thúc",
@@ -392,7 +392,7 @@ export default function ChatDetailScreen() {
           socketRef.current?.emit("mark_read", conversationId);
         }
       } catch (error) {
-        console.warn("Không thể xử lý tin nhắn realtime", error);
+        console.warn("Không thể xử lý tin nhắn thời gian thực", error);
       }
     },
     [conversationId, currentUserId],
@@ -539,7 +539,7 @@ export default function ChatDetailScreen() {
   const respondCancelRequest = useCallback(
     (confirmed: boolean) => {
       if (!conversationId || !socketRef.current) {
-        Alert.alert("Không thể phản hồi", "Không tìm thấy phiên trò chuyện hoặc kết nối realtime.");
+        Alert.alert("Không thể phản hồi", "Không tìm thấy phiên trò chuyện hoặc kết nối thời gian thực.");
         return;
       }
 
@@ -609,7 +609,7 @@ export default function ChatDetailScreen() {
     }
 
     if (!socketRef.current || !socketConnected) {
-      Alert.alert("Kết nối realtime chưa sẵn sàng", "Vui lòng kiểm tra kết nối và thử lại.");
+      Alert.alert("Kết nối thời gian thực chưa sẵn sàng", "Vui lòng kiểm tra kết nối và thử lại.");
       return;
     }
 
@@ -618,7 +618,7 @@ export default function ChatDetailScreen() {
 
   const confirmCancelSession = useCallback(() => {
     if (!conversationId || !socketRef.current) {
-      Alert.alert("Không thể hủy phiên", "Không tìm thấy cuộc trò chuyện hoặc kết nối realtime.");
+      Alert.alert("Không thể hủy phiên", "Không tìm thấy cuộc trò chuyện hoặc kết nối thời gian thực.");
       setCancelModalVisible(false);
       return;
     }
@@ -734,7 +734,7 @@ export default function ChatDetailScreen() {
 
     const handleConnectError = (error: any) => {
       console.warn("Socket connect error", error);
-      const fallbackMessage = "Không thể kết nối realtime. Hệ thống sẽ tự thử lại.";
+      const fallbackMessage = "Không thể kết nối thời gian thực. Hệ thống sẽ tự thử lại.";
       const detail = error?.message ? ` (${error.message})` : "";
       setSocketJoinError(`${fallbackMessage}${detail}`);
     };
@@ -846,7 +846,7 @@ export default function ChatDetailScreen() {
 
       try {
         setLoadError(null);
-        if(userRole && userRole.toUpperCase() === "ADMIN") setIsAdmin(true);
+        if (userRole && userRole.toUpperCase() === "ADMIN") setIsAdmin(true);
         const [messagesResult, conversationResult] = await Promise.allSettled([
           getChatMessages(conversationId, {
             page: 1,
@@ -883,7 +883,11 @@ export default function ChatDetailScreen() {
               conversation.customerId &&
               String(conversation.customerId) === String(currentUserId);
 
-            if (viewerIsSeer) {
+            if (conversation.conversationType == "ADMIN_CHAT") {
+              setConversationTitle(conversation.customerName ?? "Quản trị viên ISU");
+              setPartnerAvatar(conversation.customerAvatarUrl ?? null);
+            }
+            else if (viewerIsSeer) {
               setConversationTitle(conversation.customerName ?? "Khách hàng");
               setPartnerAvatar(conversation.customerAvatarUrl ?? null);
             } else if (viewerIsCustomer) {
@@ -910,15 +914,13 @@ export default function ChatDetailScreen() {
             // console.log("[DEBUG] Direct seerCometChatUid:", conversation?.seerCometChatUid);
             // console.log("[DEBUG] Direct customerCometChatUid:", conversation?.customerCometChatUid);
 
-            // Resolve CometChat UID của đối tác để thực hiện video call
-            // Ưu tiên sử dụng CometChat UID nếu có, fallback về userId
             const remoteUid = resolvePartnerCometChatUid(conversation, currentUserId);
             // console.log("[DEBUG] Resolved partner CometChat UID:", remoteUid);
-            
+
             let finalPartnerUid = remoteUid;
             if (!finalPartnerUid) {
               const viewerIsSeer = currentUserId && conversation?.seerId && String(conversation.seerId) === String(currentUserId);
-              finalPartnerUid = viewerIsSeer 
+              finalPartnerUid = viewerIsSeer
                 ? (conversation?.customerId ? String(conversation.customerId) : null)
                 : (conversation?.seerId ? String(conversation.seerId) : null);
               // console.log("[DEBUG] Fallback to userId as CometChat UID:", finalPartnerUid);
@@ -1084,7 +1086,7 @@ export default function ChatDetailScreen() {
     // console.log("[ChatDetailScreen] callReceiverType:", callReceiverType);
     // console.log("[ChatDetailScreen] partnerCometChatUid:", partnerCometChatUid);
     // console.log("[ChatDetailScreen] callStatus:", callStatus);
-    
+
     if (isInteractionLocked) {
       Alert.alert("Phiên đã kết thúc", statusMeta.description);
       return;
@@ -1466,7 +1468,7 @@ export default function ChatDetailScreen() {
               {/* {socketConnected ? (
                 <View style={[styles.connectionBadge, styles.connectionBadgeOnline]}>
                   <View style={[styles.connectionDot, styles.connectionDotOnline]} />
-                  <Text style={styles.connectionBadgeText}>Đã kết nối realtime</Text>
+                  <Text style={styles.connectionBadgeText}>Đã kết nối thời gian thực</Text>
                 </View>
               ) : null} */}
               <View
@@ -1636,7 +1638,7 @@ export default function ChatDetailScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trò chuyện</Text>
           <View style={styles.headerActions}>
-            {canCancelSession && isAdmin ? (
+            {canCancelSession ? (
               <TouchableOpacity
                 onPress={handleRequestCancelSession}
                 style={[styles.headerCancelButton, cancelButtonDisabled && styles.headerCancelButtonDisabled]}

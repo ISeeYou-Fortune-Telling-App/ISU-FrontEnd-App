@@ -126,7 +126,12 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
     item?.seerAvatarUrl ?? item?.customerAvatarUrl ?? null;
   let unreadCount = 0;
 
-  if (viewerIsSeer) {
+  if(item?.conversationType == "ADMIN_CHAT") {
+    title = item?.customerName ?? "Quản trị viên ISU";
+    avatarUrl = item?.customerAvatarUrl ?? avatarUrl;
+    unreadCount = typeof item?.seerUnreadCount === "number" ? item.seerUnreadCount : typeof item?.customerUnreadCount === "number" ? item.customerUnreadCount : 0;
+  }
+  else if (viewerIsSeer) {
     title = item?.customerName ?? "Khách hàng";
     avatarUrl = item?.customerAvatarUrl ?? avatarUrl;
     unreadCount = typeof item?.seerUnreadCount === "number" ? item.seerUnreadCount : 0;
