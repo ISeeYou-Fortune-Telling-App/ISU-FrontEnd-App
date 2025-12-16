@@ -1,9 +1,9 @@
 import Colors from '@/src/constants/colors';
 import { getKnowledgeCategories } from '@/src/services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SIZES = {
@@ -36,17 +36,40 @@ const sortOptions = [
     { label: "Tên Z-A", sortBy: "packageTitle", sortType: "desc" },
 ];
 
+const formatMoney = (value: string) => {
+    if (!value) return '';
+    const cleanValue = value.replace(/\D/g, '');
+    return cleanValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+const parseMoney = (value: string) => {
+    return value.replace(/\./g, '');
+};
+
 const ServicePackageAndSeerSearchScreen = () => {
     const router = useRouter();
-    const [searchText, setSearchText] = useState('');
+    const params = useLocalSearchParams();
+
+    const [searchText, setSearchText] = useState(params.searchText as string || '');
     const [categories, setCategories] = useState<Array<{ id: string, name: string }>>([]);
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
-    const [minPrice, setMinPrice] = useState('');
-    const [maxPrice, setMaxPrice] = useState('');
-    const [minTime, setMinTime] = useState('');
-    const [maxTime, setMaxTime] = useState('');
-    const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
+    
+    const initialCategories = params.packageCategoryIds 
+        ? (Array.isArray(params.packageCategoryIds) ? params.packageCategoryIds : [params.packageCategoryIds]) 
+        : [];
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories as string[]);
+
+    const initialSpecialties = params.seerSpecialityIds
+        ? (Array.isArray(params.seerSpecialityIds) ? params.seerSpecialityIds : [params.seerSpecialityIds])
+        : [];
+    const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initialSpecialties as string[]);
+
+    const [minPrice, setMinPrice] = useState(params.minPrice ? formatMoney(String(params.minPrice)) : '');
+    const [maxPrice, setMaxPrice] = useState(params.maxPrice ? formatMoney(String(params.maxPrice)) : '');
+    const [minTime, setMinTime] = useState(params.minTime ? String(params.minTime) : '');
+    const [maxTime, setMaxTime] = useState(params.maxTime ? String(params.maxTime) : '');
+
+    const initialSort = sortOptions.find(s => s.sortBy === params.sortBy && s.sortType === params.sortType) || sortOptions[0];
+    const [selectedSort, setSelectedSort] = useState(initialSort);
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -72,14 +95,34 @@ const ServicePackageAndSeerSearchScreen = () => {
     };
 
     const handleSearch = () => {
+        const minPriceVal = minPrice ? parseFloat(parseMoney(minPrice)) : undefined;
+        const maxPriceVal = maxPrice ? parseFloat(parseMoney(maxPrice)) : undefined;
+        const minTimeVal = minTime ? parseInt(minTime) : undefined;
+        const maxTimeVal = maxTime ? parseInt(maxTime) : undefined;
+
+        if ((minPriceVal !== undefined && maxPriceVal !== undefined && minPriceVal > maxPriceVal)&&(minTimeVal !== undefined && maxTimeVal !== undefined && minTimeVal > maxTimeVal)) {
+            Alert.alert("Lỗi", "Giá tối thiểu không được lớn hơn giá tối đa. Thời lượng tối thiểu không được lớn hơn thời lượng tối đa");
+            return;
+        }
+
+        if (minPriceVal !== undefined && maxPriceVal !== undefined && minPriceVal > maxPriceVal) {
+            Alert.alert("Lỗi", "Giá tối thiểu không được lớn hơn giá tối đa");
+            return;
+        }
+
+        if (minTimeVal !== undefined && maxTimeVal !== undefined && minTimeVal > maxTimeVal) {
+            Alert.alert("Lỗi", "Thời lượng tối thiểu không được lớn hơn thời lượng tối đa");
+            return;
+        }
+
         const params: any = {
             searchText: searchText || undefined,
             packageCategoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
             seerSpecialityIds: selectedSpecialties.length > 0 ? selectedSpecialties : undefined,
-            minPrice: minPrice ? parseFloat(minPrice) : undefined,
-            maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-            minTime: minTime ? parseInt(minTime) : undefined,
-            maxTime: maxTime ? parseInt(maxTime) : undefined,
+            minPrice: minPriceVal,
+            maxPrice: maxPriceVal,
+            minTime: minTimeVal,
+            maxTime: maxTimeVal,
             sortBy: selectedSort.sortBy,
             sortType: selectedSort.sortType,
             status: 'AVAILABLE',
@@ -106,8 +149,12 @@ const ServicePackageAndSeerSearchScreen = () => {
                     />
                 </View>
             </View>
-            <ScrollView>
-                <View style={styles.filterSection}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={{ flex: 1 }}
+            >
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Danh mục dịch vụ</Text>
                     <View style={styles.chipContainer}>
                         {categories.map(category => {
@@ -159,15 +206,15 @@ const ServicePackageAndSeerSearchScreen = () => {
                         <TextInput
                             style={styles.rangeInput}
                             value={minPrice}
-                            onChangeText={setMinPrice}
-                            keyboardType="numeric"
+                            onChangeText={(text) => setMinPrice(formatMoney(text))}
+                            keyboardType="number-pad"
                         />
                         <Text>-</Text>
                         <TextInput
                             style={styles.rangeInput}
                             value={maxPrice}
-                            onChangeText={setMaxPrice}
-                            keyboardType="numeric"
+                            onChangeText={(text) => setMaxPrice(formatMoney(text))}
+                            keyboardType="number-pad"
                         />
                     </View>
                 </View>
@@ -178,15 +225,15 @@ const ServicePackageAndSeerSearchScreen = () => {
                         <TextInput
                             style={styles.rangeInput}
                             value={minTime}
-                            onChangeText={setMinTime}
-                            keyboardType="numeric"
+                            onChangeText={(text) => setMinTime(text.replace(/[^0-9]/g, ''))}
+                            keyboardType="number-pad"
                         />
                         <Text>-</Text>
                         <TextInput
                             style={styles.rangeInput}
                             value={maxTime}
-                            onChangeText={setMaxTime}
-                            keyboardType="numeric"
+                            onChangeText={(text) => setMaxTime(text.replace(/[^0-9]/g, ''))}
+                            keyboardType="number-pad"
                         />
                     </View>
                 </View>
@@ -215,7 +262,8 @@ const ServicePackageAndSeerSearchScreen = () => {
                 <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
                     <Text style={styles.searchButtonText}>Áp dụng</Text>
                 </TouchableOpacity>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
@@ -287,6 +335,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 10,
         textAlign: 'center',
+        color: 'black',
     },
     searchButton: {
         backgroundColor: Colors.primary,

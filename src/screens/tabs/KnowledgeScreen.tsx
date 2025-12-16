@@ -265,16 +265,10 @@ export default function KnowledgeScreen() {
         />
 
       </>
-      {error && <View style={[styles.centerContent, { flex: 1 }]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" style={styles.retryButton} onPress={() => fetchKnowledge(false)}>
-          Thử lại
-        </Button>
-      </View>}
 
       <FlatList
         ref={flatListRef}
-        data={items}
+        data={error ? [] : items}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <KnowledgeCard
@@ -329,7 +323,16 @@ export default function KnowledgeScreen() {
         }
         ListEmptyComponent={
           <>
-            {!loading && <Text style={styles.emptyText}>Chưa có bài viết nào.</Text>}
+            {error ? (
+              <View style={[styles.centerContent, { flex: 1, marginTop: 20 }]}>
+                <Text style={styles.errorText}>{error}</Text>
+                <Button mode="contained" style={styles.retryButton} onPress={() => fetchKnowledge(false)}>
+                  Thử lại
+                </Button>
+              </View>
+            ) : (
+              !loading && <Text style={styles.emptyText}>Chưa có bài viết nào.</Text>
+            )}
           </>
         }
       />
