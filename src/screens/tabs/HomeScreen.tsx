@@ -135,6 +135,10 @@ export default function HomeScreen() {
 
       const response = await getServicePackages(params);
 
+      if (!response || !response.data) {
+        throw new Error("Invalid response from server");
+      }
+
       if (response.data && response.data.data) {
         const packagesWithDetails = await Promise.all(
           response.data.data.map(async (p: any) => {
@@ -250,6 +254,10 @@ export default function HomeScreen() {
 
       const response = await getSeers(params);
 
+      if (!response || !response.data) {
+        throw new Error("Invalid response from server");
+      }
+
       if (response.data && response.data.data) {
         const seersData = response.data.data.map((s: any) => ({
           id: s.id,
@@ -292,14 +300,14 @@ export default function HomeScreen() {
   }, [router]);
 
   const loadMore = useCallback(() => {
-    if (hasMore && !loadingMore) {
+    if (hasMore && !loadingMore && !error) {
       if (searchType === "packages") {
         fetchServicePackages(currentPage + 1, selectedCategory?.id);
       } else {
         fetchSeers(currentPage + 1);
       }
     }
-  }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers, selectedCategory]);
+  }, [hasMore, loadingMore, currentPage, searchType, fetchServicePackages, fetchSeers, selectedCategory, error]);
 
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -471,23 +479,9 @@ export default function HomeScreen() {
     fetchServicePackages(1);
   };
 
-  if (error) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeAreaView, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button
-          mode="contained"
-          style={{ marginTop: 16 }}
-          onPress={() => fetchServicePackages()}>
-          Thử lại
-        </Button>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
-      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" isSearchButton={true} onSearchPress={() => router.push('/search')} />
+      <TopBar placeholder="Tìm kiếm dịch vụ, nhà tiên tri" isSearchButton={true} onSearchPress={() => router.push({ pathname: '/search', params: searchParams })} />
       {activePage === "search" && (
         <View style={[styles.servicesContainer, styles.cardShadow, { marginHorizontal: 10, marginTop: 10, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -550,7 +544,7 @@ export default function HomeScreen() {
 
       {!loading && <FlatList
         ref={flatListRef}
-        data={activePage === "search" && searchType === "seers" ? seers : servicePackages}
+        data={error ? [] : (activePage === "search" && searchType === "seers" ? seers : servicePackages)}
         renderItem={({ item }) => (
           activePage === "search" && searchType === "seers" ? (
             <SeerCard seer={item} />
@@ -578,9 +572,9 @@ export default function HomeScreen() {
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
             </View>
-          ) : servicePackages.length > 0 ? (
+          ) : !error && ((activePage === "search" && searchType === "seers" ? seers : servicePackages).length > 0) ? (
             <View style={styles.loadingMoreContainer}>
-              <Text style={styles.loadingMoreText}>Không có thêm gói nữa.</Text>
+              <Text style={styles.loadingMoreText}>{activePage === "search" && searchType === "seers" ? "Không có thêm thầy bói nữa." : "Không có thêm gói nữa."}</Text>
             </View>
           ) : null
         }
@@ -630,7 +624,26 @@ export default function HomeScreen() {
         )}
         ListEmptyComponent={
           <>
-            {!loadingMore && <Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>}
+            {error ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
+                <Text style={styles.errorText}>{error}</Text>
+                <Button
+                  mode="contained"
+                  style={{ marginTop: 16 }}
+                  onPress={() => {
+                    setError(null);
+                    if (searchType === "packages") {
+                      fetchServicePackages(1, selectedCategory?.id);
+                    } else {
+                      fetchSeers(1);
+                    }
+                  }}>
+                  Thử lại
+                </Button>
+              </View>
+            ) : (
+              !loadingMore && <Text style={styles.emptyText}>{activePage === "search" && searchType === "seers" ? "Không có thầy bói nào." : "Không có gói dịch vụ nào."}</Text>
+            )}
           </>
         }
         refreshControl={
