@@ -127,6 +127,27 @@ export default function SeerRegistrationStep2Screen() {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    const loadSavedData = async () => {
+      try {
+        const savedData = await SecureStore.getItemAsync("seerRegistrationStep2");
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.specialityIds) {
+            setSelectedSpecialties(parsedData.specialityIds);
+          }
+          if (parsedData.profileDescription) {
+            setBioText(parsedData.profileDescription);
+            setCharCount(parsedData.profileDescription.length);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading saved data:", error);
+      }
+    };
+    loadSavedData();
+  }, []);
+
   const toggleSpecialty = (specialty: string) => {
     if (selectedSpecialties.includes(specialty)) {
       setSelectedSpecialties(selectedSpecialties.filter(item => item !== specialty));
@@ -140,6 +161,19 @@ export default function SeerRegistrationStep2Screen() {
       setBioText(text);
       setCharCount(text.length);
     }
+  };
+
+  const handleBack = async () => {
+    const step2Data = {
+      specialityIds: selectedSpecialties,
+      profileDescription: bioText,
+    };
+    try {
+      await SecureStore.setItemAsync("seerRegistrationStep2", JSON.stringify(step2Data));
+    } catch (error) {
+      console.error("Error saving data on back:", error);
+    }
+    router.back();
   };
 
   const handleNext = async () => {
@@ -159,7 +193,7 @@ export default function SeerRegistrationStep2Screen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <MaterialIcons name="arrow-back" size={24} color="black" onPress={() => router.back()} />
+        <MaterialIcons name="arrow-back" size={24} color="black" onPress={handleBack} />
         <View style={styles.titleContainer}>
           <Text variant="titleMedium" style={styles.title}>Đăng ký Nhà tiên tri</Text>
           <Text variant="bodySmall" style={styles.subtitle}>Bước 2/3</Text>
@@ -229,7 +263,7 @@ export default function SeerRegistrationStep2Screen() {
         <Button
           mode="outlined"
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBack}
         >
           Quay lại
         </Button>

@@ -86,7 +86,9 @@ export default function CertificateDetailScreen() {
   const mode = params.mode as string || 'registration';
   const certificateId = params.certificateId as string;
   const isViewMode = mode === 'view';
-  const [isEditingEnabled, setIsEditingEnabled] = useState(false);
+  const isViewLocalMode = mode === 'view-local';
+  const isEditLocalMode = mode === 'edit-local';
+  const [isEditingEnabled, setIsEditingEnabled] = useState(mode === 'create' || mode === 'edit-local' || mode === 'registration');
   
   const [certName, setCertName] = useState('');
   const [certIssuer, setCertIssuer] = useState('');
@@ -104,62 +106,106 @@ export default function CertificateDetailScreen() {
   const [loadingCertificate, setLoadingCertificate] = useState(false);
   const insets = useSafeAreaInsets();
 
+  const formatDate = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const loadApiData = async () => {
+    setLoadingCertificate(true);
+    try {
+      const { getCertificates } = await import('@/src/services/api');
+      const userId = await SecureStore.getItemAsync('userId');
+      
+      if (userId) {
+        const response = await getCertificates(userId, { page: 1, limit: 100 });
+        const certificate = response.data.data.find((cert: any) => cert.id === certificateId);
+        
+        if (certificate) {
+          setCertName(certificate.certificateName);
+          setCertIssuer(certificate.issuedBy);
+          
+          const issueDate = new Date(certificate.issuedAt);
+          setCertIssueDate(formatDate(issueDate));
+          
+          if (certificate.expirationDate) {
+            const expiryDate = new Date(certificate.expirationDate);
+            setCertExpiryDate(formatDate(expiryDate));
+          }
+          
+          setCertDescription(certificate.certificateDescription || '');
+          setCharCount((certificate.certificateDescription || '').length);
+          
+          if (certificate.certificateUrl) {
+            setCertFile({
+              uri: certificate.certificateUrl,
+              name: certificate.certificateName + ' - Certificate',
+              type: 'application/pdf'
+            });
+          }
+          
+          if (certificate.categories && Array.isArray(certificate.categories) && categories.length > 0) {
+            const matchedIds = categories
+              .filter((cat: any) => certificate.categories.includes(cat.name))
+              .map((cat: any) => cat.id);
+            setSelectedCategories(matchedIds);
+          } else if (certificate.categories && Array.isArray(certificate.categories)) {
+            (window as any).__tempCertCategories = certificate.categories;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading certificate:', error);
+    } finally {
+      setLoadingCertificate(false);
+    }
+  };
+
+  const loadLocalData = async () => {
+    try {
+      const tempCerts = await SecureStore.getItemAsync("tempCertificates");
+      if (tempCerts) {
+        const certificates = JSON.parse(tempCerts);
+        const certificate = certificates.find((c: any) => c.id === certificateId);
+        if (certificate) {
+          setCertName(certificate.certificateName);
+          setCertIssuer(certificate.issuedBy);
+          
+          if (certificate.issuedAt) {
+              const date = new Date(certificate.issuedAt);
+              setCertIssueDate(formatDate(date));
+          }
+
+          if (certificate.expirationDate) {
+              const date = new Date(certificate.expirationDate);
+              setCertExpiryDate(formatDate(date));
+          }
+
+          setCertDescription(certificate.certificateDescription);
+          setCertFile(certificate.certificateFile);
+          setSelectedCategories(certificate.categoryIds || []);
+          setCharCount((certificate.certificateDescription || '').length);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading local certificate", error);
+    }
+  };
+
   useEffect(() => {
     if (isViewMode && certificateId) {
       setSelectedCategories([]);
-      
-      const loadCertificate = async () => {
-        setLoadingCertificate(true);
-        try {
-          const { getCertificates } = await import('@/src/services/api');
-          const userId = await SecureStore.getItemAsync('userId');
-          
-          if (userId) {
-            const response = await getCertificates(userId, { page: 1, limit: 100 });
-            const certificate = response.data.data.find((cert: any) => cert.id === certificateId);
-            
-            if (certificate) {
-              setCertName(certificate.certificateName);
-              setCertIssuer(certificate.issuedBy);
-              
-              const issueDate = new Date(certificate.issuedAt);
-              setCertIssueDate(formatDate(issueDate));
-              
-              if (certificate.expirationDate) {
-                const expiryDate = new Date(certificate.expirationDate);
-                setCertExpiryDate(formatDate(expiryDate));
-              }
-              
-              setCertDescription(certificate.certificateDescription || '');
-              setCharCount((certificate.certificateDescription || '').length);
-              
-              if (certificate.certificateUrl) {
-                setCertFile({
-                  uri: certificate.certificateUrl,
-                  name: certificate.certificateName + ' - Certificate',
-                  type: 'application/pdf'
-                });
-              }
-              
-              if (certificate.categories && Array.isArray(certificate.categories) && categories.length > 0) {
-                const matchedIds = categories
-                  .filter((cat: any) => certificate.categories.includes(cat.name))
-                  .map((cat: any) => cat.id);
-                setSelectedCategories(matchedIds);
-              } else if (certificate.categories && Array.isArray(certificate.categories)) {
-                (window as any).__tempCertCategories = certificate.categories;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error loading certificate:', error);
-        } finally {
-          setLoadingCertificate(false);
-        }
-      };
-      loadCertificate();
+      loadApiData();
     };
   }, [isViewMode, certificateId, categories]);
+
+  useEffect(() => {
+    if ((isEditLocalMode || isViewLocalMode) && certificateId) {
+      loadLocalData();
+    }
+  }, [isEditLocalMode, isViewLocalMode, certificateId]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -260,13 +306,6 @@ export default function CertificateDetailScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
   const handleIssueDateConfirm = (date: Date) => {
     setCertIssueDate(formatDate(date));
     setShowIssueDatePicker(false);
@@ -330,6 +369,25 @@ export default function CertificateDetailScreen() {
           await createCertificate(formData);
         }
         router.replace("/manage-certificate?refresh=true");
+      } else if ((isEditLocalMode || isViewLocalMode) && certificateId) {
+        const certificateData = {
+          id: certificateId,
+          certificateName: certName.trim(),
+          certificateDescription: certDescription.trim(),
+          issuedBy: certIssuer.trim(),
+          issuedAt,
+          expirationDate,
+          certificateFile: certFile,
+          categoryIds: selectedCategories
+        };
+
+        const existingCerts = await SecureStore.getItemAsync("tempCertificates");
+        const certificates = existingCerts ? JSON.parse(existingCerts) : [];
+        
+        const updatedCertificates = certificates.map((c: any) => c.id === certificateId ? certificateData : c);
+
+        await SecureStore.setItemAsync("tempCertificates", JSON.stringify(updatedCertificates));
+        router.back();
       } else {
         const certificateData = {
           id: Date.now().toString(),
@@ -348,9 +406,8 @@ export default function CertificateDetailScreen() {
         certificates.push(certificateData);
 
         await SecureStore.setItemAsync("tempCertificates", JSON.stringify(certificates));
+        router.back();
       }
-
-      router.back();
     } catch (error) {
       console.error('Error adding certificate:', error);
       Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
@@ -364,7 +421,7 @@ export default function CertificateDetailScreen() {
       <View style={styles.header}>
         <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
         <View style={styles.titleContainer}>
-          <Text variant="titleLarge" style={styles.title}>{isViewMode ? 'Chi tiết chứng chỉ' : 'Thêm chứng chỉ'}</Text>
+          <Text variant="titleLarge" style={styles.title}>{(isViewMode || isViewLocalMode) ? 'Chi tiết chứng chỉ' : (isEditLocalMode ? 'Chỉnh sửa chứng chỉ' : 'Thêm chứng chỉ')}</Text>
         </View>
         <View style={styles.headerPlaceholder} />
       </View>
@@ -380,13 +437,13 @@ export default function CertificateDetailScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.pageTitle}>{isViewMode ? 'Chi tiết chứng chỉ' : 'Thêm chứng chỉ'}</Text>
+          <Text style={styles.pageTitle}>{(isViewMode || isViewLocalMode) ? 'Chi tiết chứng chỉ' : (isEditLocalMode ? 'Chỉnh sửa chứng chỉ' : 'Thêm chứng chỉ')}</Text>
           <Text style={styles.description}>
-            {isViewMode ? 'Xem thông tin chi tiết của chứng chỉ' : 'Tải lên chứng chỉ hoặc bằng cấp liên quan đến chuyên môn của bạn'}
+            {(isViewMode || isViewLocalMode) ? 'Xem thông tin chi tiết của chứng chỉ' : 'Tải lên chứng chỉ hoặc bằng cấp liên quan đến chuyên môn của bạn'}
           </Text>
           
           <Text style={styles.inputLabel}>Tên chứng chỉ</Text>
-          {isViewMode && !isEditingEnabled ? (
+          {(isViewMode || isViewLocalMode) && !isEditingEnabled ? (
             <ScrollView style={styles.viewModeFieldScroll} nestedScrollEnabled={true}>
               <View style={styles.viewModeFieldBox}>
                 <Text style={styles.viewModeFieldText}>{certName || 'Không có tên'}</Text>
@@ -403,7 +460,7 @@ export default function CertificateDetailScreen() {
           )}
           
           <Text style={styles.inputLabel}>Tổ chức cấp</Text>
-          {isViewMode && !isEditingEnabled ? (
+          {(isViewMode || isViewLocalMode) && !isEditingEnabled ? (
             <ScrollView style={styles.viewModeFieldScroll} nestedScrollEnabled={true}>
               <View style={styles.viewModeFieldBox}>
                 <Text style={styles.viewModeFieldText}>{certIssuer || 'Không có thông tin'}</Text>
@@ -420,7 +477,7 @@ export default function CertificateDetailScreen() {
           )}
           
           <Text style={styles.inputLabel}>Ngày cấp</Text>
-          <TouchableOpacity onPress={() => (!isViewMode || isEditingEnabled) && setShowIssueDatePicker(true)} disabled={isViewMode && !isEditingEnabled}>
+          <TouchableOpacity onPress={() => (!(isViewMode || isViewLocalMode) || isEditingEnabled) && setShowIssueDatePicker(true)} disabled={(isViewMode || isViewLocalMode) && !isEditingEnabled}>
             <TextInput
               mode="outlined"
               placeholder="dd/mm/yyyy"
@@ -428,7 +485,7 @@ export default function CertificateDetailScreen() {
               editable={false}
               pointerEvents="none"
               style={styles.input}
-              textColor={isViewMode && !isEditingEnabled ? '#666666' : undefined}
+              textColor={(isViewMode || isViewLocalMode) && !isEditingEnabled ? '#666666' : undefined}
               left={<TextInput.Icon icon="calendar" />}
             />
           </TouchableOpacity>
@@ -441,7 +498,7 @@ export default function CertificateDetailScreen() {
           />
           
           <Text style={styles.inputLabel}>Ngày hết hạn</Text>
-          <TouchableOpacity onPress={() => (!isViewMode || isEditingEnabled) && setShowExpiryDatePicker(true)} disabled={isViewMode && !isEditingEnabled}>
+          <TouchableOpacity onPress={() => (!(isViewMode || isViewLocalMode) || isEditingEnabled) && setShowExpiryDatePicker(true)} disabled={(isViewMode || isViewLocalMode) && !isEditingEnabled}>
             <TextInput
               mode="outlined"
               placeholder="dd/mm/yyyy"
@@ -449,7 +506,7 @@ export default function CertificateDetailScreen() {
               editable={false}
               pointerEvents="none"
               style={styles.input}
-              textColor={isViewMode && !isEditingEnabled ? '#666666' : undefined}
+              textColor={(isViewMode || isViewLocalMode) && !isEditingEnabled ? '#666666' : undefined}
               left={<TextInput.Icon icon="calendar" />}
             />
           </TouchableOpacity>
@@ -473,17 +530,17 @@ export default function CertificateDetailScreen() {
                   color={category.color}
                   bgColor={category.bgColor}
                   selected={selectedCategories.includes(category.id)}
-                  onPress={() => (!isViewMode || isEditingEnabled) && toggleCategory(category.id)}
+                  onPress={() => (!(isViewMode || isViewLocalMode) || isEditingEnabled) && toggleCategory(category.id)}
                 />
               ))
             )}
           </View>
           <Text style={styles.categoryCountText}>
-            {isViewMode ? `Danh mục: ${selectedCategories.length}` : `Đã chọn ${selectedCategories.length}/6 danh mục`}
+            {(isViewMode || isViewLocalMode) ? `Danh mục: ${selectedCategories.length}` : `Đã chọn ${selectedCategories.length}/6 danh mục`}
           </Text>
           
           <Text style={styles.inputLabel}>Mô tả chứng chỉ</Text>
-          {isViewMode && !isEditingEnabled ? (
+          {(isViewMode || isViewLocalMode) && !isEditingEnabled ? (
             <ScrollView style={styles.viewModeDescriptionScroll} nestedScrollEnabled={true}>
               <View style={styles.viewModeDescriptionBox}>
                 <Text style={styles.viewModeDescriptionText}>{certDescription || 'Không có mô tả'}</Text>
@@ -504,7 +561,7 @@ export default function CertificateDetailScreen() {
           <Text style={styles.charCountText}>{charCount}/1000 ký tự</Text>
           
           <Text style={styles.inputLabel}>File chứng chỉ</Text>
-          {certFile && (isEditingEnabled || !isViewMode) ? (
+          {certFile && (isEditingEnabled || !(isViewMode || isViewLocalMode)) ? (
             <View style={styles.fileSelectedContainer}>
               <View style={styles.fileInfo}>
                 <MaterialIcons name="description" size={24} color={Colors.primary} />
@@ -516,16 +573,17 @@ export default function CertificateDetailScreen() {
             </View>
           ) : (
             <TouchableOpacity 
-              style={[styles.filePickButton, isViewMode && !isEditingEnabled && certFile && styles.fileViewButton]} 
-              onPress={isViewMode && !isEditingEnabled && certFile ? handleFileView : handleFilePick}
+              style={[styles.filePickButton, (isViewMode || isViewLocalMode) && !isEditingEnabled && certFile && styles.fileViewButton]} 
+              onPress={isViewMode && !isEditingEnabled && certFile ? handleFileView : ((isViewLocalMode && !isEditingEnabled) ? undefined : handleFilePick)}
+              disabled={isViewLocalMode && !isEditingEnabled}
             >
               <MaterialIcons 
-                name={isViewMode && !isEditingEnabled ? (certFile ? "open-in-new" : "description") : "file-upload"} 
+                name={(isViewMode || isViewLocalMode) && !isEditingEnabled ? (certFile ? (isViewLocalMode ? "description" : "open-in-new") : "description") : "file-upload"} 
                 size={24} 
-                color={isViewMode && !isEditingEnabled && certFile ? Colors.primary : isViewMode && !isEditingEnabled ? Colors.gray : Colors.primary} 
+                color={(isViewMode || isViewLocalMode) && !isEditingEnabled && certFile ? Colors.primary : (isViewMode || isViewLocalMode) && !isEditingEnabled ? Colors.gray : Colors.primary} 
               />
-              <Text style={[styles.filePickText, isViewMode && !isEditingEnabled && !certFile && { color: Colors.gray }]}>
-                {certFile ? (isViewMode && !isEditingEnabled ? `Xem file: ${certFile.name}` : certFile.name) : "Chọn file để tải lên"}
+              <Text style={[styles.filePickText, (isViewMode || isViewLocalMode) && !isEditingEnabled && !certFile && { color: Colors.gray }]}>
+                {certFile ? ((isViewMode || isViewLocalMode) && !isEditingEnabled ? (isViewLocalMode ? certFile.name : `Xem file: ${certFile.name}`) : certFile.name) : "Chọn file để tải lên"}
               </Text>
             </TouchableOpacity>
           )}
@@ -535,7 +593,7 @@ export default function CertificateDetailScreen() {
       </KeyboardAvoidingView>
         
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          {isViewMode && !isEditingEnabled ? (
+          {(isViewMode || isViewLocalMode) && !isEditingEnabled ? (
             <>
               <Button
                 mode="outlined"
@@ -553,12 +611,16 @@ export default function CertificateDetailScreen() {
                 Chỉnh sửa
               </Button>
             </>
-          ) : isViewMode && isEditingEnabled ? (
+          ) : (isViewMode || isViewLocalMode) && isEditingEnabled ? (
             <>
               <Button
                 mode="outlined"
                 style={styles.cancelButton}
-                onPress={() => setIsEditingEnabled(false)}
+                onPress={() => {
+                  setIsEditingEnabled(false);
+                  if (isViewMode) loadApiData();
+                  if (isViewLocalMode) loadLocalData();
+                }}
               >
                 Hủy
               </Button>
@@ -788,7 +850,7 @@ const styles = StyleSheet.create({
   },
   fileName: {
     marginLeft: 12,
-    color: Colors.black,
+    color: Colors.primary,
     flex: 1,
   },
   footer: {

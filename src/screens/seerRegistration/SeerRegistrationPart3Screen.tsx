@@ -44,6 +44,7 @@ interface Certificate {
 interface CertificateItemProps {
   certificate: Certificate;
   onRemove: () => void;
+  onPress: () => void;
 }
 
 const defaultServicePackages: ServicePackage[] = [
@@ -186,9 +187,10 @@ const ServicePackageCard = ({
 const CertificateItem = ({
   certificate,
   onRemove,
+  onPress,
 }: CertificateItemProps) => {
   return (
-    <View style={styles.certificateItem}>
+    <TouchableOpacity style={styles.certificateItem} onPress={onPress}>
       <View style={styles.certificateIcon}>
         <LucideFileText size={24} color="#E53935" />
       </View>
@@ -207,7 +209,7 @@ const CertificateItem = ({
       >
         <LucideX size={22} color="#E53935" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -243,6 +245,10 @@ export default function SeerRegistrationStep3Screen() {
 
   const handleAddCertificate = () => {
     router.push("/add-certificate?mode=registration");
+  };
+
+  const handleEditCertificate = (id: string) => {
+    router.push(`/add-certificate?mode=view-local&certificateId=${id}`);
   };
 
   const handleRemoveCertificate = async (id: string) => {
@@ -423,6 +429,7 @@ export default function SeerRegistrationStep3Screen() {
                     key={certificate.id}
                     certificate={certificate}
                     onRemove={() => handleRemoveCertificate(certificate.id)}
+                    onPress={() => handleEditCertificate(certificate.id)}
                   />
                 ))
               ) : (
@@ -691,7 +698,7 @@ const styles = StyleSheet.create({
   completeButton: {
     flex: 1,
     marginLeft: 8,
-    backgroundColor: "#2196F3",
+    backgroundColor: Colors.primary,
     borderRadius: 10,
   },
   footerOutlinedLabel: {
