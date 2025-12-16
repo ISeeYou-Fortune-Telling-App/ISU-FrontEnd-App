@@ -186,6 +186,7 @@ export default function SeerRegistrationScreen() {
             mode="date"
             onConfirm={handleConfirmDate}
             onCancel={() => setShowDatePicker(false)}
+            maximumDate={new Date()}
           />
           
           <Text style={styles.label}>Giới tính</Text>

@@ -157,6 +157,7 @@ export default function EditProfileScreen() {
                         mode="date"
                         onConfirm={handleConfirmDate}
                         onCancel={() => setShowDatePicker(false)}
+                        maximumDate={new Date()}
                     />
 
                     <View style={styles.card}>

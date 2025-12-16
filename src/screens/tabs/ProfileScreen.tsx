@@ -2,11 +2,11 @@ import Colors from "@/src/constants/colors";
 import { getMyCustomerPotential, getMyPackages, getMySeerPerformance, getProfile, updateUserStatus } from "@/src/services/api";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Bell, Calendar, ChevronRight, CreditCard, HandCoins, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
@@ -38,17 +38,13 @@ export default function ProfileScreen() {
   const [customerPerf, setCustomerPerf] = useState<any | null>(null);
   const [seerPerf, setSeerPerf] = useState<any | null>(null);
   const [perfLoading, setPerfLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
 
   useEffect(() => {
+    if (hasLoaded) return; // Only load once
     fetchData();
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-      return () => { };
-    }, [])
-  );
 
   const fetchPackageStats = async () => {
     try {
@@ -164,6 +160,8 @@ export default function ProfileScreen() {
       Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setHasLoaded(true);
     }
   }
 
@@ -201,7 +199,16 @@ export default function ProfileScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
         :
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await fetchData();
+            }}
+            colors={[Colors.primary]}
+          />
+        }>
           <View style={styles.coverWrapper}>
             <Image
               source={

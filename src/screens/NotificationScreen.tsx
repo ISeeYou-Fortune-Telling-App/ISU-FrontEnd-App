@@ -97,7 +97,7 @@ export default function NotificationScreen() {
           <View style={styles.titleContainer}>
             <Text variant="titleLarge" style={styles.title}>Thông báo</Text>
           </View>
-          <View style={{width: 28}} />
+          <View style={{ width: 28 }} />
         </View>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -114,7 +114,7 @@ export default function NotificationScreen() {
           <Text variant="titleLarge" style={styles.title}>Thông báo</Text>
         </View>
         {/* <EllipsisVertical size={28} color="black" /> */}
-        <View style={{paddingRight: 28}}/>
+        <View style={{ paddingRight: 28 }} />
       </View>
 
       {notifications.length > 0 ? (
@@ -152,8 +152,18 @@ function NotificationItem({ notif, markNotifAsRead, deleteNotif, setNotification
     if (!notif.read) {
       await markNotifAsRead(notif.id);
       setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
-    };
-    setExpanded(!expanded);
+    }
+
+    if (notif.targetType === "BOOKING" && notif.targetId) {
+      router.push({
+        pathname: "/booking-detail",
+        params: { bookingId: notif.targetId }
+      });
+    } else if (notif.targetType === "CONVERSATION" && notif.targetId) {
+      router.push("/(tabs)/message");
+    } else {
+      setExpanded(!expanded);
+    }
   };
 
   const handleDeleteNotif = () => {
@@ -192,14 +202,14 @@ function NotificationItem({ notif, markNotifAsRead, deleteNotif, setNotification
     >
       <Image
         source={
-          avatarError || !notif.imageUrl || notif.imageUrl == "string"
-            ? require("@/assets/images/user-placeholder.png")
+          avatarError || !notif.imageUrl
+            ? require("@/assets/images/notification-1.png")
             : { uri: notif.imageUrl }
         }
         style={{
           width: 55,
           height: 55,
-          borderRadius: 50,
+          borderRadius: 10,
           borderWidth: 1,
           borderColor: Colors.grayBackground,
         }}

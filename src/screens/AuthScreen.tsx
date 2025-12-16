@@ -523,16 +523,18 @@ export default function AuthScreen() {
                                     mode="date"
                                     onConfirm={handleConfirmDate}
                                     onCancel={() => setShowDatePicker(false)}
+                                    maximumDate={new Date()}
                                 />
 
                                 <TextInput
                                     label="Cung hoàng đạo"
                                     mode="outlined"
-                                    style={styles.textInput}
                                     value={zodiac}
                                     placeholder="Tự động tính toán"
+                                    style={styles.textInput}
                                     left={<TextInput.Icon icon="star-four-points-outline" />}
                                     editable={false}
+                                    pointerEvents="none"
                                 />
 
                                 <View>

@@ -4,10 +4,10 @@ import { getMyBookings } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { ChevronRight } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -53,6 +53,7 @@ export default function BookingScreen() {
   const [allBookings, setAllBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
   const tabBarHeight = useBottomTabBarHeight();
 
   const fetchAllBookings = useCallback(async (isRefresh = false) => {
@@ -94,6 +95,7 @@ export default function BookingScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setHasLoaded(true);
     }
   }, []);
 
@@ -154,20 +156,19 @@ export default function BookingScreen() {
     fetchAllBookings(true);
   }, [fetchAllBookings]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const loadRole = async () => {
-        try {
-          const storedRole = await SecureStore.getItemAsync("userRole");
-          if (storedRole) setRole(storedRole);
-        } catch (e) {
-          console.warn("Unable to read userRole from SecureStore", e);
-        }
-      };
-      loadRole();
-      fetchAllBookings(false);
-    }, [fetchAllBookings])
-  );
+  useEffect(() => {
+    if (hasLoaded) return; // Only load once
+    const loadRole = async () => {
+      try {
+        const storedRole = await SecureStore.getItemAsync("userRole");
+        if (storedRole) setRole(storedRole);
+      } catch (e) {
+        console.warn("Unable to read userRole from SecureStore", e);
+      }
+    };
+    loadRole();
+    fetchAllBookings(false);
+  }, []);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
