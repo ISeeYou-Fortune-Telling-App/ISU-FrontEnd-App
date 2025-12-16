@@ -1,5 +1,7 @@
 import AIChatScreen from "@/src/screens/AIChatScreen";
+import { useLocalSearchParams } from "expo-router";
 
 export default function AIChatRoute() {
-  return <AIChatScreen />;
+  const { sessionId } = useLocalSearchParams<{ sessionId?: string }>();
+  return <AIChatScreen sessionId={sessionId} />;
 }

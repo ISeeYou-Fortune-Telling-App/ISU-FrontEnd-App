@@ -155,3 +155,27 @@ export const getAiChatHistory = async () => {
   const data = await response.json().catch(() => ({}));
   return { data };
 };
+
+export const getAiChatSession = async (id: string) => {
+  const token = await SecureStore.getItemAsync("authToken");
+  const response = await fetch(
+    buildAiChatUrl(`/ai-support/sessions/${id}/messages`),
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const fallbackText = await response.text().catch(() => "");
+    throw new Error(
+      fallbackText?.length ? fallbackText : `AI history failed with status ${response.status}`,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+  return { data };
+};

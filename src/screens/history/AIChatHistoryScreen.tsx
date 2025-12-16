@@ -161,13 +161,9 @@ export default function AIChatHistoryScreen() {
                 return;
             }
 
-            Alert.alert(
-                "Chi tiết tin nhắn",
-                item.content || "Không có nội dung",
-                [{ text: "Đóng" }]
-            );
+            router.push({ pathname: "/ai-chat", params: { sessionId: item.id } } as never);
         },
-        [fetchHistory],
+        [fetchHistory, router],
     );
 
     const renderHistoryItem = useCallback(

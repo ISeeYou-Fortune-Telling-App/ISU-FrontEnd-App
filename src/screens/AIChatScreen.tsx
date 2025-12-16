@@ -3,22 +3,23 @@ import {
   analyzeFaceImage,
   analyzePalmImage,
   chatWithAI,
-  getAiChatHistory,
+  getAiChatSession
 } from "@/src/services/aiChat";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as DocumentPicker from "expo-document-picker";
-import { useRouter, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  AppState,
+  Dimensions,
   FlatList,
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -26,12 +27,10 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
-  Modal,
-  Dimensions,
+  View
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Markdown from "react-native-markdown-display";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MessageRole = "user" | "assistant" | "system";
 type AnalysisType = "face" | "palm" | "none";
@@ -616,10 +615,15 @@ const nextAnalysisType = (type: AnalysisType): AnalysisType => {
   return "face";
 };
 
-export default function AIChatScreen() {
+type AIChatScreenProps = {
+  sessionId?: string;
+};
+
+export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<AIMessage>>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(false);
 
   const [messages, setMessages] = useState<AIMessage[]>(createInitialMessages());
   const [input, setInput] = useState<string>("");
@@ -692,6 +696,52 @@ export default function AIChatScreen() {
 
   useEffect(() => {
     const restoreSession = async () => {
+      if (sessionId) {
+        setIsLoadingSession(true);
+        try {
+          const response = await getAiChatSession(sessionId);
+          const payload = response?.data ?? {};
+          const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
+          
+          if (rawMessages.length > 0) {
+            const normalizedMessages: AIMessage[] = rawMessages.map((msg: any, index: number) => {
+              const createdAt = msg.created_at
+                ? new Date(msg.created_at).getTime()
+                : msg.updated_at
+                ? new Date(msg.updated_at).getTime()
+                : Date.now() - (rawMessages.length - index) * 1000;
+              
+              const role: MessageRole = msg.sent_by_user ? "user" : "assistant";
+              const content = msg.text_content ?? msg.content ?? "";
+              
+              return {
+                id: String(msg.id ?? `msg-${sessionId}-${index}`),
+                role,
+                content,
+                createdAt,
+                status: "done" as const,
+              };
+            });
+            
+            setMessages(normalizedMessages);
+          } else {
+            setMessages(createInitialMessages());
+          }
+        } catch (error) {
+          console.error("Không thể tải phiên AI chat", error);
+          Alert.alert(
+            "Lỗi",
+            "Không thể tải phiên trò chuyện. Vui lòng thử lại.",
+            [{ text: "Đóng" }]
+          );
+          setMessages(createInitialMessages());
+        } finally {
+          setIsLoadingSession(false);
+          setHasLoadedSession(true);
+        }
+        return;
+      }
+      
       try {
         const raw = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
         if (!raw) {
@@ -709,7 +759,7 @@ export default function AIChatScreen() {
     };
 
     restoreSession();
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!hasLoadedSession) return;
@@ -1171,7 +1221,13 @@ export default function AIChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
       >
-
+        {isLoadingSession ? (
+          <View style={styles.sessionLoadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.sessionLoadingText}>Đang tải phiên trò chuyện...</Text>
+          </View>
+        ) : (
+        <>
         <FlatList
           ref={listRef}
           data={messages}
@@ -1255,6 +1311,8 @@ export default function AIChatScreen() {
             )}
           </TouchableOpacity>
         </View>
+        </>
+        )}
       </KeyboardAvoidingView>
 
       <Modal
@@ -1951,5 +2009,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: Colors.dark_gray,
+  },
+  sessionLoadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+  },
+  sessionLoadingText: {
+    fontSize: 14,
+    color: Colors.gray,
   },
 });
