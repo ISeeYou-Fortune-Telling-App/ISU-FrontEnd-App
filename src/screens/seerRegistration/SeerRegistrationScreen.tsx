@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -51,36 +51,36 @@ export default function SeerRegistrationScreen() {
 
   const handleNext = async () => {
     if (!fullName.trim()) {
-      alert("Vui lòng nhập họ và tên");
+      Alert.alert("Lỗi", "Vui lòng nhập họ và tên");
       return;
     }
     if (!email.trim()) {
-      alert("Vui lòng nhập email");
+      Alert.alert("Lỗi", "Vui lòng nhập email");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      alert("Email không hợp lệ");
+      Alert.alert("Lỗi", "Email không hợp lệ");
       return;
     }
     if (!phone.trim()) {
-      alert("Vui lòng nhập số điện thoại");
+      Alert.alert("Lỗi", "Vui lòng nhập số điện thoại");
       return;
     }
     if (!dob) {
-      alert("Vui lòng chọn ngày sinh");
+      Alert.alert("Lỗi", "Vui lòng chọn ngày sinh");
       return;
     }
     if (!password) {
-      alert("Vui lòng nhập mật khẩu");
+      Alert.alert("Lỗi", "Vui lòng nhập mật khẩu");
       return;
     }
     if (password.length < 8) {
-      alert("Mật khẩu phải có ít nhất 8 ký tự");
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 8 ký tự");
       return;
     }
     if (password !== confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp");
+      Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp");
       return;
     }
 
@@ -101,7 +101,7 @@ export default function SeerRegistrationScreen() {
       await SecureStore.setItemAsync("seerRegistrationStep1", JSON.stringify(step1Data));
       router.push("/seer-registration-step2" as any);
     } catch (error) {
-      alert("Có lỗi xảy ra. Vui lòng thử lại.");
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
 

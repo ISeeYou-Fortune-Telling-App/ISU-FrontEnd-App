@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar, LucideX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -230,11 +231,11 @@ export default function CertificateDetailScreen() {
           await Linking.openURL(certFile.uri);
         } else {
           console.error('Cannot open URL:', certFile.uri);
-          alert('Không thể mở file. Vui lòng thử lại.');
+          Alert.alert("Lỗi", 'Không thể mở file. Vui lòng thử lại.');
         }
       } catch (error) {
         console.error('Error opening file:', error);
-        alert('Có lỗi khi mở file.');
+        Alert.alert("Lỗi", 'Có lỗi khi mở file.');
       }
     }
   };
@@ -277,14 +278,22 @@ export default function CertificateDetailScreen() {
   };
 
   const handleAddCertificate = async () => {
-    if (!certName.trim() || !certIssuer.trim() || !certIssueDate) {
-      alert("Vui lòng điền đầy đủ thông tin chứng chỉ (Tên, Tổ chức, Ngày cấp)");
+    if (!certName.trim() || !certIssuer.trim() || !certIssueDate || !certFile) {
+      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin chứng chỉ (Tên, Tổ chức, Ngày cấp) và chọn file chứng chỉ.");
       return;
     }
 
-    if (!certFile) {
-      alert("Vui lòng chọn file chứng chỉ");
-      return;
+    if (certExpiryDate) {
+      const [issueDay, issueMonth, issueYear] = certIssueDate.split('/').map(Number);
+      const [expiryDay, expiryMonth, expiryYear] = certExpiryDate.split('/').map(Number);
+      
+      const issueDateObj = new Date(issueYear, issueMonth - 1, issueDay);
+      const expiryDateObj = new Date(expiryYear, expiryMonth - 1, expiryDay);
+
+      if (expiryDateObj <= issueDateObj) {
+        Alert.alert("Lỗi", "Ngày hết hạn phải sau ngày cấp.");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -344,7 +353,7 @@ export default function CertificateDetailScreen() {
       router.back();
     } catch (error) {
       console.error('Error adding certificate:', error);
-      alert("Có lỗi xảy ra. Vui lòng thử lại.");
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
@@ -428,6 +437,7 @@ export default function CertificateDetailScreen() {
             mode="date"
             onConfirm={handleIssueDateConfirm}
             onCancel={() => setShowIssueDatePicker(false)}
+            maximumDate={new Date()}
           />
           
           <Text style={styles.inputLabel}>Ngày hết hạn</Text>
@@ -557,7 +567,7 @@ export default function CertificateDetailScreen() {
                 style={styles.addButton}
                 labelStyle={{ color: 'white' }}
                 onPress={handleAddCertificate}
-                disabled={!certName.trim() || submitting}
+                disabled={submitting}
                 loading={submitting}
               >
                 Lưu thay đổi
@@ -577,7 +587,7 @@ export default function CertificateDetailScreen() {
                 style={styles.addButton}
                 labelStyle={{ color: 'white' }}
                 onPress={handleAddCertificate}
-                disabled={!certName.trim() || submitting}
+                disabled={submitting}
                 loading={submitting}
               >
                 Thêm chứng chỉ

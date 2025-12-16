@@ -6,8 +6,8 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye, X } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, ImageBackground, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, DeviceEventEmitter, FlatList, Image, ImageBackground, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -166,6 +166,16 @@ export default function KnowledgeScreen() {
   const [isSearch, setIsSearch] = useState(false);
   const [searchParams, setSearchParams] = useState<any>(null);
   const tabBarHeight = useBottomTabBarHeight();
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener("scrollToTopKnowledge", () => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const fetchKnowledge = useCallback(async (isRefresh = false) => {
     if (!isRefresh) {
@@ -263,6 +273,7 @@ export default function KnowledgeScreen() {
       </View>}
 
       <FlatList
+        ref={flatListRef}
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (

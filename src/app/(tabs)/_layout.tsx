@@ -1,6 +1,7 @@
 import Colors from "@/src/constants/colors";
 import { Tabs } from "expo-router";
 import { BookOpen, Calendar, House, MessageCircle, UserRound } from 'lucide-react-native';
+import { DeviceEventEmitter } from "react-native";
 
 export default function TabsLayout() {
   return (
@@ -23,6 +24,13 @@ export default function TabsLayout() {
 
       <Tabs.Screen 
         name="home" 
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              DeviceEventEmitter.emit("scrollToTopHome");
+            }
+          },
+        })}
         options={{
           title: "Trang chủ",
           tabBarIcon: ({color, size}) => (
@@ -31,6 +39,13 @@ export default function TabsLayout() {
         }}/>
       <Tabs.Screen 
         name="knowledge" 
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              DeviceEventEmitter.emit("scrollToTopKnowledge");
+            }
+          },
+        })}
         options={{
           title: "Tri thức",
           tabBarIcon: ({color, size}) => (

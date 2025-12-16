@@ -159,9 +159,10 @@ export default function OTPVerificationScreen() {
               <Button
                 mode="contained"
                 style={styles.btnVerify}
+                labelStyle={{ color: 'white' }}
                 onPress={handleSendOTP}
                 loading={sendingOtp}
-                disabled={sendingOtp || !email}
+                disabled={sendingOtp}
               >
                 Gửi mã OTP
               </Button>
@@ -170,9 +171,10 @@ export default function OTPVerificationScreen() {
                 <Button
                   mode="contained"
                   style={styles.btnVerify}
+                  labelStyle={{ color: 'white' }}
                   onPress={handleEmailVerification}
                   loading={verifying}
-                  disabled={verifying || sendingOtp || !otp}
+                  disabled={verifying || sendingOtp}
                 >
                   Xác thực email
                 </Button>

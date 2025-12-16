@@ -6,7 +6,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Clock, Coins, Eye, Flag, Hand, MessageCircle, MoreHorizontal, Package, Sparkles, Star, ThumbsDown, ThumbsUp, Wallet, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, DeviceEventEmitter, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Button, SegmentedButtons, Switch } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -67,6 +67,16 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<{ id: string, name: string, description: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [onlyShowAvailable, setOnlyShowAvailable] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener("scrollToTopHome", () => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const fetchServicePackages = useCallback(async (page: number = 1, filterCategoryId?: string) => {
     if (page === 1) {
@@ -539,6 +549,7 @@ export default function HomeScreen() {
       {loading && <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />}
 
       {!loading && <FlatList
+        ref={flatListRef}
         data={activePage === "search" && searchType === "seers" ? seers : servicePackages}
         renderItem={({ item }) => (
           activePage === "search" && searchType === "seers" ? (

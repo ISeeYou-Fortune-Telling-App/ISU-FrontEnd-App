@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -152,7 +152,7 @@ export default function SeerRegistrationStep2Screen() {
       await SecureStore.setItemAsync("seerRegistrationStep2", JSON.stringify(step2Data));
       router.push("/seer-registration-step3" as any);
     } catch (error) {
-      alert("Có lỗi xảy ra. Vui lòng thử lại.");
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
 
