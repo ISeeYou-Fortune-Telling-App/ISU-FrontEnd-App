@@ -440,7 +440,12 @@ export default function ManageCertificateScreen() {
             <Text style={styles.emptyText}>
               {selectedStatus === "ALL"
                 ? "Chưa có chứng chỉ nào, hãy thêm mới để hoàn thiện hồ sơ."
-                : `Không có chứng chỉ nào ở trạng thái ${selectedStatus.toLowerCase()}.`}
+                : `Không có chứng chỉ nào ở trạng thái ${
+                    selectedStatus === 'PENDING' ? 'Chờ duyệt' :
+                    selectedStatus === 'APPROVED' ? 'Đã duyệt' :
+                    selectedStatus === 'REJECTED' ? 'Từ chối' :
+                    selectedStatus.toLowerCase()
+                  }.`}
             </Text>
           )
         }

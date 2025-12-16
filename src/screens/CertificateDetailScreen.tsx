@@ -4,7 +4,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
+import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar, LucideX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -282,7 +282,7 @@ export default function CertificateDetailScreen() {
       return;
     }
 
-    if (mode === 'create' && !certFile) {
+    if (!certFile) {
       alert("Vui lòng chọn file chứng chỉ");
       return;
     }
@@ -410,7 +410,7 @@ export default function CertificateDetailScreen() {
             />
           )}
           
-          <Text style={styles.inputLabel}>Ngày nhận</Text>
+          <Text style={styles.inputLabel}>Ngày cấp</Text>
           <TouchableOpacity onPress={() => (!isViewMode || isEditingEnabled) && setShowIssueDatePicker(true)} disabled={isViewMode && !isEditingEnabled}>
             <TextInput
               mode="outlined"
@@ -494,19 +494,31 @@ export default function CertificateDetailScreen() {
           <Text style={styles.charCountText}>{charCount}/1000 ký tự</Text>
           
           <Text style={styles.inputLabel}>File chứng chỉ</Text>
-          <TouchableOpacity 
-            style={[styles.filePickButton, isViewMode && !isEditingEnabled && certFile && styles.fileViewButton]} 
-            onPress={isViewMode && !isEditingEnabled && certFile ? handleFileView : handleFilePick}
-          >
-            <MaterialIcons 
-              name={isViewMode && !isEditingEnabled ? (certFile ? "open-in-new" : "description") : "file-upload"} 
-              size={24} 
-              color={isViewMode && !isEditingEnabled && certFile ? Colors.primary : isViewMode && !isEditingEnabled ? Colors.gray : Colors.primary} 
-            />
-            <Text style={[styles.filePickText, isViewMode && !isEditingEnabled && !certFile && { color: Colors.gray }]}>
-              {certFile ? (isViewMode && !isEditingEnabled ? `Xem file: ${certFile.name}` : certFile.name) : "Chọn file để tải lên"}
-            </Text>
-          </TouchableOpacity>
+          {certFile && (isEditingEnabled || !isViewMode) ? (
+            <View style={styles.fileSelectedContainer}>
+              <View style={styles.fileInfo}>
+                <MaterialIcons name="description" size={24} color={Colors.primary} />
+                <Text style={styles.fileName} numberOfLines={1}>{certFile.name}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setCertFile(null)}>
+                <LucideX size={24} color="#E53935" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.filePickButton, isViewMode && !isEditingEnabled && certFile && styles.fileViewButton]} 
+              onPress={isViewMode && !isEditingEnabled && certFile ? handleFileView : handleFilePick}
+            >
+              <MaterialIcons 
+                name={isViewMode && !isEditingEnabled ? (certFile ? "open-in-new" : "description") : "file-upload"} 
+                size={24} 
+                color={isViewMode && !isEditingEnabled && certFile ? Colors.primary : isViewMode && !isEditingEnabled ? Colors.gray : Colors.primary} 
+              />
+              <Text style={[styles.filePickText, isViewMode && !isEditingEnabled && !certFile && { color: Colors.gray }]}>
+                {certFile ? (isViewMode && !isEditingEnabled ? `Xem file: ${certFile.name}` : certFile.name) : "Chọn file để tải lên"}
+              </Text>
+            </TouchableOpacity>
+          )}
           
           <View style={{ height: 80 }} />
         </ScrollView>
@@ -746,6 +758,28 @@ const styles = StyleSheet.create({
   filePickText: {
     marginLeft: 12,
     color: Colors.primary,
+  },
+  fileSelectedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 12,
+    backgroundColor: '#f8f9fa',
+  },
+  fileInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 10,
+  },
+  fileName: {
+    marginLeft: 12,
+    color: Colors.black,
+    flex: 1,
   },
   footer: {
     flexDirection: "row",
