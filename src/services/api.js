@@ -216,6 +216,8 @@ export const searchKnowledgeItems = (params) => {
 };
 export const getKnowledgeCategories = (params) => API.get("/core/public/knowledge-categories", { params });
 export const getKnowledgeItemDetail = (id) => API.get(`/core/knowledge-items/${id}`);
+export const incrementKnowledgeViewCount = (id) => API.post(`/core/knowledge-items/${id}/view`);
+
 
 export const getChatConversations = (params) =>
   ChatAPI.get("/chat/conversations", { params });

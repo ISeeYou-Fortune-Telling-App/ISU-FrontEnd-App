@@ -144,8 +144,8 @@ export default function ReportScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={100}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
         <ScrollView
           style={styles.content}
@@ -192,7 +192,7 @@ export default function ReportScreen() {
               outlineStyle={styles.inputOutline}
             />
 
-            <Text style={styles.label}>Bằng chứng</Text>
+            <Text style={styles.label}>Tải lên file bằng chứng</Text>
             <TouchableOpacity style={styles.filePickButton} onPress={handleFilePick}>
               <Upload size={24} color={Colors.primary} />
               <Text style={styles.filePickText}>
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: 4,
     color: Colors.black,
   },
   input: {
@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
   },
   textAreaContent: {
     paddingTop: 12,
+    paddingBottom: 12,
   },
   filePickButton: {
     flexDirection: "column",
@@ -339,12 +340,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
     borderStyle: "dashed",
     borderRadius: 8,
-    padding: 32,
-    marginVertical: 12,
+    padding: 16,
+    // marginVertical: 12,
+    marginBottom: 12,
     backgroundColor: "#EFF6FF",
   },
   filePickText: {
-    marginTop: 12,
+    marginTop: 8,
     color: Colors.primary,
     fontWeight: "500",
   },
@@ -387,7 +389,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   certificatesSection: {
-    marginTop: 24,
+    // marginTop: 24,
   },
   certificatesTitle: {
     fontWeight: "500",
@@ -398,9 +400,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#eee",
+    backgroundColor: "#F9FAFB",
     borderRadius: 8,
     padding: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   certificateIcon: {
     marginRight: 12,

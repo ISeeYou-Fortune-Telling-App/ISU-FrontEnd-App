@@ -7,7 +7,9 @@ import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -15,7 +17,7 @@ import {
 } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CATEGORY_MAPPINGS: Record<string, { icon: string; color: string; bgColor: string }> = {
   "Cung Hoàng Đạo": { icon: "star", color: Colors.categoryColors.zodiac.icon, bgColor: Colors.categoryColors.zodiac.chip },
@@ -99,6 +101,7 @@ export default function CertificateDetailScreen() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadingCertificate, setLoadingCertificate] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (isViewMode && certificateId) {
@@ -274,8 +277,8 @@ export default function CertificateDetailScreen() {
   };
 
   const handleAddCertificate = async () => {
-    if (!certName.trim() || !certIssuer.trim() || !certIssueDate || !certExpiryDate) {
-      alert("Vui lòng điền đầy đủ thông tin chứng chỉ");
+    if (!certName.trim() || !certIssuer.trim() || !certIssueDate) {
+      alert("Vui lòng điền đầy đủ thông tin chứng chỉ (Tên, Tổ chức, Ngày cấp)");
       return;
     }
 
@@ -287,7 +290,9 @@ export default function CertificateDetailScreen() {
     setSubmitting(true);
 
     const issuedAt = `${certIssueDate.split('/')[2]}-${certIssueDate.split('/')[1].padStart(2, '0')}-${certIssueDate.split('/')[0].padStart(2, '0')}T00:00:00`;
-    const expirationDate = `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`;
+    const expirationDate = certExpiryDate 
+      ? `${certExpiryDate.split('/')[2]}-${certExpiryDate.split('/')[1].padStart(2, '0')}-${certExpiryDate.split('/')[0].padStart(2, '0')}T00:00:00`
+      : '';
 
     try {
       if (mode === 'create' || (mode === 'view' && isEditingEnabled)) {
@@ -346,7 +351,7 @@ export default function CertificateDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <MaterialIcons name="arrow-back" size={28} color={Colors.black} onPress={() => router.back()} />
         <View style={styles.titleContainer}>
@@ -355,7 +360,11 @@ export default function CertificateDetailScreen() {
         <View style={styles.headerPlaceholder} />
       </View>
       
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
@@ -501,8 +510,9 @@ export default function CertificateDetailScreen() {
           
           <View style={{ height: 80 }} />
         </ScrollView>
+      </KeyboardAvoidingView>
         
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           {isViewMode && !isEditingEnabled ? (
             <>
               <Button
@@ -563,7 +573,6 @@ export default function CertificateDetailScreen() {
             </>
           )}
         </View>
-      </View>
     </SafeAreaView>
   );
 }

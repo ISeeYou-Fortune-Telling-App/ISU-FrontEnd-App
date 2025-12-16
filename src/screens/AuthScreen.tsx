@@ -298,6 +298,11 @@ export default function AuthScreen() {
             setError("Vui lòng điền đầy đủ thông tin đăng ký.");
             return;
         }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError("Email không hợp lệ.");
+            return;
+        }
         if (password.length < 8) {
             setError("Mật khẩu phải có ít nhất 8 ký tự.");
             return;
@@ -370,7 +375,7 @@ export default function AuthScreen() {
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.keyboardAvoidingView}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"

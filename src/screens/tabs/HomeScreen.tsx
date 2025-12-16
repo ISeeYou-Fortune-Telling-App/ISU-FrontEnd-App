@@ -324,7 +324,7 @@ export default function HomeScreen() {
           }
         })();
       }
-    }, [searchType, fetchServicePackages, fetchSeers, selectedCategory])
+    }, [searchType, selectedCategory, servicePackages.length, seers.length, categories.length])
   );
 
   useEffect(() => {
@@ -337,7 +337,7 @@ export default function HomeScreen() {
         fetchSeers(1);
       }
     }
-  }, [JSON.stringify(searchParams), searchType, fetchServicePackages, fetchSeers]);
+  }, [JSON.stringify(searchParams), searchType]);
 
   useEffect(() => {
     if (activePage === "search") {
@@ -349,7 +349,7 @@ export default function HomeScreen() {
         fetchSeers(1);
       }
     }
-  }, [searchType, activePage, fetchServicePackages, fetchSeers]);
+  }, [searchType, activePage]);
 
   useEffect(() => {
     if (searchType === "packages") {

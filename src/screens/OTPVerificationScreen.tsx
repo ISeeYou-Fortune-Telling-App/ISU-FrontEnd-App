@@ -16,7 +16,8 @@ export default function OTPVerificationScreen() {
   const { email: paramEmail } = useLocalSearchParams(); 
   const [email, setEmail] = useState(typeof paramEmail === 'string' ? paramEmail : "");
   const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
   const isEmailProvided = typeof paramEmail === 'string' && paramEmail.length > 0; 
@@ -33,7 +34,7 @@ export default function OTPVerificationScreen() {
     }
 
     try {
-      setLoading(true);
+      setVerifying(true);
       console.log("Verifying email with data:", { email, otpCode: otp });
       const res = await verifyEmail({
         email,
@@ -48,7 +49,7 @@ export default function OTPVerificationScreen() {
       const message = err?.response?.data?.message || "Không thể xác thực email. Vui lòng thử lại.";
       Alert.alert("Lỗi", message);
     } finally {
-      setLoading(false);
+      setVerifying(false);
     }
   };
 
@@ -64,7 +65,7 @@ export default function OTPVerificationScreen() {
     }
 
     try {
-      setLoading(true);
+      setSendingOtp(true);
       console.log("Sending OTP to email:", email);
       await resendOTP(email);
       setOtpSent(true);
@@ -75,7 +76,7 @@ export default function OTPVerificationScreen() {
       const message = err?.response?.data?.message || "Không thể gửi mã OTP. Vui lòng thử lại.";
       Alert.alert("Lỗi", message);
     } finally {
-      setLoading(false);
+      setSendingOtp(false);
     }
   };
 
@@ -91,7 +92,7 @@ export default function OTPVerificationScreen() {
     }
 
     try {
-      setLoading(true);
+      setSendingOtp(true);
       await resendOTP(email);
       Alert.alert("Thành công", "Mã OTP đã được gửi lại đến email của bạn.");
     } catch (err: any) {
@@ -99,7 +100,7 @@ export default function OTPVerificationScreen() {
       const message = err?.response?.data?.message || "Không thể gửi lại mã OTP. Vui lòng thử lại.";
       Alert.alert("Lỗi", message);
     } finally {
-      setLoading(false);
+      setSendingOtp(false);
     }
   };
 
@@ -159,8 +160,8 @@ export default function OTPVerificationScreen() {
                 mode="contained"
                 style={styles.btnVerify}
                 onPress={handleSendOTP}
-                loading={loading}
-                disabled={loading || !email}
+                loading={sendingOtp}
+                disabled={sendingOtp || !email}
               >
                 Gửi mã OTP
               </Button>
@@ -170,8 +171,8 @@ export default function OTPVerificationScreen() {
                   mode="contained"
                   style={styles.btnVerify}
                   onPress={handleEmailVerification}
-                  loading={loading}
-                  disabled={loading || !otp}
+                  loading={verifying}
+                  disabled={verifying || sendingOtp || !otp}
                 >
                   Xác thực email
                 </Button>
@@ -179,8 +180,8 @@ export default function OTPVerificationScreen() {
                   mode="text"
                   style={styles.btnResend}
                   onPress={handleResendOTP}
-                  disabled={loading}
-                  loading={loading}
+                  disabled={verifying || sendingOtp}
+                  loading={sendingOtp}
                 >
                   Gửi lại mã OTP
                 </Button>
@@ -239,6 +240,7 @@ const styles = StyleSheet.create({
   btnVerify: {
     backgroundColor: Colors.primary,
     marginTop: 16,
+    color: Colors.white,
   },
   btnResend: {
     marginTop: 8,

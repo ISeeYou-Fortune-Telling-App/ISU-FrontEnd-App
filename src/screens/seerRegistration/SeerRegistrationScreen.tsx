@@ -58,6 +58,11 @@ export default function SeerRegistrationScreen() {
       alert("Vui lòng nhập email");
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      alert("Email không hợp lệ");
+      return;
+    }
     if (!phone.trim()) {
       alert("Vui lòng nhập số điện thoại");
       return;
@@ -68,6 +73,10 @@ export default function SeerRegistrationScreen() {
     }
     if (!password) {
       alert("Vui lòng nhập mật khẩu");
+      return;
+    }
+    if (password.length < 8) {
+      alert("Mật khẩu phải có ít nhất 8 ký tự");
       return;
     }
     if (password !== confirmPassword) {
@@ -109,9 +118,9 @@ export default function SeerRegistrationScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="padding"
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
         <ScrollView
           style={styles.content}

@@ -6,7 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye, X } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, ImageBackground, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Button } from "react-native-paper";
@@ -164,6 +164,7 @@ export default function KnowledgeScreen() {
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [isSearch, setIsSearch] = useState(false);
+  const [searchParams, setSearchParams] = useState<any>(null);
   const tabBarHeight = useBottomTabBarHeight();
 
   const fetchKnowledge = useCallback(async (isRefresh = false) => {
@@ -174,15 +175,39 @@ export default function KnowledgeScreen() {
     }
     setError(null);
     try {
-      const response = await getKnowledgeItems({
-        page: 1,
-        limit: 15,
-        sortType: "desc",
-        sortBy: "createdAt",
-      });
+      let response;
+      if (isSearch && searchParams) {
+        response = await searchKnowledgeItems({
+          page: 1,
+          limit: 15,
+          sortType: searchParams.sortType ?? 'desc',
+          sortBy: searchParams.sortBy ?? 'createdAt',
+          title: searchParams.title,
+          categoryIds: searchParams.categoryIds,
+          status: searchParams.status,
+        });
+      } else {
+        response = await getKnowledgeItems({
+          page: 1,
+          limit: 15,
+          sortType: "desc",
+          sortBy: "createdAt",
+        });
+      }
 
-      const data: KnowledgeItem[] = response?.data?.data ?? [];
-      setItems(data);
+      const root = response?.data ?? response;
+      let dataArray: any[] = [];
+      if (Array.isArray(root)) {
+        dataArray = root;
+      } else if (Array.isArray(root?.data)) {
+        dataArray = root.data;
+      } else if (Array.isArray(root?.items)) {
+        dataArray = root.items;
+      } else if (Array.isArray(root?.results)) {
+        dataArray = root.results;
+      }
+
+      setItems(dataArray as KnowledgeItem[]);
     } catch (err: any) {
       console.error("Failed to load knowledge items", err);
       const message =
@@ -197,10 +222,9 @@ export default function KnowledgeScreen() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [isSearch, searchParams]);
 
   const handleRefresh = useCallback(() => {
-    setIsSearch(false);
     fetchKnowledge(true);
   }, [fetchKnowledge]);
 
@@ -210,6 +234,12 @@ export default function KnowledgeScreen() {
     }, [fetchKnowledge])
   );
 
+  useEffect(() => {
+    if (isSearch) {
+      fetchKnowledge(false);
+    }
+  }, [searchParams, isSearch]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaView}>
       <>
@@ -217,38 +247,11 @@ export default function KnowledgeScreen() {
         <KnowledgeSearchModal
           visible={searchVisible}
           onClose={() => setSearchVisible(false)}
-          onApply={async (params) => {
-            try {
-              setLoading(true);
-              setIsSearch(true);
-              const response = await searchKnowledgeItems({
-                page: 1,
-                limit: 15,
-                sortType: params.sortType ?? 'desc',
-                sortBy: params.sortBy ?? 'createdAt',
-                title: params.title,
-                categoryIds: params.categoryIds,
-                status: params.status,
-              });
-              const root = response?.data ?? response;
-              let dataArray: any[] = [];
-              if (Array.isArray(root)) {
-                dataArray = root;
-              } else if (Array.isArray(root?.data)) {
-                dataArray = root.data;
-              } else if (Array.isArray(root?.items)) {
-                dataArray = root.items;
-              } else if (Array.isArray(root?.results)) {
-                dataArray = root.results;
-              }
-
-              setItems(dataArray as KnowledgeItem[]);
-            } catch (err: any) {
-              console.error('Search failed', err);
-            } finally {
-              setLoading(false);
-            }
+          onApply={(params) => {
+            setSearchParams(params);
+            setIsSearch(true);
           }}
+          initial={searchParams}
         />
 
       </>

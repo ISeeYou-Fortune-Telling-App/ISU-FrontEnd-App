@@ -1,6 +1,6 @@
 import Colors from "@/src/constants/colors";
 import { getKnowledgeCategories } from "@/src/services/api";
-import { ChevronDown, ChevronUp, X } from "lucide-react-native";
+import { X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -48,9 +48,6 @@ export default function KnowledgeSearchModal({
   const [titleError, setTitleError] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [selectorLayout, setSelectorLayout] = useState({ y: 0, height: 0 });
-  const [status, setStatus] = useState<string | null>(initial?.status ?? null);
   const [sortType, setSortType] = useState<"desc" | "asc">((initial?.sortType as any) ?? "desc");
   const [sortBy, setSortBy] = useState<"createdAt" | "viewCount" | "title">((initial?.sortBy as any) ?? "createdAt");
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -59,7 +56,6 @@ export default function KnowledgeSearchModal({
     setTitle(initial?.title ?? "");
     setTitleError(false);
     setSelectedCategoryIds(initial?.categoryIds ?? []);
-    setStatus(initial?.status ?? null);
     setSortType((initial?.sortType as any) ?? "desc");
     setSortBy((initial?.sortBy as any) ?? "createdAt");
   }, [initial]);
@@ -89,12 +85,8 @@ export default function KnowledgeSearchModal({
   }, [visible]);
 
   const handleApply = () => {
-    // if (!title.trim()) {
-    //   setTitleError(true);
-    //   return;
-    // }
     setTitleError(false);
-    onApply?.({ title: title.trim(), categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined, status, sortType, sortBy });
+    onApply?.({ title: title.trim(), categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined, status: 'PUBLISHED', sortType, sortBy });
     onClose();
   };
 
@@ -115,80 +107,34 @@ export default function KnowledgeSearchModal({
             {loadingCategories ? (
               <ActivityIndicator color={Colors.primary} />
             ) : (
-              <View>
-                <TouchableOpacity
-                  style={styles.selector}
-                  onPress={() => setCategoryOpen((v) => !v)}
-                  activeOpacity={0.85}
-                  onLayout={(e) => {
-                    const { y, height } = e.nativeEvent.layout;
-                    setSelectorLayout({ y, height });
-                  }}
-                >
-                  <Text style={styles.selectorText}>
-                    {selectedCategoryIds.length === 0
-                      ? "Tất cả"
-                      : (() => {
-                          const selectedNames = categories
-                            .filter((c) => selectedCategoryIds.includes(c.id))
-                            .map((c) => c.name);
-                          if (selectedNames.length <= 2) {
-                            return selectedNames.join(", ");
-                          } else {
-                            return `${selectedNames.slice(0, 2).join(", ")}...`;
-                          }
-                        })()
-                    }
-                  </Text>
-                  {categoryOpen ? <ChevronUp size={16} color="#6B7280" /> : <ChevronDown size={16} color="#6B7280" />}
-                </TouchableOpacity>
-
-                {categoryOpen ? (
-                  <View style={[
-                    styles.listBox,
-                    {
-                      position: 'absolute',
-                      top: selectorLayout.y + selectorLayout.height + 8,
-                      left: 16,
-                      right: 16,
-                      zIndex: 9999,
-                      elevation: 10,
-                      backgroundColor: Colors.white,
-                    }
-                  ]}>
-                    <ScrollView nestedScrollEnabled style={{ maxHeight: 300 }}>
-                      <TouchableOpacity style={[styles.option, selectedCategoryIds.length === 0 ? styles.optionActive : null]} onPress={() => { setSelectedCategoryIds([]); setCategoryOpen(false); }}>
-                        <Text style={[styles.optionText, selectedCategoryIds.length === 0 ? styles.optionTextActive : null]}>Tất cả</Text>
-                      </TouchableOpacity>
-                      {categories.map((c) => {
-                        const palette = getCategoryStyle(c.name);
-                        return (
-                          <TouchableOpacity key={c.id} style={[styles.categoryOption, selectedCategoryIds.includes(c.id) ? styles.categoryOptionActive : null]} onPress={() => { setSelectedCategoryIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]); }}>
-                            <View style={[styles.categoryChip, { backgroundColor: palette.background }]}>
-                              <Text style={[styles.categoryChipText, { color: palette.text }]}>{c.name}</Text>
-                            </View>
-                          </TouchableOpacity>
+              <View style={styles.chipContainer}>
+                {categories.map((c) => {
+                  const palette = getCategoryStyle(c.name);
+                  const isSelected = selectedCategoryIds.includes(c.id);
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: isSelected ? palette.background : 'transparent',
+                          borderWidth: 1,
+                          borderColor: isSelected ? palette.text : '#E5E7EB'
+                        },
+                        isSelected && styles.chipSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedCategoryIds(prev =>
+                          prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
                         );
-                      })}
-                    </ScrollView>
-                  </View>
-                ) : null}
+                      }}
+                    >
+                      <Text style={[styles.chipText, { color: isSelected ? palette.text : 'black', fontWeight: isSelected ? '600' : '400' }]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
-
-            <Text style={[styles.label, { marginTop: 12 }]}>Trạng thái</Text>
-            <View style={styles.row}>
-              {[
-                { value: null, label: "Tất cả" },
-                { value: "DRAFT", label: "Bản nháp" },
-                { value: "PUBLISHED", label: "Đã xuất bản" },
-                { value: "HIDDEN", label: "Đã ẩn" },
-              ].map((s) => (
-                <TouchableOpacity key={String(s.value)} style={[styles.pill, status === s.value ? styles.pillActive : null]} onPress={() => setStatus(s.value)}>
-                  <Text style={[styles.pillText, status === s.value ? styles.pillTextActive : null]}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             <Text style={[styles.label, { marginTop: 12 }]}>Thứ tự</Text>
             <View style={styles.row}>
@@ -248,10 +194,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter",
   },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  chipSelected: {
+    paddingVertical: 7,
+    paddingHorizontal: 15,
+  },
+  chipText: {
+    fontSize: 14,
+  },
   row: { flexDirection: "row", flexWrap: "wrap" },
-  selector: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 8 },
-  selectorText: { color: "#374151" },
-  selectorCaret: { color: "#6B7280" },
   pill: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", marginRight: 8, marginBottom: 8 },
   pillActive: { backgroundColor: "#EEF2FF", borderColor: Colors.primary },
   pillText: { color: "#374151" },
