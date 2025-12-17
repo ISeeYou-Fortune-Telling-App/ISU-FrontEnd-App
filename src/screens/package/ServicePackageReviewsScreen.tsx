@@ -78,6 +78,7 @@ const ServicePackageReviewsScreen = () => {
         });
         if (rootReviewId) {
           setLoadedReplies(prev => new Map(prev).set(rootReviewId, mappedReviews));
+          setExpandedReviews(prev => new Set(prev).add(rootReviewId));
         }
         setPage(2);
         setHasMore(data.paging.totalPages > 1);
@@ -278,7 +279,8 @@ const ServicePackageReviewsScreen = () => {
   };
 
   const handleSendPress = () => {
-    postReview(comment, replyingTo || undefined);
+    const parentId = replyingTo || (rootReviewId ? rootReviewId : undefined);
+    postReview(comment, parentId);
   };
 
   const handleLongPress = (item: any) => {
@@ -359,9 +361,9 @@ const ServicePackageReviewsScreen = () => {
   };
 
   const renderReviewItem = ({ item, depth = 0 }: { item: any; depth?: number }) => {
-    const MAX_DEPTH = 10; 
+    const MAX_DEPTH = 8; 
     const currentColor = categoryColors[depth % categoryColors.length];
-    const marginLeft = depth * 10; 
+    const marginLeft = Math.min(depth, MAX_DEPTH) * 10; 
     const avatarStyle = styles.avatar;
     const commentContainerStyle = (item.ref_review_id && !(rootReviewId && item.review_id === rootReviewId))
       ? [styles.commentContainer, { marginLeft, borderLeftWidth: 3, borderLeftColor: currentColor, paddingLeft: 4 }]
@@ -371,11 +373,23 @@ const ServicePackageReviewsScreen = () => {
     const isTextExpanded = expandedText.has(item.review_id);
     const isLoadingReplies = loadingReplies.has(item.review_id);
     const hasRepliesLoaded = loadedReplies.has(item.review_id);
+    const avatarUri = item.customer.customerAvatar ? { uri: item.customer.customerAvatar } : require('@/assets/images/user-placeholder.png');
+
+    const handleDeepViewPress = () => {
+      router.push({
+        pathname: "/service-package-reviews",
+        params: {
+          id: id,
+          rootReviewId: item.review_id,
+          rootReview: JSON.stringify(item)
+        }
+      });
+    };
 
     return (
       <View>
         <View style={commentContainerStyle}>
-          <Image source={{ uri: item.customer.customerAvatar }} style={avatarStyle} />
+          <Image source={avatarUri} style={avatarStyle} />
           <TouchableOpacity 
             style={styles.commentContent} 
             activeOpacity={0.9}
@@ -394,7 +408,7 @@ const ServicePackageReviewsScreen = () => {
                 <MessageCircle size={20} color="gray" />
                 <Text style={styles.commentDate}>Trả lời</Text>
               </TouchableOpacity>
-              {depth < MAX_DEPTH && !rootReviewId && (!hasRepliesLoaded || replies.length > 0 || isLoadingReplies) && (
+              {depth < MAX_DEPTH && (!hasRepliesLoaded || replies.length > 0 || isLoadingReplies) && (
                 <TouchableOpacity 
                   onPress={() => toggleReplies(item.review_id)} 
                   disabled={hasRepliesLoaded && replies.length === 0}
@@ -405,11 +419,16 @@ const ServicePackageReviewsScreen = () => {
                 </TouchableOpacity>
               )}
             </View>
+            {depth >= MAX_DEPTH && (
+              <TouchableOpacity onPress={handleDeepViewPress} style={{ marginTop: 8 }}>
+                <Text style={styles.viewRepliesText}>Xem tiếp trả lời ở trang mới &gt;</Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         </View>
-        {(isExpanded || rootReviewId) && replies.map((reply: any, index: number) => (
+        {isExpanded && depth < MAX_DEPTH && replies.map((reply: any, index: number) => (
           <View key={reply.review_id}>
-            {renderReviewItem({ item: reply, depth: depth + 1 >= MAX_DEPTH ? 0 : depth + 1 })}
+            {renderReviewItem({ item: reply, depth: depth + 1 })}
           </View>
         ))}
       </View>
@@ -457,7 +476,7 @@ const ServicePackageReviewsScreen = () => {
           <ArrowLeft size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {rootReviewId ? 'Trả lời' : 'Bình luận'}
+          {rootReviewId ? 'Xem tiếp trả lời' : 'Bình luận'}
         </Text>
         <View style={styles.headerPlaceholder} /> 
       </View>
@@ -494,13 +513,12 @@ const ServicePackageReviewsScreen = () => {
           ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
         />
       </View>
-      {!rootReviewId && (
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-          style={styles.keyboardAvoidingView}
-        >
-          {(replyingTo || editingReview) && (
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        style={styles.keyboardAvoidingView}
+      >
+        {(replyingTo || editingReview) && (
             <View style={styles.replyIndicator}>
               <Text style={styles.replyIndicatorText}>
                 {editingReview ? 'Đang chỉnh sửa bình luận' : 'Đang trả lời bình luận'}
@@ -536,8 +554,7 @@ const ServicePackageReviewsScreen = () => {
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      )}
+      </KeyboardAvoidingView>
       
       {/* Edit Modal */}
       <Modal
@@ -706,11 +723,14 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 40,
+    minHeight: 40,
+    maxHeight: 100,
     backgroundColor: '#f0f2f5',
     borderRadius: 20,
     paddingHorizontal: 16,
+    paddingVertical: 10,
     marginRight: 8,
+    color: 'black',
   },
   iconButton: {
     padding: 8,
