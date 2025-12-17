@@ -1024,6 +1024,12 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
       setIsAnalysisPending(false);
     }
 
+    if (!trimmed || trimmed.length === 0) {
+      setIsSending(false);
+      clearCountdown();
+      return;
+    }
+
     const combinedQuestionParts = [trimmed, ...attachmentNotes, ...analysisSummaries].filter(
       (part) => part && part.trim().length > 0,
     );
