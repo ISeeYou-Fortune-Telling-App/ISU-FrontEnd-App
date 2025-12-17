@@ -1366,6 +1366,7 @@ export default function ChatDetailScreen() {
                   color: isOutgoing ? "#ffffff" : "#0f172a",
                   fontSize: 15,
                   lineHeight: 22,
+                  fontFamily: "inter"
                 },
                 link: {
                   color: isOutgoing ? "#bfdbfe" : "#3b82f6",
@@ -1729,7 +1730,7 @@ export default function ChatDetailScreen() {
           showsVerticalScrollIndicator={false}
         />
 
-        <View style={[styles.inputArea, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.inputArea, { paddingVertical: Math.max(insets.bottom, 12) }]}>
           {selectedAttachment ? (
             <View style={styles.previewRow}>
               <View style={styles.previewItem}>

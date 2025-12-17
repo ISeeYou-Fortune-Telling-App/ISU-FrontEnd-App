@@ -987,7 +987,7 @@ const ServicePackageCard = ({ servicePackage, onLike, onDislike, onBooking, user
       )}
 
       {/* --- BOOK BUTTON --- */}
-      {userRole !== "SEER" && <TouchableOpacity
+      {userRole == "CUSTOMER" && <TouchableOpacity
         style={styles.bookButtonContainer}
         onPress={() =>
           router.push({

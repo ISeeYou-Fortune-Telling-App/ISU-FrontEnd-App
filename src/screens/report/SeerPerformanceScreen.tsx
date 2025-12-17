@@ -191,11 +191,11 @@ export default function SeerPerformanceScreen() {
                   </View>
                 </View>
 
-                <View style={styles.cardFooterRow}>
-                  <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth} disabled={month == now.getMonth() + 1}>
-                    <Text style={{ color: month == now.getMonth() + 1 ? Colors.gray : Colors.white }}>Xem tháng hiện tại</Text>
+                {month != (now.getMonth() + 1) && <View style={styles.cardFooterRow}>
+                  <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth}>
+                    <Text style={{ color: Colors.white }}>Xem tháng hiện tại</Text>
                   </TouchableOpacity>
-                </View>
+                </View>}
               </LinearGradient>
 
               <View style={{ height: 20 }} />

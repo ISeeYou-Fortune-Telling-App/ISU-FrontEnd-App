@@ -284,7 +284,7 @@ const MARKDOWN_STYLES = {
   user: StyleSheet.create({
     ...markdownBase,
     body: { ...markdownBase.body, color: Colors.white },
-    text: { ...markdownBase.text, color: Colors.white },
+    text: { ...markdownBase.text, color: Colors.white, fontFamily: "inter" },
     heading1: { ...markdownBase.heading1, color: Colors.white },
     heading2: { ...markdownBase.heading2, color: Colors.white },
     heading3: { ...markdownBase.heading3, color: Colors.white },
@@ -1498,6 +1498,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "rgba(255,255,255,0.85)",
     lineHeight: 18,
+    fontFamily: "inter"
   },
   optionControlRow: {
     marginTop: 16,
@@ -1521,6 +1522,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.85)",
     marginTop: 2,
+    fontFamily: "inter"
   },
   listContent: {
     paddingHorizontal: 16,

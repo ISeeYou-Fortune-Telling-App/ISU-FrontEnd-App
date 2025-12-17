@@ -919,8 +919,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   aiCardWrapper: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 16
   },
   aiCard: {
     flexDirection: "row",
@@ -954,6 +953,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.gray,
     lineHeight: 18,
+    fontFamily: "inter"
   },
   listContent: {
     paddingHorizontal: 16,
@@ -1011,6 +1011,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: Colors.gray,
+    fontFamily: "inter"
   },
   unreadBadge: {
     minWidth: 24,

@@ -239,7 +239,7 @@ export default function ProfileScreen() {
                 }}
               />
               <Text style={styles.name}>{fullName}</Text>
-              {role === "SEER" &&
+              {["SEER", "UNVERIFIED_SEER"].includes(role)  &&
                 <View style={{ flexDirection: "row", padding: 10, borderRadius: 30, borderWidth: 1, borderColor: Colors.grayBackground, alignItems: "center" }}>
                   <View style={{
                     padding: 6, marginRight: 5, borderRadius: 50,
@@ -252,9 +252,7 @@ export default function ProfileScreen() {
                   <Text style={{ fontFamily: "inter" }}>{
                     status == "ACTIVE" ? "ĐANG HOẠT ĐỘNG" :
                       status == "INACTIVE" ? "KHÔNG HOẠT ĐỘNG" :
-                        status == "VERIFIED" ? "DÃ XÁC MINH" :
-                          status == "UNVERIFIED" ? "CHƯA XÁC MINH" :
-                            "BỊ CHẶN"
+                        status == "VERIFIED" ? "DÃ XÁC MINH" : "CHƯA XÁC MINH"
                   }</Text>
                 </View>
               }

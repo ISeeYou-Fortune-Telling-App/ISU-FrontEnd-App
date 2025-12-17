@@ -179,11 +179,11 @@ export default function CustomerPotentialScreen() {
                 </View>
               </View>
 
-              <View style={styles.cardFooterRow}>
-                <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth} disabled={month == now.getMonth() + 1}>
-                  <Text style={{ color: month == now.getMonth() + 1 ? Colors.gray : Colors.white }}>Xem tháng hiện tại</Text>
+              {month != (now.getMonth() + 1) && <View style={styles.cardFooterRow}>
+                <TouchableOpacity style={styles.primaryBtn} onPress={gotoThisMonth}>
+                  <Text style={{ color: Colors.white }}>Xem tháng hiện tại</Text>
                 </TouchableOpacity>
-              </View>
+              </View>}
             </LinearGradient>
           )}
           <View style={{ height: 80 }} />
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
 
   statsRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
   statBox: { flex: 1, alignItems: "center" },
-  statNumber: { fontWeight: "700" },
+  statNumber: { fontWeight: "700", fontSize: 18 },
   statLabel: { color: "#555", fontSize: 12, marginTop: 4, fontFamily: "inter" },
 
   cardFooterRow: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
