@@ -7,14 +7,14 @@ import * as SecureStore from "expo-secure-store";
 import { LucideCoins, LucideEye, LucideHand, LucideMoreHorizontal, LucideSparkles, LucideStar, LucideX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    Alert,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Button, Text, TextInput } from "react-native-paper";
@@ -368,7 +368,7 @@ export default function CertificateDetailScreen() {
         } else {
           await createCertificate(formData);
         }
-        router.replace("/manage-certificate?refresh=true");
+        router.back();
       } else if ((isEditLocalMode || isViewLocalMode) && certificateId) {
         const certificateData = {
           id: certificateId,
@@ -782,7 +782,10 @@ const styles = StyleSheet.create({
   },
   textArea: {
     backgroundColor: "#fff",
-    minHeight: 100,
+    minHeight: 120,
+    lineHeight: 20,
+    fontSize: 16,
+    color: '#666666',
   },
   viewModeTextArea: {
     height: 160,
@@ -791,7 +794,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewModeDescriptionScroll: {
-    maxHeight: 160,
+    maxHeight: 120,
     borderWidth: 1,
     borderColor: '#666666',
     borderRadius: 4,
@@ -804,7 +807,7 @@ const styles = StyleSheet.create({
   viewModeDescriptionText: {
     fontSize: 16,
     color: '#666666',
-    lineHeight: 24,
+    lineHeight: 20,
   },
   charCountText: {
     textAlign: "right",
