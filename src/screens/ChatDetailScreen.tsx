@@ -886,8 +886,8 @@ export default function ChatDetailScreen() {
 
             if (conversation.conversationType == "ADMIN_CHAT") {
               setIsAdminChat(true);
-              setConversationTitle(conversation.customerName ?? "Quản trị viên ISU");
-              setPartnerAvatar(conversation.customerAvatarUrl ?? null);
+              setConversationTitle("Quản trị viên ISU");
+              setPartnerAvatar(null); 
             }
             else if (viewerIsSeer) {
               setConversationTitle(conversation.customerName ?? "Khách hàng");

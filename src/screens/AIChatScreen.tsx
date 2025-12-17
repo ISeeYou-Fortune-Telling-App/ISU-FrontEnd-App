@@ -7,7 +7,7 @@ import {
 } from "@/src/services/aiChat";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -836,12 +836,21 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
     [router],
   );
 
-  const handlePickImages = useCallback(async () => {
+  const handleTakePhoto = useCallback(async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-        multiple: true,
-        type: "image/*",
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Cần quyền truy cập camera",
+          "Vui lòng cấp quyền truy cập camera trong cài đặt để sử dụng tính năng này."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
       });
 
       if (result.canceled || !result.assets?.length) {
@@ -854,7 +863,48 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
         .map((asset, index) => ({
           id: `${timestamp}-${index}`,
           uri: asset.uri ?? "",
-          name: asset.name,
+          name: asset.fileName ?? `photo-${timestamp}.jpg`,
+          mimeType: asset.mimeType ?? "image/jpeg",
+          analysisType: "face" as AnalysisType,
+        }))
+        .filter((item) => item.uri.length > 0);
+
+      setSelectedImages((prev) => [...prev, ...attachments]);
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Không thể chụp ảnh", "Vui lòng thử lại sau.");
+    }
+  }, []);
+
+  const handlePickImages = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Cần quyền truy cập thư viện ảnh",
+          "Vui lòng cấp quyền truy cập thư viện ảnh trong cài đặt để sử dụng tính năng này."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const timestamp = Date.now();
+      const attachments = result.assets
+        .filter((asset) => asset.uri)
+        .map((asset, index) => ({
+          id: `${timestamp}-${index}`,
+          uri: asset.uri ?? "",
+          name: asset.fileName ?? `image-${timestamp}-${index}.jpg`,
           mimeType: asset.mimeType ?? "image/jpeg",
           analysisType: "face" as AnalysisType,
         }))
@@ -1282,6 +1332,9 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
         )}
 
         <View style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleTakePhoto}>
+            <Ionicons name="camera-outline" size={22} color={Colors.gray} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={handlePickImages}>
             <Ionicons name="image-outline" size={22} color={Colors.gray} />
           </TouchableOpacity>

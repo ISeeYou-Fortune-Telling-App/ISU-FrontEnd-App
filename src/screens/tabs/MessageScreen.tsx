@@ -127,8 +127,8 @@ const mapConversation = (item: any, index: number, currentUserId: string | null)
   let unreadCount = 0;
 
   if(item?.conversationType == "ADMIN_CHAT") {
-    title = item?.customerName ?? "Quản trị viên ISU";
-    avatarUrl = item?.customerAvatarUrl ?? avatarUrl;
+    title = "Quản trị viên ISU";
+    avatarUrl = null; 
     unreadCount = typeof item?.seerUnreadCount === "number" ? item.seerUnreadCount : typeof item?.customerUnreadCount === "number" ? item.customerUnreadCount : 0;
   }
   else if (viewerIsSeer) {
