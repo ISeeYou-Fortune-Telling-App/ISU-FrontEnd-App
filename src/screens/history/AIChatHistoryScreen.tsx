@@ -161,7 +161,11 @@ export default function AIChatHistoryScreen() {
                 return;
             }
 
-            router.push({ pathname: "/ai-chat", params: { sessionId: item.id } } as never);
+            router.back();
+            // Use a small delay to ensure navigation completes before setting params
+            setTimeout(() => {
+                router.setParams({ sessionId: item.id } as never);
+            }, 100);
         },
         [fetchHistory, router],
     );

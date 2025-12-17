@@ -5,13 +5,14 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { ActivityIndicator, Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function EditProfileScreen() {
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [email, setEmail] = useState("");
@@ -76,6 +77,7 @@ export default function EditProfileScreen() {
                 text: "Lưu",
                 style: "default",
                 onPress: async () => {
+                    setIsSubmitting(true);
                     try {
                         const payload = {
                             email,
@@ -99,6 +101,8 @@ export default function EditProfileScreen() {
                     } catch (err: any) {
                         console.error(err);
                         Alert.alert("Lỗi", err.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
+                    } finally {
+                        setIsSubmitting(false);
                     }
                 },
             },
@@ -108,7 +112,14 @@ export default function EditProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+                <Modal visible={loading} transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalBox}>
+                            <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                            <Text style={styles.modalText}>Đang tải...</Text>
+                        </View>
+                    </View>
+                </Modal>
             </SafeAreaView>
         );
     }
@@ -136,7 +147,7 @@ export default function EditProfileScreen() {
                 >
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Tên</Text>
-                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} left={<TextInput.Icon icon="account" />} />
+                        <TextInput mode="outlined" onChangeText={setFullName} value={fullName} left={<TextInput.Icon icon="account" />} maxLength={100}/>
                     </View>
 
                     <View style={styles.card}>
@@ -225,17 +236,17 @@ export default function EditProfileScreen() {
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Số điện thoại</Text>
-                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" left={<TextInput.Icon icon="phone" />} />
+                        <TextInput mode="outlined" onChangeText={setPhone} value={phone} keyboardType="numeric" left={<TextInput.Icon icon="phone" />} maxLength={11}/>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Email</Text>
-                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" left={<TextInput.Icon icon="email" />} />
+                        <TextInput mode="outlined" onChangeText={setEmail} value={email} keyboardType="email-address" left={<TextInput.Icon icon="email" />} maxLength={100}/>
                     </View>
 
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Mô tả</Text>
-                        <TextInput mode="outlined" onChangeText={setDescription} value={description} multiline numberOfLines={5} left={<TextInput.Icon icon="file-document-edit" />} />
+                        <TextInput mode="outlined" onChangeText={setDescription} value={description} multiline numberOfLines={5} left={<TextInput.Icon icon="file-document-edit" />} maxLength={1000}/>
                     </View>
 
                     <Button mode="contained" style={styles.btnLogin} onPress={handleSave}>
@@ -243,6 +254,15 @@ export default function EditProfileScreen() {
                     </Button>
                 </ScrollView>
             </KeyboardAvoidingView>
+            
+            <Modal visible={isSubmitting} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                        <Text style={styles.modalText}>Đang lưu...</Text>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -358,5 +378,25 @@ const styles = StyleSheet.create({
     genderOptionTextActive: {
         color: Colors.primary,
         fontWeight: "600",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalBox: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        width: 220,
+    },
+    modalText: {
+        marginTop: 12,
+        color: "#000",
+        fontWeight: "600",
+        textAlign: "center",
     },
 });

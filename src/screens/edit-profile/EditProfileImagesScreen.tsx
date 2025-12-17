@@ -8,6 +8,7 @@ import {
     Alert,
     Image,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -19,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function EditProfileImagesScreen() {
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [avatarUrl, setAvatarUrl] = useState<string>("");
     const [coverUrl, setCoverUrl] = useState<string>("");
@@ -85,27 +87,37 @@ export default function EditProfileImagesScreen() {
                 text: "Lưu",
                 style: "default",
                 onPress: async () => {
-                    setLoading(true);
+                    setIsSubmitting(true);
                     try {
                         const promises = [];
                         if (newAvatar) {
+                            const fileName = newAvatar.fileName || newAvatar.uri.split("/").pop() || `avatar_${Date.now()}.jpg`;
+                            const match = /\.(\w+)$/.exec(fileName);
+                            const type = match ? `image/${match[1]}` : "image/jpeg";
+                            
                             const formData = new FormData();
                             // @ts-ignore: React Native FormData specific handling
                             formData.append("avatar", {
                                 uri: newAvatar.uri,
-                                name: newAvatar.fileName || `avatar_${Date.now()}.jpg`,
-                                type: newAvatar.mimeType || "image/jpeg",
+                                name: fileName,
+                                type: type,
                             });
                             promises.push(uploadAvatar(formData));
                         }
 
                         if (newCover) {
+                            const fileName = newCover.fileName || newCover.uri.split("/").pop() || `cover_${Date.now()}.jpg`;
+                            const match = /\.(\w+)$/.exec(fileName);
+                            const type = match ? `image/${match[1]}` : "image/jpeg";
+                            
+                            console.log("Cover upload data:", { uri: newCover.uri, name: fileName, type });
+                            
                             const formData = new FormData();
                             // @ts-ignore
                             formData.append("cover", {
                                 uri: newCover.uri,
-                                name: newCover.fileName || `cover_${Date.now()}.jpg`,
-                                type: newCover.mimeType || "image/jpeg",
+                                name: fileName,
+                                type: type,
                             });
                             promises.push(uploadCover(formData));
                         }
@@ -116,10 +128,10 @@ export default function EditProfileImagesScreen() {
                             { text: "OK", onPress: () => router.back() }
                         ]);
                     } catch (err: any) {
-                        console.error(err);
+                        console.error(err.response?.data);
                         Alert.alert("Lỗi", err.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
                     } finally {
-                        setLoading(false);
+                        setIsSubmitting(false);
                     }
                 },
             },
@@ -164,7 +176,7 @@ export default function EditProfileImagesScreen() {
                                     source={
                                         newAvatar 
                                             ? { uri: newAvatar.uri }
-                                            : (avatarError || !avatarUrl)
+                                            : (!avatarUrl || avatarError)
                                                 ? require("@/assets/images/user-placeholder.png") 
                                                 : { uri: avatarUrl }
                                     }
@@ -190,7 +202,7 @@ export default function EditProfileImagesScreen() {
                                 source={
                                     newCover
                                         ? { uri: newCover.uri }
-                                        : (coverError || !coverUrl)
+                                        : (!coverUrl || coverError)
                                             ? require("@/assets/images/placeholder.png") 
                                             : { uri: coverUrl }
                                 }
@@ -215,6 +227,15 @@ export default function EditProfileImagesScreen() {
                     </Button>
                 </ScrollView>
             </KeyboardAvoidingView>
+            
+            <Modal visible={isSubmitting} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <ActivityIndicator size="large" color={Colors.primary || "#1877F2"} />
+                        <Text style={styles.modalText}>Đang lưu...</Text>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -316,5 +337,25 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         borderRadius: 10,
         paddingVertical: 4,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalBox: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        width: 220,
+    },
+    modalText: {
+        marginTop: 12,
+        color: "#000",
+        fontWeight: "600",
+        textAlign: "center",
     },
 });
