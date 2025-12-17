@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -384,35 +385,97 @@ const extractReferencesSection = (
 ): { cleanedAnswer: string; references: KnowledgeReference[] } => {
   const normalized = input.replace(/\r\n/g, "\n");
   const lower = normalized.toLowerCase();
-  const headingIndex = lower.indexOf("### references");
+
+  // Tìm nhiều format heading references khác nhau
+  // Bao gồm: ### references, ## references, # references, References, References:
+  const headingPatterns = [
+    /\n#{1,6}\s*references?\s*:?\s*$/im,
+    /\nreferences?\s*:?\s*$/im,
+    /^#{1,6}\s*references?\s*:?\s*$/im,
+    /^references?\s*:?\s*$/im,
+  ];
+
+  let headingIndex = -1;
+  let matchedHeading = "";
+
+  for (const pattern of headingPatterns) {
+    const match = lower.match(pattern);
+    if (match && match.index !== undefined) {
+      const potentialIndex = match.index;
+      if (headingIndex === -1 || potentialIndex < headingIndex) {
+        headingIndex = potentialIndex;
+        matchedHeading = match[0];
+      }
+    }
+  }
 
   if (headingIndex === -1) {
     return { cleanedAnswer: normalized.trim(), references: [] };
   }
 
   const before = normalized.slice(0, headingIndex).trimEnd();
-  const afterHeading = normalized.slice(headingIndex);
-  const firstNewline = afterHeading.indexOf("\n");
-  const remainder = firstNewline >= 0 ? afterHeading.slice(firstNewline + 1) : "";
+  const afterHeading = normalized.slice(headingIndex + matchedHeading.length);
 
   const referenceLines: string[] = [];
-  const lines = remainder.split("\n");
+  const lines = afterHeading.split("\n");
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) {
       continue;
     }
-    if (!/^[-–•*]/.test(line)) {
+    // Match reference lines: - [1] text, • [2] text, * text, - text, [1] text, 1. text
+    if (/^[-–•*\[]/.test(line) || /^\d+[.)]\s/.test(line)) {
+      referenceLines.push(line);
+    } else if (referenceLines.length > 0) {
+      // Dừng khi gặp dòng không phải reference
       break;
     }
-    referenceLines.push(line);
   }
 
   const references = referenceLines
     .map((line) => {
-      const match = line.match(/\]\s*(.+)$/) ?? line.match(/^[-–•*]\s*(.+)$/);
-      const referenceName = match ? match[1].trim() : "";
-      return referenceName.length > 0 ? buildKnowledgeReference(referenceName) : null;
+      // Parse format: • [n] Name hoặc - [n] Name hoặc [n] Name
+      // Ưu tiên lấy phần sau dấu ] nếu có
+      const bracketMatch = line.match(/\]\s*(.+)$/);
+      // Fallback: lấy phần sau bullet point
+      const bulletMatch = line.match(/^[-–•*]\s*(.+)$/);
+      // Fallback: lấy phần sau số thứ tự
+      const numberMatch = line.match(/^\d+[.)]\s*(.+)$/);
+
+      let referenceName = "";
+      if (bracketMatch) {
+        referenceName = bracketMatch[1].trim();
+      } else if (bulletMatch) {
+        referenceName = bulletMatch[1].trim();
+      } else if (numberMatch) {
+        referenceName = numberMatch[1].trim();
+      }
+
+      if (!referenceName) {
+        return null;
+      }
+
+      // Thử tìm trong KNOWLEDGE_NAME_INDEX
+      const knowledgeRef = buildKnowledgeReference(referenceName);
+      if (knowledgeRef) {
+        return knowledgeRef;
+      }
+
+      // Thử parse document reference (cho format /app/data/...)
+      const docRef = parseDocumentReference(referenceName);
+      if (docRef) {
+        return docRef;
+      }
+
+      // Fallback: tạo reference object với tên gốc
+      // Đây là trường hợp khi AI trả về tên không có trong map
+      return {
+        id: `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: referenceName,
+        snippet: referenceName,
+        category: "Kho tri thức",
+        type: "knowledge" as const,
+      } as KnowledgeReference;
     })
     .filter((item): item is KnowledgeReference => Boolean(item));
 
@@ -428,6 +491,7 @@ const extractLegacyKnowledgeReferences = (
   let working = input;
   const references: KnowledgeReference[] = [];
 
+  // Parse [DC] tags
   const dcMatches = Array.from(working.matchAll(/\[DC\]\s*([^\n]+)/gi));
   dcMatches.forEach((match) => {
     const parsed = parseDocumentReference(match[1]);
@@ -436,9 +500,20 @@ const extractLegacyKnowledgeReferences = (
     }
   });
 
+  // Parse reference lines dạng [n] /app/data/... hoặc - [n] path
+  const refLineMatches = Array.from(working.matchAll(/^[-–•*]?\s*\[\d+\]\s*([^\n]+)/gim));
+  refLineMatches.forEach((match) => {
+    const parsed = parseDocumentReference(match[1]);
+    if (parsed) {
+      references.push(parsed);
+    }
+  });
+
+  // Loại bỏ các tags và reference lines
   working = working.replace(/\[KG\][^\n]*(\n|$)/gi, (_, newline) => (newline ? "\n" : ""));
   working = working.replace(/\[DC\][^\n]*(\n|$)/gi, (_, newline) => (newline ? "\n" : ""));
-  working = working.replace(/^\s{0,3}#{1,6}\s*references?\s*$/gim, "");
+  working = working.replace(/^[-–•*]?\s*\[\d+\]\s*[^\n]*(\n|$)/gim, (_, newline) => (newline ? "\n" : ""));
+  working = working.replace(/^\s{0,3}#{0,6}\s*references?\s*:?\s*$/gim, "");
   working = working.replace(/^-{3,}\s*$/gm, "");
 
   const cleanedAnswer = working
@@ -634,6 +709,8 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
   const [optionPickerVisible, setOptionPickerVisible] = useState<boolean>(false);
   const [countdownDeadline, setCountdownDeadline] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number>(0);
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState<boolean>(true);
+  const headerAnimation = useRef(new Animated.Value(1)).current;
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const [hasLoadedSession, setHasLoadedSession] = useState<boolean>(false);
@@ -702,18 +779,18 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
           const response = await getAiChatSession(sessionId);
           const payload = response?.data ?? {};
           const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
-          
+
           if (rawMessages.length > 0) {
             const normalizedMessages: AIMessage[] = rawMessages.map((msg: any, index: number) => {
               const createdAt = msg.created_at
                 ? new Date(msg.created_at).getTime()
                 : msg.updated_at
-                ? new Date(msg.updated_at).getTime()
-                : Date.now() - (rawMessages.length - index) * 1000;
-              
+                  ? new Date(msg.updated_at).getTime()
+                  : Date.now() - (rawMessages.length - index) * 1000;
+
               const role: MessageRole = msg.sent_by_user ? "user" : "assistant";
               const content = msg.text_content ?? msg.content ?? "";
-              
+
               return {
                 id: String(msg.id ?? `msg-${sessionId}-${index}`),
                 role,
@@ -722,7 +799,7 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
                 status: "done" as const,
               };
             });
-            
+
             setMessages(normalizedMessages);
           } else {
             setMessages(createInitialMessages());
@@ -741,7 +818,7 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
         }
         return;
       }
-      
+
       try {
         const raw = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
         if (!raw) {
@@ -800,6 +877,16 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
     setIsSending(false);
     await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => { });
   }, [clearCountdown]);
+
+  const toggleHeader = useCallback(() => {
+    const toValue = isHeaderExpanded ? 0 : 1;
+    Animated.timing(headerAnimation, {
+      toValue,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+    setIsHeaderExpanded(!isHeaderExpanded);
+  }, [isHeaderExpanded, headerAnimation]);
 
   const handleReferencePress = useCallback(
     async (reference: KnowledgeReference) => {
@@ -1238,38 +1325,56 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
             >
               <Ionicons name="time-outline" size={20} color={Colors.white} />
             </TouchableOpacity>
+            <TouchableOpacity onPress={toggleHeader} style={styles.headerButton}>
+              <Ionicons
+                name={isHeaderExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={Colors.white}
+              />
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.headerInfoRow}>
-          <View style={styles.aiAvatar}>
-            <Ionicons name="sparkles-outline" size={22} color={Colors.primary} />
-          </View>
-          <View style={styles.headerTextGroup}>
-            <Text style={styles.headerHeadline}>Trò chuyện cùng ISU AI</Text>
-            <Text style={styles.headerSubtitle}>
-              Phân tích thông minh, tham chiếu kho tri thức của ISU.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.optionControlRow}>
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={() => setOptionPickerVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="speedometer-outline" size={16} color={Colors.primary} />
-            <View>
-              <Text style={styles.optionButtonText}>
-                {`Chế độ: ${currentOption?.label ?? selectedOption} · ${formatEtaLabel(
-                  currentOption?.etaSeconds ?? 0,
-                )}`}
-              </Text>
-              <Text style={styles.optionButtonSubtext}>
-                {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
+        <Animated.View
+          style={{
+            opacity: headerAnimation,
+            maxHeight: headerAnimation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 200],
+            }),
+            overflow: 'hidden',
+          }}
+        >
+          <View style={styles.headerInfoRow}>
+            <View style={styles.aiAvatar}>
+              <Ionicons name="sparkles-outline" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.headerTextGroup}>
+              <Text style={styles.headerHeadline}>Trò chuyện cùng ISU AI</Text>
+              <Text style={styles.headerSubtitle}>
+                Phân tích thông minh, tham chiếu kho tri thức của ISU.
               </Text>
             </View>
-          </TouchableOpacity>
-        </View>
+          </View>
+          <View style={styles.optionControlRow}>
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={() => setOptionPickerVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="speedometer-outline" size={16} color={Colors.primary} />
+              <View>
+                <Text style={styles.optionButtonText}>
+                  {`Chế độ: ${currentOption?.label ?? selectedOption} · ${formatEtaLabel(
+                    currentOption?.etaSeconds ?? 0,
+                  )}`}
+                </Text>
+                <Text style={styles.optionButtonSubtext}>
+                  {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -1283,94 +1388,94 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
             <Text style={styles.sessionLoadingText}>Đang tải phiên trò chuyện...</Text>
           </View>
         ) : (
-        <>
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          ListFooterComponent={
-            isSending ? (
-              <View style={styles.loadingIndicator}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <View>
-                  <Text style={styles.loadingText}>
-                    {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
-                  </Text>
-                  <Text style={styles.loadingSubtext}>
-                    {remainingMs > 0
-                      ? `Còn ${formatCountdown(remainingMs)} · Chế độ ${currentOption?.label ?? selectedOption
-                      }`
-                      : "Đang nhận phản hồi..."}
-                  </Text>
-                  {isAnalysisPending ? (
-                    <Text style={styles.loadingSubtext}>AI đang phân tích ảnh, vui lòng chờ thêm.</Text>
-                  ) : null}
-                </View>
-              </View>
-            ) : null
-          }
-        />
-
-        {selectedImages.length > 0 && (
-          <View style={[styles.previewRow, { paddingBottom: Math.max(insets.bottom * 0.4, 8) }]}>
-            {selectedImages.map((attachment) => (
-              <View key={attachment.id} style={styles.previewItem}>
-                <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.removePreviewButton}
-                  onPress={() => handleRemoveAttachment(attachment.id)}
-                >
-                  <Ionicons name="close" size={14} color={Colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.analysisBadge}
-                  onPress={() => handleToggleAttachmentType(attachment.id)}
-                >
-                  <Text style={styles.analysisBadgeText}>{ANALYSIS_LABELS[attachment.analysisType]}</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleTakePhoto}>
-            <Ionicons name="camera-outline" size={22} color={Colors.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handlePickImages}>
-            <Ionicons name="image-outline" size={22} color={Colors.gray} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.messageInput}
-            placeholder="Bạn muốn hỏi điều gì?"
-            placeholderTextColor="#94a3b8"
-            multiline
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={() => {
-              if (Platform.OS === "ios") {
-                handleSend();
+          <>
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ListFooterComponent={
+                isSending ? (
+                  <View style={styles.loadingIndicator}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <View>
+                      <Text style={styles.loadingText}>
+                        {`AI sẽ trả lời sau ~ ${formatEtaLabel(currentOption?.etaSeconds ?? 0)}`}
+                      </Text>
+                      <Text style={styles.loadingSubtext}>
+                        {remainingMs > 0
+                          ? `Còn ${formatCountdown(remainingMs)} · Chế độ ${currentOption?.label ?? selectedOption
+                          }`
+                          : "Đang nhận phản hồi..."}
+                      </Text>
+                      {isAnalysisPending ? (
+                        <Text style={styles.loadingSubtext}>AI đang phân tích ảnh, vui lòng chờ thêm.</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null
               }
-            }}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!canSend || isSending) && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!canSend || isSending}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
-              <Ionicons name="paper-plane" size={18} color={Colors.white} />
+            />
+
+            {selectedImages.length > 0 && (
+              <View style={[styles.previewRow, { paddingBottom: Math.max(insets.bottom * 0.4, 8) }]}>
+                {selectedImages.map((attachment) => (
+                  <View key={attachment.id} style={styles.previewItem}>
+                    <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
+                    <TouchableOpacity
+                      style={styles.removePreviewButton}
+                      onPress={() => handleRemoveAttachment(attachment.id)}
+                    >
+                      <Ionicons name="close" size={14} color={Colors.white} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.analysisBadge}
+                      onPress={() => handleToggleAttachmentType(attachment.id)}
+                    >
+                      <Text style={styles.analysisBadgeText}>{ANALYSIS_LABELS[attachment.analysisType]}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             )}
-          </TouchableOpacity>
-        </View>
-        </>
+
+            <View style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleTakePhoto}>
+                <Ionicons name="camera-outline" size={22} color={Colors.gray} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={handlePickImages}>
+                <Ionicons name="image-outline" size={22} color={Colors.gray} />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.messageInput}
+                placeholder="Bạn muốn hỏi điều gì?"
+                placeholderTextColor="#94a3b8"
+                multiline
+                value={input}
+                onChangeText={setInput}
+                onSubmitEditing={() => {
+                  if (Platform.OS === "ios") {
+                    handleSend();
+                  }
+                }}
+                returnKeyType="send"
+              />
+              <TouchableOpacity
+                style={[styles.sendButton, (!canSend || isSending) && styles.sendButtonDisabled]}
+                onPress={handleSend}
+                disabled={!canSend || isSending}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Ionicons name="paper-plane" size={18} color={Colors.white} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </KeyboardAvoidingView>
 
