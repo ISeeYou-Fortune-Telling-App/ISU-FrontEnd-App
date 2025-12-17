@@ -1084,12 +1084,29 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
 
         if (analysisResult) {
           const label = attachment.analysisType === "palm" ? "lòng bàn tay" : "khuôn mặt";
-          analysisSummaries.push(`Kết quả phân tích ${label}: ${analysisResult}`);
+
+          // Extract references từ analysisResult
+          const parsedAnalysis = extractKnowledgeReferencesFromAnswer(analysisResult);
+          const normalizedRefs = normalizeReferences(
+            payload?.references ??
+            payload?.knowledgeBaseReferences ??
+            payload?.sources ??
+            payload
+          );
+          const combinedRefs = mergeKnowledgeReferences(
+            parsedAnalysis.references,
+            normalizedRefs
+          );
+
+          const cleanedContent = parsedAnalysis.cleanedAnswer || analysisResult;
+
+          analysisSummaries.push(`Kết quả phân tích ${label}: ${cleanedContent}`);
           const analysisMessage: AIMessage = {
             id: `analysis-${attachment.id}`,
             role: "assistant",
             createdAt: Date.now(),
-            content: `Phân tích ${label}: ${analysisResult}`,
+            content: `Phân tích ${label}: ${cleanedContent}`,
+            references: combinedRefs.length > 0 ? combinedRefs : undefined,
           };
           setMessages((prev) => [...prev, analysisMessage]);
           scrollToEnd();
