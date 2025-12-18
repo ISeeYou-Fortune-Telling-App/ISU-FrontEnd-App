@@ -659,15 +659,32 @@ const normalizeReferences = (raw: any): KnowledgeReference[] => {
         }
       }
 
+      // Validate UUID format (36 chars with dashes)
+      const isValidUUID = (str?: string) => {
+        if (!str) return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      };
+
+      // Only use knowledgeId if it's a valid UUID
+      const validKnowledgeId = isValidUUID(knowledgeId) ? knowledgeId : undefined;
+
+      // Generate a safe ID: prefer valid UUID, fallback to index
+      const safeId = String(
+        (isValidUUID(item.id) ? item.id : undefined) ??
+        (isValidUUID(item.referenceId) ? item.referenceId : undefined) ??
+        validKnowledgeId ??
+        index
+      );
+
       return {
-        id: String(item.id ?? item.referenceId ?? knowledgeId ?? normalizedDocumentCode ?? index),
+        id: safeId,
         title: normalizedTitle,
         snippet,
         category,
         confidence,
         sourceUrl,
         type: sourceUrl ? "external" : undefined,
-        knowledgeId,
+        knowledgeId: validKnowledgeId,
         documentCode: normalizedDocumentCode,
       };
     })
@@ -707,6 +724,8 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
   const [isAnalysisPending, setIsAnalysisPending] = useState<boolean>(false);
   const [selectedOption, setSelectedOption] = useState<ChatOptionValue>(DEFAULT_SELECTED_OPTION);
   const [optionPickerVisible, setOptionPickerVisible] = useState<boolean>(false);
+  const [imageModalVisible, setImageModalVisible] = useState<boolean>(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [countdownDeadline, setCountdownDeadline] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number>(0);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState<boolean>(true);
@@ -869,6 +888,12 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, []);
 
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToEnd();
+    }
+  }, [messages, scrollToEnd]);
+
   const handleStartNewConversation = useCallback(async () => {
     setMessages(createInitialMessages());
     setInput("");
@@ -952,7 +977,7 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
           uri: asset.uri ?? "",
           name: asset.fileName ?? `photo-${timestamp}.jpg`,
           mimeType: asset.mimeType ?? "image/jpeg",
-          analysisType: "face" as AnalysisType,
+          analysisType: "palm" as AnalysisType,
         }))
         .filter((item) => item.uri.length > 0);
 
@@ -993,7 +1018,7 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
           uri: asset.uri ?? "",
           name: asset.fileName ?? `image-${timestamp}-${index}.jpg`,
           mimeType: asset.mimeType ?? "image/jpeg",
-          analysisType: "face" as AnalysisType,
+          analysisType: "palm" as AnalysisType,
         }))
         .filter((item) => item.uri.length > 0);
 
@@ -1253,7 +1278,16 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
           {item.attachments?.length ? (
             <View style={[styles.attachmentGroup, isUser && styles.attachmentGroupUser]}>
               {item.attachments.map((attachment) => (
-                <Image key={attachment.id} source={{ uri: attachment.uri }} style={styles.messageImage} />
+                <TouchableOpacity
+                  key={attachment.id}
+                  onPress={() => {
+                    setSelectedImageUri(attachment.uri);
+                    setImageModalVisible(true);
+                  }}
+                  activeOpacity={0.9}
+                >
+                  <Image source={{ uri: attachment.uri }} style={styles.messageImage} />
+                </TouchableOpacity>
               ))}
             </View>
           ) : null}
@@ -1396,8 +1430,8 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 16 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         {isLoadingSession ? (
           <View style={styles.sessionLoadingContainer}>
@@ -1547,6 +1581,30 @@ export default function AIChatScreen({ sessionId }: AIChatScreenProps) {
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal
+        visible={imageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.imageModalContainer}>
+          <TouchableOpacity
+            style={styles.imageModalCloseButton}
+            onPress={() => setImageModalVisible(false)}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="close" size={28} color={Colors.white} />
+          </TouchableOpacity>
+          {selectedImageUri && (
+            <Image
+              source={{ uri: selectedImageUri }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -1775,6 +1833,7 @@ const styles = StyleSheet.create({
   pendingText: {
     fontSize: 13,
     color: Colors.gray,
+    fontFamily: "inter"
   },
   referenceChipText: {
     fontSize: 12,
@@ -2202,5 +2261,24 @@ const styles = StyleSheet.create({
   sessionLoadingText: {
     fontSize: 14,
     color: Colors.gray,
+  },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 });

@@ -4,9 +4,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Bell, Calendar, ChevronRight, CreditCard, HandCoins, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars } from "lucide-react-native";
+import { Bell, Calendar, ChevronRight, CreditCard, HandCoins, Mail, Mars, Package, Phone, Rat, Settings, Star, TrendingUp, User, Venus, VenusAndMars, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
@@ -34,6 +34,8 @@ export default function ProfileScreen() {
   const [role, setRole] = useState<string>("CUSTOMER");
   const [avatarError, setAvatarError] = useState(false);
   const [coverError, setCoverError] = useState(false);
+  const [coverModalVisible, setCoverModalVisible] = useState(false);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
 
   const [customerPerf, setCustomerPerf] = useState<any | null>(null);
   const [seerPerf, setSeerPerf] = useState<any | null>(null);
@@ -210,19 +212,47 @@ export default function ProfileScreen() {
           />
         }>
           <View style={styles.coverWrapper}>
-            <Image
-              source={
-                coverError || !coverUrl
-                  ? require("@/assets/images/placeholder.png")
-                  : { uri: coverUrl }
-              }
-              style={styles.cover}
-              onError={(e) => {
-                console.log('Cover image failed to load:', e.nativeEvent);
-                setCoverError(true);
-              }}
-            />
+            <TouchableOpacity onPress={() => setCoverModalVisible(true)} activeOpacity={0.9}>
+              <Image
+                source={
+                  coverError || !coverUrl
+                    ? require("@/assets/images/placeholder.png")
+                    : { uri: coverUrl }
+                }
+                style={styles.cover}
+                onError={(e) => {
+                  console.warn("Cover error:", e.nativeEvent.error);
+                  setCoverError(true);
+                }}
+              />
+            </TouchableOpacity>
           </View>
+
+          <Modal
+            visible={coverModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setCoverModalVisible(false)}
+          >
+            <View style={styles.imageModalContainer}>
+              <TouchableOpacity
+                style={styles.imageModalCloseButton}
+                onPress={() => setCoverModalVisible(false)}
+                activeOpacity={0.9}
+              >
+                <X size={28} color={Colors.white} />
+              </TouchableOpacity>
+              <Image
+                source={
+                  coverError || !coverUrl
+                    ? require("@/assets/images/placeholder.png")
+                    : { uri: coverUrl }
+                }
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            </View>
+          </Modal>
 
           <View style={{ backgroundColor: Colors.white, paddingBottom: 16, marginBottom: 10 }}>
             <View style={[styles.container, styles.headerContainer]}>
@@ -871,5 +901,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "inter",
   },
-  subText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 4, fontFamily: "inter" }
+  subText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 4, fontFamily: "inter" },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
 })

@@ -3,9 +3,9 @@ import { getSeerPerformance, getServicePackageDetail, getServicePackages, getUse
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Clock, Flag, MessageCircle, Star, ThumbsDown, ThumbsUp, Wallet } from "lucide-react-native";
+import { Clock, Flag, MessageCircle, Star, ThumbsDown, ThumbsUp, Wallet, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, FlatList, Image, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -390,6 +390,7 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
     const [coverError, setCoverError] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [int, setInt] = useState(isLike ? "LIKE" : isDislike ? "DISLIKE" : "");
+    const [imageModalVisible, setImageModalVisible] = useState(false);
 
     function handleInteraction(interactionType: string) {
         if (interactionType === "LIKE") {
@@ -473,17 +474,21 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
                 {servicePackage.content?.replace(/\\n/g, "\n")}
             </Text>
 
-            {!coverError && <Image
-                source={
-                    coverError || !servicePackage.imageUrl
-                        ? require("@/assets/images/placeholder.png")
-                        : { uri: servicePackage.imageUrl }
-                }
-                style={styles.packageImage}
-                onError={(e) => {
-                    setCoverError(true);
-                }}
-            />}
+            {!coverError && (
+                <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.9}>
+                    <Image
+                        source={
+                            coverError || !servicePackage.imageUrl
+                                ? require("@/assets/images/placeholder.png")
+                                : { uri: servicePackage.imageUrl }
+                        }
+                        style={styles.packageImage}
+                        onError={(e) => {
+                            setCoverError(true);
+                        }}
+                    />
+                </TouchableOpacity>
+            )}
 
             {/* --- PRICE + DURATION --- */}
             <View style={styles.packageFooterInfo}>
@@ -660,6 +665,32 @@ const ServicePackageCard = ({ servicePackage, expanded, onToggle, onLike, onDisl
             >
                 <Text style={styles.bookButton}>Đặt lịch ngay</Text>
             </TouchableOpacity>}
+
+            <Modal
+                visible={imageModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setImageModalVisible(false)}
+            >
+                <View style={styles.imageModalContainer}>
+                    <TouchableOpacity
+                        style={styles.imageModalCloseButton}
+                        onPress={() => setImageModalVisible(false)}
+                        activeOpacity={0.9}
+                    >
+                        <X size={28} color={Colors.white} />
+                    </TouchableOpacity>
+                    <Image
+                        source={
+                            coverError || !servicePackage.imageUrl
+                                ? require("@/assets/images/placeholder.png")
+                                : { uri: servicePackage.imageUrl }
+                        }
+                        style={styles.fullScreenImage}
+                        resizeMode="contain"
+                    />
+                </View>
+            </Modal>
         </TouchableOpacity>
     );
 };
@@ -868,5 +899,23 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'inter',
     },
-
+    imageModalContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imageModalCloseButton: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 20,
+        padding: 8,
+    },
+    fullScreenImage: {
+        width: Dimensions.get('window').width,
+        height: Dimensions.get('window').height,
+    },
 });

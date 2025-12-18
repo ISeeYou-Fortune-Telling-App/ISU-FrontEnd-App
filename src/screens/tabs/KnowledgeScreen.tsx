@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { useFocusEffect } from "expo-router";
 import { BookOpen, Clock, Eye, X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, DeviceEventEmitter, FlatList, Image, ImageBackground, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, DeviceEventEmitter, Dimensions, FlatList, Image, ImageBackground, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Button } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -102,6 +102,7 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
   const viewCount = formatViewCount(item.viewCount ?? 0);
   const readingTime = calculateReadingTime(item.content ?? "");
   const [coverError, setCoverError] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
 
   return (
     <TouchableOpacity style={styles.cardContainer} activeOpacity={0.8} onPress={onToggle}>
@@ -134,17 +135,21 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
         </Markdown>
       </View>
 
-      {!coverError && <Image
-        source={
-          coverError || !item.imageUrl
-            ? require("@/assets/images/placeholder.png")
-            : { uri: item.imageUrl }
-        }
-        style={styles.cardImage}
-        onError={(e) => {
-          setCoverError(true);
-        }}
-      />}
+      {!coverError && (
+        <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.9}>
+          <Image
+            source={
+              coverError || !item.imageUrl
+                ? require("@/assets/images/placeholder.png")
+                : { uri: item.imageUrl }
+            }
+            style={styles.cardImage}
+            onError={(e) => {
+              setCoverError(true);
+            }}
+          />
+        </TouchableOpacity>
+      )}
 
       <View style={styles.cardFooter}>
         <View style={styles.viewCounter}>
@@ -152,6 +157,32 @@ const KnowledgeCard = ({ item, expanded, onToggle }: KnowledgeCardProps) => {
           <Text style={styles.viewText}>{viewCount}</Text>
         </View>
       </View>
+
+      <Modal
+        visible={imageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.imageModalContainer}>
+          <TouchableOpacity
+            style={styles.imageModalCloseButton}
+            onPress={() => setImageModalVisible(false)}
+            activeOpacity={0.9}
+          >
+            <X size={28} color={Colors.white} />
+          </TouchableOpacity>
+          <Image
+            source={
+              coverError || !item.imageUrl
+                ? require("@/assets/images/placeholder.png")
+                : { uri: item.imageUrl }
+            }
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
     </TouchableOpacity>
   );
 };
@@ -549,5 +580,24 @@ const styles = StyleSheet.create({
     color: 'gray',
     fontFamily: 'inter',
   },
-  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 10, padding: 10, borderRadius: 10, backgroundColor: Colors.white }
+  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 10, padding: 10, borderRadius: 10, backgroundColor: Colors.white },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
 });

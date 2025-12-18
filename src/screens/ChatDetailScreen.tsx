@@ -300,6 +300,8 @@ export default function ChatDetailScreen() {
   );
   const [cancelRequestPending, setCancelRequestPending] = useState<boolean>(false);
   const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
+  const [imageModalVisible, setImageModalVisible] = useState<boolean>(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [incomingCancelModalVisible, setIncomingCancelModalVisible] = useState<boolean>(false);
   const [cancelRequesterName, setCancelRequesterName] = useState<string>("Người dùng");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -1408,7 +1410,16 @@ export default function ChatDetailScreen() {
               <View style={[styles.attachmentGroup, isOutgoing && styles.attachmentOutgoing]}>
                 {attachments.map((attachment) =>
                   attachment.kind === "image" ? (
-                    <Image key={attachment.id} source={{ uri: attachment.uri }} style={styles.messageImage} />
+                    <TouchableOpacity
+                      key={attachment.id}
+                      onPress={() => {
+                        setSelectedImageUri(attachment.uri);
+                        setImageModalVisible(true);
+                      }}
+                      activeOpacity={0.9}
+                    >
+                      <Image source={{ uri: attachment.uri }} style={styles.messageImage} />
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       key={attachment.id}
@@ -1633,6 +1644,30 @@ export default function ChatDetailScreen() {
               </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
+        </Modal>
+
+        <Modal
+          visible={imageModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImageModalVisible(false)}
+        >
+          <View style={styles.imageModalContainer}>
+            <TouchableOpacity
+              style={styles.imageModalCloseButton}
+              onPress={() => setImageModalVisible(false)}
+              activeOpacity={0.9}
+            >
+              <Ionicons name="close" size={28} color={Colors.white} />
+            </TouchableOpacity>
+            {selectedImageUri && (
+              <Image
+                source={{ uri: selectedImageUri }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
         </Modal>
 
         <View style={styles.header}>
@@ -2555,5 +2590,24 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontSize: 15,
+  },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 })
